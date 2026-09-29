@@ -111,6 +111,15 @@ body {
   min-height: 0;
 }
 
+.review-stage .preview-canvas {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.review-stage .preview-canvas.is-panning {
+  cursor: grabbing;
+}
+
 .view-buttons {
   position: absolute;
   top: 12px;

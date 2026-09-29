@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Button } from '../components/ui/button'
 import type { BBox } from '../lib/geom'
+import type { ChassisModel } from '../model/types'
 import { EQUIP_LABELS, type EquipKind } from '../pipeline/kinds'
 import type { ReviewElement } from '../pipeline/review'
 import { useApp } from '../state'
+import { fitView, panBy, screenToWorld, wheelIntent, wheelZoomFactor, worldToScreen, zoomAt, zoomLimits, type ReviewView } from './reviewCamera'
 
 const ROLE_CS: Record<ReviewElement['role'], string> = {
   frame: 'Rám',
@@ -29,7 +31,41 @@ export function ReviewBoard() {
   const [pick, setPick] = useState(false)
   const [hideSkip, setHideSkip] = useState(true)
   const [query, setQuery] = useState('')
-  const drag = useRef<{ x: number; y: number; drawing: boolean } | null>(null)
+  const drag = useRef<{ x: number; y: number; x2: number; y2: number; drawing: boolean } | null>(null)
+  const panRef = useRef<{ id: number; x: number; y: number } | null>(null)
+  const lastMiddle = useRef(0)
+  const viewRef = useRef<ReviewView | null>(null)
+  const limitsRef = useRef(zoomLimits(1))
+  const identityRef = useRef('')
+  const drawRef = useRef<() => void>(() => {})
+  const rafRef = useRef(0)
+  const requestRef = useRef<() => void>(() => {})
+  const fitRef = useRef<() => void>(() => {})
+  const sceneRef = useRef({ model, review, selected, hideSkip })
+
+  useEffect(() => {
+    sceneRef.current = { model, review, selected, hideSkip }
+    requestRef.current = () => {
+      if (rafRef.current) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0
+        drawRef.current()
+      })
+    }
+    fitRef.current = () => {
+      const canvas = canvasRef.current
+      const current = sceneRef.current.model
+      if (!canvas || !current) return
+      const rect = canvas.getBoundingClientRect()
+      if (rect.width < 2 || rect.height < 2) return
+      const bounds = previewBounds(current.extents, sceneRef.current.review)
+      const fitted = fitView(bounds, rect.width, rect.height)
+      limitsRef.current = zoomLimits(fitted.scale)
+      viewRef.current = fitted
+      identityRef.current = fileKey(current)
+      requestRef.current()
+    }
+  })
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -46,45 +82,108 @@ export function ReviewBoard() {
   const doubtful = review.filter((item) => !item.deleted && item.confidence < 0.6 && item.role !== 'hole').length
 
   useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'f' && event.key !== 'F' && event.key !== 'Home') return
+      if (event.ctrlKey || event.metaKey || event.altKey) return
+      const target = event.target
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || target.isContentEditable) return
+      }
+      event.preventDefault()
+      fitRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !model) return
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const view = viewRef.current
+      if (!view) return
+      const rect = canvas.getBoundingClientRect()
+      if (wheelIntent(event) === 'pan') {
+        viewRef.current = panBy(view, -event.deltaX, -event.deltaY)
+      } else {
+        const px = event.clientX - rect.left
+        const py = event.clientY - rect.top
+        viewRef.current = zoomAt(view, rect.width, rect.height, px, py, wheelZoomFactor(event.deltaY, event.deltaMode), limitsRef.current)
+      }
+      requestRef.current()
+    }
+    const blockMiddle = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault()
+    }
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    canvas.addEventListener('mousedown', blockMiddle)
+    canvas.addEventListener('auxclick', blockMiddle)
+    return () => {
+      canvas.removeEventListener('wheel', onWheel)
+      canvas.removeEventListener('mousedown', blockMiddle)
+      canvas.removeEventListener('auxclick', blockMiddle)
+    }
+  }, [model])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !model) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    let frame = 0
+    const key = fileKey(model)
     const draw = () => {
       const rect = canvas.getBoundingClientRect()
       const dpr = Math.min(2, window.devicePixelRatio || 1)
-      canvas.width = Math.max(1, Math.floor(rect.width * dpr))
-      canvas.height = Math.max(1, Math.floor(rect.height * dpr))
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       const w = rect.width
       const h = rect.height
+      const bw = Math.max(1, Math.floor(w * dpr))
+      const bh = Math.max(1, Math.floor(h * dpr))
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw
+        canvas.height = bh
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.fillStyle = '#f4f0e8'
       ctx.fillRect(0, 0, w, h)
+      if (w < 2 || h < 2) return
       const bounds = previewBounds(model.extents, review)
-      const spanX = Math.max(1, bounds.x1 - bounds.x0)
-      const spanY = Math.max(1, bounds.y1 - bounds.y0)
-      const pad = 28
-      const s = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanY)
-      const ox = (w - spanX * s) / 2
-      const oy = (h - spanY * s) / 2
-      const map = (x: number, y: number) => [ox + (x - bounds.x0) * s, oy + (bounds.y1 - y) * s] as const
-      canvas.dataset.ox = String(ox)
-      canvas.dataset.oy = String(oy)
-      canvas.dataset.s = String(s)
-      canvas.dataset.x0 = String(bounds.x0)
-      canvas.dataset.y1 = String(bounds.y1)
+      const fitted = fitView(bounds, w, h)
+      limitsRef.current = zoomLimits(fitted.scale)
+      if (identityRef.current !== key || !viewRef.current) {
+        viewRef.current = fitted
+        identityRef.current = key
+      } else {
+        const { min, max } = limitsRef.current
+        const scale = Math.min(max, Math.max(min, viewRef.current.scale))
+        if (scale !== viewRef.current.scale) viewRef.current = { ...viewRef.current, scale }
+      }
+      const view = viewRef.current
+      const map = (x: number, y: number) => worldToScreen(view, w, h, x, y)
+      const margin = 40 / view.scale
+      const halfW = w / 2 / view.scale + margin
+      const halfH = h / 2 / view.scale + margin
+      const vp = { x0: view.cx - halfW, x1: view.cx + halfW, y0: view.cy - halfH, y1: view.cy + halfH }
 
       const stroke = (role: string, color: string, width: number, alpha = 1) => {
         const arr = model.preview.segments[role]
         if (!arr) return
         ctx.beginPath()
+        let any = false
         for (let i = 0; i < arr.length; i += 4) {
-          const [ax, ay] = map(arr[i], arr[i + 1])
-          const [bx, by] = map(arr[i + 2], arr[i + 3])
+          const x0 = arr[i]
+          const y0 = arr[i + 1]
+          const x1 = arr[i + 2]
+          const y1 = arr[i + 3]
+          if (Math.max(x0, x1) < vp.x0 || Math.min(x0, x1) > vp.x1 || Math.max(y0, y1) < vp.y0 || Math.min(y0, y1) > vp.y1) continue
+          const [ax, ay] = map(x0, y0)
+          const [bx, by] = map(x1, y1)
           ctx.moveTo(ax, ay)
           ctx.lineTo(bx, by)
+          any = true
         }
+        if (!any) return
         ctx.globalAlpha = alpha
         ctx.strokeStyle = color
         ctx.lineWidth = width
@@ -116,54 +215,85 @@ export function ReviewBoard() {
       for (const item of review) {
         if (item.deleted || item.role === 'hole') continue
         if (hideSkip && item.kind === 'skip') continue
-        drawBox(ctx, map, item.side, item, item.id === selected)
-        drawBox(ctx, map, item.top, item, item.id === selected)
+        drawBox(ctx, map, item.side, item, item.id === selected, vp)
+        drawBox(ctx, map, item.top, item, item.id === selected, vp)
       }
 
-      const holes = review.filter((item) => item.role === 'hole' && !item.deleted)
       ctx.fillStyle = '#0f6f86'
-      for (const hole of holes) {
-        if (!hole.side) continue
-        const [x, y] = map((hole.side.x0 + hole.side.x1) / 2, (hole.side.y0 + hole.side.y1) / 2)
+      for (const hole of review) {
+        if (hole.role !== 'hole' || hole.deleted || !hole.side) continue
+        const hx = (hole.side.x0 + hole.side.x1) / 2
+        const hy = (hole.side.y0 + hole.side.y1) / 2
+        const worldR = (hole.side.x1 - hole.side.x0) / 2
+        const radius = Math.max(1.2, worldR * view.scale)
+        if (hx + worldR < vp.x0 || hx - worldR > vp.x1 || hy + worldR < vp.y0 || hy - worldR > vp.y1) continue
+        const [x, y] = map(hx, hy)
         ctx.beginPath()
-        ctx.arc(x, y, Math.max(1.2, ((hole.side.x1 - hole.side.x0) / 2) * s), 0, Math.PI * 2)
+        ctx.arc(x, y, radius, 0, Math.PI * 2)
         ctx.fill()
+      }
+
+      const rubber = drag.current
+      if (rubber?.drawing) {
+        const [ax, ay] = map(rubber.x, rubber.y)
+        const [bx, by] = map(rubber.x2, rubber.y2)
+        ctx.save()
+        ctx.strokeStyle = '#9b2c1a'
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([4, 3])
+        ctx.strokeRect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay))
+        ctx.restore()
       }
 
       ctx.font = '12px "Segoe UI", sans-serif'
       ctx.fillStyle = '#5c564e'
-      if (model.views.side) label(ctx, map, model.views.side.x0 + 40, model.views.side.y1 - 40, 'Bokorys')
-      if (model.views.top) label(ctx, map, model.views.top.x0 + 40, model.views.top.y1 - 30, 'Půdorys')
-      if (model.views.front) label(ctx, map, model.views.front.x0 + 20, model.views.front.y1 - 20, 'Čelní pohled')
+      if (model.views.side) label(ctx, map, w, h, model.views.side.x0 + 40, model.views.side.y1 - 40, 'Bokorys')
+      if (model.views.top) label(ctx, map, w, h, model.views.top.x0 + 40, model.views.top.y1 - 30, 'Půdorys')
+      if (model.views.front) label(ctx, map, w, h, model.views.front.x0 + 20, model.views.front.y1 - 20, 'Čelní pohled')
     }
-    const onResize = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(draw)
-    }
-    onResize()
-    const observer = new ResizeObserver(onResize)
+    drawRef.current = draw
+    requestRef.current()
+    const observer = new ResizeObserver(() => requestRef.current())
     observer.observe(canvas)
     return () => {
-      cancelAnimationFrame(frame)
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = 0
       observer.disconnect()
+      if (drawRef.current === draw) drawRef.current = () => {}
     }
   }, [model, review, selected, hideSkip])
 
-  function toDrawing(event: PointerEvent<HTMLCanvasElement>) {
+  function toDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current
-    if (!canvas) return null
+    const view = viewRef.current
+    if (!canvas || !view) return null
     const rect = canvas.getBoundingClientRect()
-    const s = Number(canvas.dataset.s || 1)
-    const ox = Number(canvas.dataset.ox || 0)
-    const oy = Number(canvas.dataset.oy || 0)
-    const x0 = Number(canvas.dataset.x0 || 0)
-    const y1 = Number(canvas.dataset.y1 || 0)
+    if (rect.width < 2 || rect.height < 2) return null
     const px = event.clientX - rect.left
     const py = event.clientY - rect.top
-    return { x: x0 + (px - ox) / s, y: y1 - (py - oy) / s, px, py }
+    return { ...screenToWorld(view, rect.width, rect.height, px, py), px, py }
   }
 
-  function onPointerDown(event: PointerEvent<HTMLCanvasElement>) {
+  function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const canvas = event.currentTarget
+    if (event.button === 1) {
+      event.preventDefault()
+      const now = performance.now()
+      if (now - lastMiddle.current < 400) {
+        lastMiddle.current = 0
+        panRef.current = null
+        canvas.classList.remove('is-panning')
+        fitRef.current()
+        return
+      }
+      lastMiddle.current = now
+      drag.current = null
+      panRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY }
+      canvas.classList.add('is-panning')
+      canvas.setPointerCapture(event.pointerId)
+      return
+    }
+    if (event.button !== 0) return
     const point = toDrawing(event)
     if (!point || !model) return
     if (pick) {
@@ -181,20 +311,44 @@ export function ReviewBoard() {
       drag.current = null
       return
     }
-    drag.current = { x: point.x, y: point.y, drawing: false }
-    ;(event.target as HTMLCanvasElement).setPointerCapture(event.pointerId)
+    drag.current = { x: point.x, y: point.y, x2: point.x, y2: point.y, drawing: false }
+    canvas.setPointerCapture(event.pointerId)
   }
 
-  function onPointerMove(event: PointerEvent<HTMLCanvasElement>) {
+  function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const pan = panRef.current
+    if (pan && pan.id === event.pointerId) {
+      const dx = event.clientX - pan.x
+      const dy = event.clientY - pan.y
+      pan.x = event.clientX
+      pan.y = event.clientY
+      const view = viewRef.current
+      if (view && (dx || dy)) {
+        viewRef.current = panBy(view, dx, dy)
+        requestRef.current()
+      }
+      return
+    }
     const start = drag.current
     const point = toDrawing(event)
     if (!start || !point) return
-    if (Math.hypot(point.x - start.x, point.y - start.y) > 12) start.drawing = true
+    start.x2 = point.x
+    start.y2 = point.y
+    if (Math.hypot(point.x - start.x, point.y - start.y) > 12) {
+      start.drawing = true
+      requestRef.current()
+    }
   }
 
-  function onPointerUp(event: PointerEvent<HTMLCanvasElement>) {
+  function onPointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (panRef.current?.id === event.pointerId) {
+      panRef.current = null
+      event.currentTarget.classList.remove('is-panning')
+      return
+    }
     const start = drag.current
     drag.current = null
+    if (start?.drawing) requestRef.current()
     const point = toDrawing(event)
     if (!start || !point || !model || !start.drawing) return
     const box = {
@@ -218,7 +372,7 @@ export function ReviewBoard() {
         <div className="pane-title">
           <strong>Kontrola detekce</strong>
           <span>
-            {doubtful ? `${doubtful} nejistých` : 'vše s vyšší jistotou'} · tažením přidáte oblast
+            {doubtful ? `${doubtful} nejistých` : 'vše s vyšší jistotou'} · tažením přidáte oblast · kolečko přibližuje, prostřední tlačítko posouvá
             {pick ? ' · klikněte na entity' : ''}
           </span>
         </div>
@@ -228,10 +382,14 @@ export function ReviewBoard() {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
         />
         <div className="review-actions">
           <Button variant="rust" onClick={confirmReview}>
             Vygenerovat 3D
+          </Button>
+          <Button variant="outline" size="sm" title="Celý výkres (F)" onClick={() => fitRef.current()}>
+            Přizpůsobit
           </Button>
           <Button variant={pick ? 'rust' : 'outline'} size="sm" onClick={() => setPick((value) => !value)}>
             Vybrat entity
@@ -348,8 +506,10 @@ function drawBox(
   box: BBox | null,
   item: ReviewElement,
   on: boolean,
+  vp: BBox,
 ) {
   if (!box) return
+  if (box.x1 < vp.x0 || box.x0 > vp.x1 || box.y1 < vp.y0 || box.y0 > vp.y1) return
   const [ax, ay] = map(box.x0, box.y1)
   const [bx, by] = map(box.x1, box.y0)
   const color = item.confidence < 0.55 ? '#c2410c' : item.confidence < 0.8 ? '#b45309' : '#1f7a4d'
@@ -368,9 +528,22 @@ function drawBox(
   ctx.restore()
 }
 
-function label(ctx: CanvasRenderingContext2D, map: (x: number, y: number) => readonly [number, number], x: number, y: number, text: string) {
+function label(
+  ctx: CanvasRenderingContext2D,
+  map: (x: number, y: number) => readonly [number, number],
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  text: string,
+) {
   const [px, py] = map(x, y)
+  if (px < -80 || py < -20 || px > width + 20 || py > height + 20) return
   ctx.fillText(text, px, py)
+}
+
+function fileKey(model: ChassisModel) {
+  return `${model.profileId}|${model.header.icdNo ?? ''}|${model.header.orderNo ?? ''}|${model.stats.parseMs}`
 }
 
 function previewBounds(extents: BBox, review: ReviewElement[]): BBox {
