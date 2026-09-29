@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { fitView, panBy, screenToWorld, wheelIntent, wheelZoomFactor, worldToScreen, zoomAt, zoomLimits } from './reviewCamera'
+import {
+  easeScale,
+  fitView,
+  nextTargetScale,
+  panBy,
+  screenToWorld,
+  viewAbout,
+  wheelIntent,
+  wheelZoomFactor,
+  worldToScreen,
+  zoomAt,
+  zoomLimits,
+} from './reviewCamera'
 
 describe('review camera', () => {
   it('fits the tighter axis and centres the bounds', () => {
@@ -51,13 +63,53 @@ describe('review camera', () => {
     expect(ny - sy).toBeCloseTo(-4)
   })
 
-  it('treats a mouse notch as zoom and a trackpad scroll as pan', () => {
-    expect(wheelZoomFactor(-100, 0)).toBeCloseTo(Math.exp(0.2))
-    expect(wheelZoomFactor(-1, 1)).toBeCloseTo(Math.exp(0.2))
+  it('uses a small notch and treats a high-resolution wheel as zoom', () => {
+    const notch = wheelZoomFactor(-100, 0)
+    expect(notch).toBeCloseTo(Math.exp(0.065))
+    expect(notch).toBeGreaterThan(1.04)
+    expect(notch).toBeLessThan(1.1)
+    expect(wheelZoomFactor(-1, 1)).toBeCloseTo(notch)
+    expect(wheelZoomFactor(-4, 0)).toBeGreaterThan(1)
+    expect(wheelZoomFactor(-4, 0)).toBeLessThan(1.01)
     expect(wheelIntent({ deltaX: 0, deltaY: -100, deltaMode: 0, ctrlKey: false })).toBe('zoom')
-    expect(wheelIntent({ deltaX: 0, deltaY: -12, deltaMode: 0, ctrlKey: false })).toBe('pan')
-    expect(wheelIntent({ deltaX: 6, deltaY: -80, deltaMode: 0, ctrlKey: false })).toBe('pan')
+    expect(wheelIntent({ deltaX: 0, deltaY: -4, deltaMode: 0, ctrlKey: false })).toBe('zoom')
+    expect(wheelIntent({ deltaX: 18, deltaY: -6, deltaMode: 0, ctrlKey: false })).toBe('pan')
     expect(wheelIntent({ deltaX: 0, deltaY: -8, deltaMode: 0, ctrlKey: true })).toBe('zoom')
     expect(wheelIntent({ deltaX: 4, deltaY: -1, deltaMode: 1, ctrlKey: false })).toBe('zoom')
+  })
+
+  it('eases toward an accumulated target and keeps the cursor point fixed', () => {
+    const limits = zoomLimits(0.05)
+    let target = 2
+    const step = wheelZoomFactor(-100, 0)
+    target = nextTargetScale(target, step, limits)
+    target = nextTargetScale(target, step, limits)
+    expect(target).toBeCloseTo(2 * step * step)
+
+    let scale = 2
+    let previous = scale
+    for (let i = 0; i < 40; i++) {
+      scale = easeScale(scale, target, 16)
+      expect(scale).toBeGreaterThanOrEqual(previous - 1e-9)
+      expect(scale).toBeLessThanOrEqual(target + 1e-9)
+      previous = scale
+    }
+    expect(scale).toBe(target)
+    expect(easeScale(2, target, 16)).toBeLessThan(2 + (target - 2) * 0.5)
+
+    const width = 800
+    const height = 600
+    const px = 140
+    const py = 90
+    const anchor = screenToWorld({ scale: 2, cx: 10, cy: 20 }, width, height, px, py)
+    let shown = 2
+    for (let i = 0; i < 12; i++) {
+      shown = easeScale(shown, target, 16)
+      const view = viewAbout(anchor.x, anchor.y, px, py, width, height, shown)
+      const back = screenToWorld(view, width, height, px, py)
+      expect(back.x).toBeCloseTo(anchor.x)
+      expect(back.y).toBeCloseTo(anchor.y)
+    }
+    expect(nextTargetScale(limits.max, 2, limits)).toBe(limits.max)
   })
 })

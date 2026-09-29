@@ -27,6 +27,7 @@ interface AppState {
   updateReview: (id: string, patch: Partial<ReviewElement>) => void
   setReviewField: (id: string, key: string, value: number | string | boolean) => void
   deleteReview: (id: string) => void
+  restoreReview: (element: ReviewElement) => void
   addReviewBox: (box: BBox, view: 'side' | 'top') => void
   resetReview: () => void
   confirmReview: () => void
@@ -77,6 +78,12 @@ export const useApp = create<AppState>((set, get) => ({
   deleteReview: (id) =>
     set({
       review: get().review.map((item) => (item.id === id ? { ...item, deleted: true, source: 'user', confidence: 1 } : item)),
+    }),
+  restoreReview: (element) =>
+    set({
+      review: get().review.some((item) => item.id === element.id)
+        ? get().review.map((item) => (item.id === element.id ? element : item))
+        : [...get().review, element],
     }),
   addReviewBox: (box, view) => {
     const element = newEquipment(box, view, get().source?.frame ?? null)

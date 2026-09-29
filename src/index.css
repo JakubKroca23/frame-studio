@@ -120,6 +120,23 @@ body {
   cursor: grabbing;
 }
 
+.review-toast {
+  position: absolute;
+  left: 12px;
+  bottom: 64px;
+  z-index: 2;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #1c1915;
+  color: #f4f0e8;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(28, 25, 21, 0.18);
+}
+
 .view-buttons {
   position: absolute;
   top: 12px;

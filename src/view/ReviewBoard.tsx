@@ -5,7 +5,29 @@ import type { ChassisModel } from '../model/types'
 import { EQUIP_LABELS, type EquipKind } from '../pipeline/kinds'
 import type { ReviewElement } from '../pipeline/review'
 import { useApp } from '../state'
-import { fitView, panBy, screenToWorld, wheelIntent, wheelZoomFactor, worldToScreen, zoomAt, zoomLimits, type ReviewView } from './reviewCamera'
+import { easeScale, fitView, nextTargetScale, panBy, screenToWorld, viewAbout, wheelIntent, wheelZoomFactor, worldToScreen, zoomLimits, type ReviewView } from './reviewCamera'
+import { isTextEditing, reviewCommand } from './reviewKeys'
+
+interface ZoomAnim {
+  running: boolean
+  scale: number
+  target: number
+  anchorX: number
+  anchorY: number
+  px: number
+  py: number
+  w: number
+  h: number
+  last: number
+}
+
+interface LineCache {
+  canvas: HTMLCanvasElement
+  view: ReviewView
+  w: number
+  h: number
+  key: string
+}
 
 const ROLE_CS: Record<ReviewElement['role'], string> = {
   frame: 'Rám',
@@ -24,6 +46,7 @@ export function ReviewBoard() {
   const confirmReview = useApp((s) => s.confirmReview)
   const setReviewField = useApp((s) => s.setReviewField)
   const deleteReview = useApp((s) => s.deleteReview)
+  const restoreReview = useApp((s) => s.restoreReview)
   const addReviewBox = useApp((s) => s.addReviewBox)
   const resetReview = useApp((s) => s.resetReview)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -31,6 +54,7 @@ export function ReviewBoard() {
   const [pick, setPick] = useState(false)
   const [hideSkip, setHideSkip] = useState(true)
   const [query, setQuery] = useState('')
+  const [toast, setToast] = useState<string | null>(null)
   const drag = useRef<{ x: number; y: number; x2: number; y2: number; drawing: boolean } | null>(null)
   const panRef = useRef<{ id: number; x: number; y: number } | null>(null)
   const lastMiddle = useRef(0)
@@ -41,6 +65,15 @@ export function ReviewBoard() {
   const rafRef = useRef(0)
   const requestRef = useRef<() => void>(() => {})
   const fitRef = useRef<() => void>(() => {})
+  const deleteRef = useRef<() => void>(() => {})
+  const undoRef = useRef<() => void>(() => {})
+  const stopZoomRef = useRef<() => void>(() => {})
+  const undoStack = useRef<ReviewElement[]>([])
+  const toastTimer = useRef(0)
+  const zoomRaf = useRef(0)
+  const zoomRef = useRef<ZoomAnim | null>(null)
+  const lineCache = useRef<LineCache | null>(null)
+  const fileSeen = useRef('')
   const sceneRef = useRef({ model, review, selected, hideSkip })
 
   useEffect(() => {
@@ -53,6 +86,7 @@ export function ReviewBoard() {
       })
     }
     fitRef.current = () => {
+      stopZoomRef.current()
       const canvas = canvasRef.current
       const current = sceneRef.current.model
       if (!canvas || !current) return
@@ -65,6 +99,30 @@ export function ReviewBoard() {
       identityRef.current = fileKey(current)
       requestRef.current()
     }
+    deleteRef.current = () => {
+      const id = sceneRef.current.selected
+      if (!id) return
+      const item = useApp.getState().review.find((entry) => entry.id === id && !entry.deleted)
+      if (!item || item.role === 'frame') return
+      undoStack.current.push(snapshotElement(item))
+      if (undoStack.current.length > 40) undoStack.current.shift()
+      deleteReview(id)
+      setSelected(null)
+      setToast('Prvek smazán – Ctrl+Z vrátí')
+      window.clearTimeout(toastTimer.current)
+      toastTimer.current = window.setTimeout(() => setToast(null), 2800)
+    }
+    undoRef.current = () => {
+      const item = undoStack.current.pop()
+      if (!item) return
+      restoreReview(item)
+      setSelected(item.id)
+      setToast(null)
+      window.clearTimeout(toastTimer.current)
+    }
+    const nextKey = model ? fileKey(model) : ''
+    if (fileSeen.current && fileSeen.current !== nextKey) undoStack.current = []
+    fileSeen.current = nextKey
   })
 
   const visible = useMemo(() => {
@@ -83,36 +141,79 @@ export function ReviewBoard() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'f' && event.key !== 'F' && event.key !== 'Home') return
-      if (event.ctrlKey || event.metaKey || event.altKey) return
-      const target = event.target
-      if (target instanceof HTMLElement) {
-        const tag = target.tagName
-        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || target.isContentEditable) return
-      }
+      if (isTextEditing(event.target)) return
+      const command = reviewCommand(event)
+      if (!command) return
       event.preventDefault()
-      fitRef.current()
+      if (command === 'delete') deleteRef.current()
+      else if (command === 'undo') undoRef.current()
+      else fitRef.current()
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.clearTimeout(toastTimer.current)
+    }
   }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !model) return
+    const stopZoom = () => {
+      if (zoomRef.current) zoomRef.current.running = false
+      if (zoomRaf.current) cancelAnimationFrame(zoomRaf.current)
+      zoomRaf.current = 0
+    }
+    stopZoomRef.current = stopZoom
+    const tickZoom = (now: number) => {
+      zoomRaf.current = 0
+      const anim = zoomRef.current
+      if (!anim?.running) return
+      const dt = now - anim.last
+      anim.last = now
+      anim.scale = easeScale(anim.scale, anim.target, dt)
+      viewRef.current = viewAbout(anim.anchorX, anim.anchorY, anim.px, anim.py, anim.w, anim.h, anim.scale)
+      if (anim.scale === anim.target) anim.running = false
+      drawRef.current()
+      if (anim.running) zoomRaf.current = requestAnimationFrame(tickZoom)
+    }
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
       const view = viewRef.current
       if (!view) return
       const rect = canvas.getBoundingClientRect()
       if (wheelIntent(event) === 'pan') {
+        stopZoom()
         viewRef.current = panBy(view, -event.deltaX, -event.deltaY)
-      } else {
-        const px = event.clientX - rect.left
-        const py = event.clientY - rect.top
-        viewRef.current = zoomAt(view, rect.width, rect.height, px, py, wheelZoomFactor(event.deltaY, event.deltaMode), limitsRef.current)
+        requestRef.current()
+        return
       }
-      requestRef.current()
+      const px = event.clientX - rect.left
+      const py = event.clientY - rect.top
+      const anchor = screenToWorld(view, rect.width, rect.height, px, py)
+      const anim = zoomRef.current?.running ? zoomRef.current : null
+      const next: ZoomAnim = anim ?? {
+        running: true,
+        scale: view.scale,
+        target: view.scale,
+        anchorX: anchor.x,
+        anchorY: anchor.y,
+        px,
+        py,
+        w: rect.width,
+        h: rect.height,
+        last: performance.now(),
+      }
+      next.anchorX = anchor.x
+      next.anchorY = anchor.y
+      next.px = px
+      next.py = py
+      next.w = rect.width
+      next.h = rect.height
+      next.target = nextTargetScale(next.target, wheelZoomFactor(event.deltaY, event.deltaMode), limitsRef.current)
+      next.running = true
+      zoomRef.current = next
+      if (!zoomRaf.current) zoomRaf.current = requestAnimationFrame(tickZoom)
     }
     const blockMiddle = (event: MouseEvent) => {
       if (event.button === 1) event.preventDefault()
@@ -121,6 +222,7 @@ export function ReviewBoard() {
     canvas.addEventListener('mousedown', blockMiddle)
     canvas.addEventListener('auxclick', blockMiddle)
     return () => {
+      stopZoom()
       canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('mousedown', blockMiddle)
       canvas.removeEventListener('auxclick', blockMiddle)
@@ -152,9 +254,10 @@ export function ReviewBoard() {
       const fitted = fitView(bounds, w, h)
       limitsRef.current = zoomLimits(fitted.scale)
       if (identityRef.current !== key || !viewRef.current) {
+        stopZoomRef.current()
         viewRef.current = fitted
         identityRef.current = key
-      } else {
+      } else if (!zoomRef.current?.running) {
         const { min, max } = limitsRef.current
         const scale = Math.min(max, Math.max(min, viewRef.current.scale))
         if (scale !== viewRef.current.scale) viewRef.current = { ...viewRef.current, scale }
@@ -165,8 +268,15 @@ export function ReviewBoard() {
       const halfW = w / 2 / view.scale + margin
       const halfH = h / 2 / view.scale + margin
       const vp = { x0: view.cx - halfW, x1: view.cx + halfW, y0: view.cy - halfH, y1: view.cy + halfH }
+      const cached = lineCache.current
+      const ratio = cached && cached.key === key && cached.w === w && cached.h === h && cached.canvas.width === bw ? view.scale / cached.view.scale : 0
+      const panPx = cached && ratio ? Math.hypot((cached.view.cx - view.cx) * view.scale, (cached.view.cy - view.cy) * view.scale) : Infinity
+      const useBlit = Boolean(zoomRef.current?.running && cached && ratio > 0.97 && ratio < 1.16 && panPx < 48)
+
+      if (useBlit && cached) blitScaled(ctx, cached.canvas, cached.view, view, w, h, dpr)
 
       const stroke = (role: string, color: string, width: number, alpha = 1) => {
+        if (useBlit) return
         const arr = model.preview.segments[role]
         if (!arr) return
         ctx.beginPath()
@@ -196,7 +306,7 @@ export function ReviewBoard() {
       stroke('component', '#8a5a2a', 0.8, 0.35)
       stroke('frame', '#5c564e', 1.4, 0.55)
 
-      if (model.frame) {
+      if (model.frame && !useBlit) {
         ctx.beginPath()
         const rail = (pts: { x: number; y: number }[]) => {
           pts.forEach((point, index) => {
@@ -211,6 +321,8 @@ export function ReviewBoard() {
         ctx.lineWidth = 2
         ctx.stroke()
       }
+
+      if (!useBlit) lineCache.current = takeLineCache(lineCache.current?.canvas ?? null, canvas, view, w, h, bw, bh, key)
 
       for (const item of review) {
         if (item.deleted || item.role === 'hole') continue
@@ -287,6 +399,7 @@ export function ReviewBoard() {
         return
       }
       lastMiddle.current = now
+      stopZoomRef.current()
       drag.current = null
       panRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY }
       canvas.classList.add('is-panning')
@@ -384,6 +497,11 @@ export function ReviewBoard() {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         />
+        {toast ? (
+          <p className="review-toast" role="status">
+            {toast}
+          </p>
+        ) : null}
         <div className="review-actions">
           <Button variant="rust" onClick={confirmReview}>
             Vygenerovat 3D
@@ -394,7 +512,14 @@ export function ReviewBoard() {
           <Button variant={pick ? 'rust' : 'outline'} size="sm" onClick={() => setPick((value) => !value)}>
             Vybrat entity
           </Button>
-          <Button variant="outline" size="sm" onClick={resetReview}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              undoStack.current = []
+              resetReview()
+            }}
+          >
             Obnovit detekci
           </Button>
         </div>
@@ -429,10 +554,7 @@ export function ReviewBoard() {
           <ElementForm
             element={current}
             onField={(key, value) => setReviewField(current.id, key, value)}
-            onDelete={() => {
-              deleteReview(current.id)
-              setSelected(null)
-            }}
+            onDelete={() => deleteRef.current()}
           />
         ) : (
           <p className="status">Vyberte prvek v seznamu nebo ve výkresu. Nejisté detekce jsou označené.</p>
@@ -540,6 +662,63 @@ function label(
   const [px, py] = map(x, y)
   if (px < -80 || py < -20 || px > width + 20 || py > height + 20) return
   ctx.fillText(text, px, py)
+}
+
+function blitScaled(
+  ctx: CanvasRenderingContext2D,
+  source: HTMLCanvasElement,
+  from: ReviewView,
+  view: ReviewView,
+  w: number,
+  h: number,
+  dpr: number,
+) {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.fillStyle = '#f4f0e8'
+  ctx.fillRect(0, 0, w, h)
+  const k = view.scale / from.scale
+  const destX = w / 2 + (from.cx - view.cx) * view.scale
+  const destY = h / 2 - (from.cy - view.cy) * view.scale
+  ctx.save()
+  ctx.imageSmoothingEnabled = true
+  ctx.translate(destX, destY)
+  ctx.scale(k, k)
+  ctx.translate(-w / 2, -h / 2)
+  ctx.drawImage(source, 0, 0, w, h)
+  ctx.restore()
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+}
+
+function takeLineCache(
+  existing: HTMLCanvasElement | null,
+  source: HTMLCanvasElement,
+  view: ReviewView,
+  w: number,
+  h: number,
+  bw: number,
+  bh: number,
+  key: string,
+): LineCache {
+  const canvas = existing ?? document.createElement('canvas')
+  if (canvas.width !== bw || canvas.height !== bh) {
+    canvas.width = bw
+    canvas.height = bh
+  }
+  const copy = canvas.getContext('2d')
+  if (copy) {
+    copy.setTransform(1, 0, 0, 1, 0, 0)
+    copy.drawImage(source, 0, 0)
+  }
+  return { canvas, view: { scale: view.scale, cx: view.cx, cy: view.cy }, w, h, key }
+}
+
+function snapshotElement(item: ReviewElement): ReviewElement {
+  return {
+    ...item,
+    side: item.side ? { ...item.side } : null,
+    top: item.top ? { ...item.top } : null,
+    fields: item.fields.map((field) => ({ ...field, options: field.options?.map((option) => ({ ...option })) })),
+  }
 }
 
 function fileKey(model: ChassisModel) {
