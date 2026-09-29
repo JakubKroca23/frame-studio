@@ -2,6 +2,7 @@ import { OrbitControls, GizmoHelper, GizmoViewport, Grid } from '@react-three/dr
 import { Canvas, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { ChassisModel, ChassisParams } from '../model/types'
 import { buildChassisGroup, disposeGroup } from '../mesh/build'
 import { Button } from '../components/ui/button'
@@ -20,14 +21,37 @@ export function Viewport({
   return (
     <section className="viewport">
       <Canvas
+        shadows
         camera={{ position: [4200, 2600, 6800], fov: 38, near: 15, far: 250000 }}
-        gl={{ antialias: true, logarithmicDepthBuffer: true, toneMappingExposure: 1.3 }}
+        gl={{ antialias: true, logarithmicDepthBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15 }}
+        onCreated={({ gl }) => {
+          gl.shadowMap.type = THREE.PCFSoftShadowMap
+        }}
       >
-        <color attach="background" args={['#d5dbe1']} />
-        <hemisphereLight args={['#f7f4ee', '#3a4450', 1.15]} />
-        <ambientLight intensity={0.45} />
-        <directionalLight position={[5000, 9000, 6000]} intensity={2.2} />
-        <directionalLight position={[-7000, 4000, -3000]} intensity={0.7} />
+        <color attach="background" args={['#c5ced6']} />
+        <StudioLights />
+        <hemisphereLight args={['#f4f1ea', '#3e4852', 0.55]} />
+        <ambientLight intensity={0.18} />
+        <directionalLight
+          castShadow
+          position={[2500, 9000, 5200]}
+          intensity={2.6}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-near={200}
+          shadow-camera-far={28000}
+          shadow-camera-left={-9000}
+          shadow-camera-right={9000}
+          shadow-camera-top={9000}
+          shadow-camera-bottom={-9000}
+          shadow-bias={-0.0004}
+          shadow-normalBias={2}
+        />
+        <directionalLight position={[-6000, 4000, -2500]} intensity={0.45} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[4000, -6, 0]} receiveShadow>
+          <planeGeometry args={[36000, 14000]} />
+          <meshStandardMaterial color="#b7c1c8" roughness={0.96} metalness={0} />
+        </mesh>
         {model ? <Chassis model={model} params={params} groupRef={groupRef} /> : null}
         <Grid
           args={[40000, 40000]}
@@ -60,6 +84,9 @@ export function Viewport({
           </Button>
           <Button variant="view" size="sm" onClick={() => setView.current('front')}>
             Zepředu
+          </Button>
+          <Button variant="view" size="sm" onClick={() => setView.current('under')}>
+            Spodek
           </Button>
         </div>
       ) : (
@@ -125,6 +152,22 @@ function FrameCamera({ model }: { model: ChassisModel }) {
   return null
 }
 
+function StudioLights() {
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl)
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    scene.environment = env
+    return () => {
+      scene.environment = null
+      env.dispose()
+      pmrem.dispose()
+    }
+  }, [gl, scene])
+  return null
+}
+
 function EmptyHint() {
   return (
     <div className="empty-hint">
@@ -146,8 +189,11 @@ function CameraBridge({ setView }: { setView: RefObject<(view: string) => void> 
       if (view === 'side') camera.position.set(target.x, target.y + 1400, target.z + dist)
       else if (view === 'top') camera.position.set(target.x, dist, target.z + 120)
       else if (view === 'front') camera.position.set(target.x - dist, target.y + 2600, target.z + 600)
-      else camera.position.set(target.x + dist * 0.45, target.y + dist * 0.34, target.z + dist * 0.78)
-      camera.lookAt(target)
+      else if (view === 'under') {
+        controls.target.set(target.x + 1700, 620, 180)
+        camera.position.set(target.x + 2100, 420, 2100)
+      } else camera.position.set(target.x + dist * 0.45, target.y + dist * 0.34, target.z + dist * 0.78)
+      camera.lookAt(controls.target)
       controls.update()
     }
   }, [camera, controls, setView])

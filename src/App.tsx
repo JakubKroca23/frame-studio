@@ -185,6 +185,21 @@ export default function App() {
           <NumField label="Šířka pneu" unit="mm" min={200} max={420} step={5} value={params.tireWidth} onChange={(tireWidth) => setParams({ tireWidth })} />
           <Toggle label="Dvojmontáž podle výkresu" checked={params.dualDrive} onChange={(dualDrive) => setParams({ dualDrive })} />
 
+          <Label>Odpružení</Label>
+          <div className="seg" style={{ margin: '6px 0 12px' }}>
+            {(
+              [
+                ['mixed', 'Smíšené'],
+                ['leaf', 'Listy'],
+                ['air', 'Vzduch'],
+              ] as const
+            ).map(([suspension, name]) => (
+              <Button key={suspension} size="sm" variant={params.suspension === suspension ? 'rust' : 'outline'} onClick={() => setParams({ suspension })}>
+                {name}
+              </Button>
+            ))}
+          </div>
+
           {trackNames(model?.axles.length ?? params.tracks.length).map((name, index) => (
             <div className="field" key={`${name}-${index}`}>
               <Label htmlFor={`track-${index}`}>Rozchod {name}</Label>
@@ -239,8 +254,10 @@ export default function App() {
               ['liner', 'Výztuha'],
               ['crossmembers', 'Příčky'],
               ['axles', 'Nápravy a kola'],
+              ['drivetrain', 'Hnací ústrojí'],
+              ['equipment', 'Nádrže a výbava'],
               ['cab', 'Kabina'],
-              ['components', 'Komponenty'],
+              ['components', 'Díly z výkresu'],
               ['holes', 'Otvory'],
             ] as const
           ).map(([key, name]) => (

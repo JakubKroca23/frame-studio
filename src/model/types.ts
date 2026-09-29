@@ -136,8 +136,10 @@ export interface ChassisParams {
   /** When true, each axle keeps the diameter read from the drawing. */
   useDrawingTires: boolean
   tireWidth: number
-  /** Dual wheels on the middle axle (6x2 drive). */
+  /** Honor the dual-wheel flags read from the drawing. */
   dualDrive: boolean
+  /** Front steered axles use leaves, driven axles use air, unless overridden. */
+  suspension: 'mixed' | 'leaf' | 'air'
   /** 0 = use the dimension extracted for that axle. One entry per axle. */
   tracks: number[]
   lod: 0 | 1 | 2
@@ -150,6 +152,8 @@ export interface ChassisParams {
     cab: boolean
     components: boolean
     holes: boolean
+    drivetrain: boolean
+    equipment: boolean
   }
 }
 
@@ -164,6 +168,7 @@ export const defaultParams: ChassisParams = {
   useDrawingTires: true,
   tireWidth: 315,
   dualDrive: true,
+  suspension: 'mixed',
   tracks: [0, 0, 0],
   lod: 2,
   holes: 'geometry',
@@ -175,5 +180,7 @@ export const defaultParams: ChassisParams = {
     cab: true,
     components: true,
     holes: true,
+    drivetrain: true,
+    equipment: true,
   },
 }

@@ -139,6 +139,18 @@ describe('Volvo BEP sample', () => {
     const wheelBox = new THREE.Box3().setFromObject(wheels!)
     expect(wheelBox.min.y).toBeGreaterThan(-8)
     expect(wheelBox.min.y).toBeLessThan(12)
+    const detailed = buildChassisGroup(model, { ...defaultParams, holes: 'off', linerEnabled: false })
+    expect(detailed.getObjectByName('drivetrain')).toBeTruthy()
+    expect(detailed.getObjectByName('equipment')!.children.length).toBeGreaterThan(4)
+    let springs = 0
+    detailed.getObjectByName('axles')?.traverse((obj) => {
+      if (obj.userData.part === 'suspension') springs++
+    })
+    expect(springs).toBe(8)
+    detailed.traverse((obj) => {
+      const mesh = obj as THREE.Mesh
+      if (mesh.geometry && !mesh.geometry.userData.shared) mesh.geometry.dispose()
+    })
     expect(model.stats.parseMs).toBeLessThan(90000)
   })
 })

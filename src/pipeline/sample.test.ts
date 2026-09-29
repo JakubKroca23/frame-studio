@@ -115,6 +115,23 @@ describe('Scania ICD sample', () => {
     })
   })
 
+  it('builds suspension, a driveline and running equipment around the axles', () => {
+    const group = buildChassisGroup(model, defaultParams)
+    expect(group.getObjectByName('drivetrain')).toBeTruthy()
+    expect(group.getObjectByName('equipment')).toBeTruthy()
+    let springs = 0
+    group.getObjectByName('axles')?.traverse((obj) => {
+      if (obj.userData.part === 'suspension') springs++
+    })
+    expect(springs).toBe(6)
+    const box = new THREE.Box3().setFromObject(group.getObjectByName('axles')!)
+    expect(Math.abs(box.min.y)).toBeLessThan(8)
+    group.traverse((obj) => {
+      const mesh = obj as THREE.Mesh
+      if (mesh.geometry && !mesh.geometry.userData.shared) mesh.geometry.dispose()
+    })
+  })
+
   it('places wheels on the ground one wheelbase apart', () => {
     const group = buildChassisGroup(model, { ...defaultParams, lod: 1, holes: 'markers' })
     const axles = group.getObjectByName('axles')

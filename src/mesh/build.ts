@@ -1,8 +1,10 @@
 import earcut from 'earcut'
 import * as THREE from 'three'
 import { clamp, lerp, tireDiameterMm } from '../lib/geom'
-import type { ChassisModel, ChassisParams, FrameModel, Hole, Slice } from '../model/types'
+import type { ChassisModel, ChassisParams, Hole, Slice } from '../model/types'
 import type { Pt } from '../lib/geom'
+import { addAxleAssembly, addCrossmemberAssembly, buildCab, buildDrivetrain, buildEquipment, type World } from './detail'
+import { paint, shade } from './materials'
 
 interface Station {
   s: number
@@ -14,7 +16,11 @@ interface Station {
   drawingX: number
 }
 
-const palette = [0x8e9aa3, 0x6e8c86, 0xb08968, 0x7f8f6c, 0x8d7c86, 0x6d8299, 0xa3a090, 0x5f7f8a]
+let cabMat: THREE.MeshStandardMaterial | null = null
+function cabFallback() {
+  if (!cabMat) cabMat = new THREE.MeshStandardMaterial({ color: 0xe6e2d8, metalness: 0.2, roughness: 0.5 })
+  return cabMat
+}
 
 /**
  * Builds a Y-up Three.js group in millimetres.
@@ -48,6 +54,7 @@ export function buildChassisGroup(model: ChassisModel, params: ChassisParams): T
     g.userData.role = 'frame'
     addRail(g, leftSt, z0, z1, webT, flangeT, flangeW, radius, model.holes.filter((h) => h.side === 'left'), params, lift, ground, frameMat())
     addRail(g, rightSt, z0, z1, webT, flangeT, flangeW, radius, model.holes.filter((h) => h.side === 'right'), params, lift, ground, frameMat())
+    shade(g)
     root.add(g)
   }
 
@@ -86,12 +93,24 @@ export function buildChassisGroup(model: ChassisModel, params: ChassisParams): T
     root.add(g)
   }
 
+  const world: World = {
+    model,
+    params,
+    originX,
+    ground,
+    centerY: frame.centerY,
+    lift,
+    frame,
+    webT,
+    flangeW,
+  }
+
   if (params.show.crossmembers && model.crossmembers.length && params.lod >= 0) {
     const g = new THREE.Group()
     g.name = 'crossmembers'
     g.userData.role = 'crossmembers'
-    const mat = new THREE.MeshStandardMaterial({ color: 0x5e666e, metalness: 0.6, roughness: 0.45 })
-    for (const member of model.crossmembers) addCrossmember(g, member, frame, originX, ground, lift, webT, flangeW, mat)
+    for (const member of model.crossmembers) addCrossmemberAssembly(g, member, world)
+    shade(g)
     root.add(g)
   }
 
@@ -99,38 +118,56 @@ export function buildChassisGroup(model: ChassisModel, params: ChassisParams): T
     const g = new THREE.Group()
     g.name = 'axles'
     g.userData.role = 'axles'
-    model.axles.forEach((axle, i) => addAxle(g, axle, i, model, params, originX, ground, frame, lift))
+    model.axles.forEach((axle, i) => addAxle(g, axle, i, world))
+    shade(g)
+    root.add(g)
+  }
+
+  if (params.lod >= 1 && params.show.drivetrain && model.axles.length) {
+    const g = buildDrivetrain(world)
+    shade(g)
     root.add(g)
   }
 
   if (params.lod >= 1 && params.show.cab && model.cab) {
-    const g = new THREE.Group()
-    g.name = 'cab'
-    g.userData.role = 'cab'
-    const mat = new THREE.MeshStandardMaterial({ color: 0xe6e2d8, metalness: 0.15, roughness: 0.55 })
-    const mesh = shapeMesh(model.cab.samples, model.cab.side, model.cab.top, params.lod, originX, frame.centerY, ground, lift, 16, mat)
-    if (mesh) g.add(mesh)
-    root.add(g)
+    if (params.lod >= 2) {
+      const g = buildCab(model.cab, world)
+      shade(g)
+      root.add(g)
+    } else {
+      const g = new THREE.Group()
+      g.name = 'cab'
+      g.userData.role = 'cab'
+      const mesh = shapeMesh(model.cab.samples, model.cab.side, model.cab.top, params.lod, originX, frame.centerY, ground, lift, 16, cabFallback())
+      if (mesh) g.add(mesh)
+      shade(g)
+      root.add(g)
+    }
   }
 
-  if (params.lod >= 1 && params.show.components) {
-    const g = new THREE.Group()
-    g.name = 'components'
-    g.userData.role = 'components'
-    model.components.forEach((part) => {
-      if (!part.side || !part.top) return
-      const mat = new THREE.MeshStandardMaterial({
-        color: palette[hash(part.partNumber) % palette.length],
-        metalness: 0.35,
-        roughness: 0.48,
+  if (params.lod >= 1 && (params.show.equipment || params.show.components)) {
+    const placed = buildEquipment(world)
+    if (params.show.equipment) {
+      shade(placed.equipment)
+      root.add(placed.equipment)
+    }
+    if (params.show.components && params.lod >= 2) {
+      shade(placed.brackets)
+      root.add(placed.brackets)
+    } else if (params.show.components) {
+      const g = new THREE.Group()
+      g.name = 'components'
+      g.userData.role = 'components'
+      model.components.forEach((part) => {
+        if (!part.side || !part.top) return
+        const mesh = shapeMesh(part.samples, part.side, part.top, 1, originX, frame.centerY, ground, lift, 8, cabFallback())
+        if (mesh) {
+          mesh.name = part.partNumber
+          g.add(mesh)
+        }
       })
-      const mesh = shapeMesh(part.samples, part.side, part.top, params.lod, originX, frame.centerY, ground, lift, 10, mat)
-      if (mesh) {
-        mesh.name = part.partNumber
-        g.add(mesh)
-      }
-    })
-    root.add(g)
+      root.add(g)
+    }
   }
 
   root.userData = { originX, ground, centerY: frame.centerY }
@@ -138,9 +175,13 @@ export function buildChassisGroup(model: ChassisModel, params: ChassisParams): T
 }
 
 export function disposeGroup(group: THREE.Object3D) {
+  const seen = new Set<THREE.BufferGeometry>()
   group.traverse((obj) => {
     const mesh = obj as THREE.Mesh
-    if (mesh.geometry) mesh.geometry.dispose()
+    const geo = mesh.geometry
+    if (!geo || geo.userData.shared || seen.has(geo)) return
+    seen.add(geo)
+    geo.dispose()
   })
 }
 
@@ -485,103 +526,15 @@ function holeMarkers(
   return mesh
 }
 
-function addCrossmember(
-  parent: THREE.Group,
-  member: { x: number; thickness: number },
-  frame: FrameModel,
-  originX: number,
-  ground: number,
-  lift: (drawingX: number) => number,
-  webT: number,
-  flangeW: number,
-  mat: THREE.Material,
-) {
-  const yL = yOn(frame.left, member.x)
-  const yR = yOn(frame.right, member.x)
-  if (yL === null || yR === null) return
-  const innerL = yL + flangeW - frame.centerY
-  const innerR = yR - flangeW - frame.centerY
-  const width = Math.abs(innerR - innerL)
-  if (width < 100) return
-  const thick = clamp(member.thickness, 8, 280)
-  const zBot = frame.bottomZ - ground + lift(member.x) + 8
-  const zTop = frame.topZ - ground + lift(member.x) - 8
-  const height = Math.max(40, zTop - zBot)
-  const geo = new THREE.BoxGeometry(thick, height, width - webT)
-  const mesh = new THREE.Mesh(geo, mat)
-  mesh.position.set(member.x - originX, (zBot + zTop) / 2, (innerL + innerR) / 2)
-  parent.add(mesh)
-}
-
-function addAxle(
-  parent: THREE.Group,
-  axle: ChassisModel['axles'][number],
-  index: number,
-  _model: ChassisModel,
-  params: ChassisParams,
-  originX: number,
-  ground: number,
-  frame: FrameModel,
-  lift: (drawingX: number) => number,
-) {
-  const specD = tireDiameterMm(params.tireSpec)
-  const diameter = !params.useDrawingTires && specD ? specD : axle.tireDiameter
-  const radius = diameter / 2
-  const track = (params.tracks[index] ?? 0) > 0 ? params.tracks[index] : axle.track ?? 2000
-  const dual = params.dualDrive && axle.dual
+function addAxle(parent: THREE.Group, axle: ChassisModel['axles'][number], index: number, world: World) {
+  const specD = tireDiameterMm(world.params.tireSpec)
+  const drawing = axle.tireDiameter
+  const diameter = !world.params.useDrawingTires && specD ? specD : drawing
   const g = new THREE.Group()
   g.userData.drawingX = axle.x
   g.userData.role = 'axles'
-  const x = axle.x - originX
-  const z = axle.z - ground
-  const beamLen = track
-  const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(48, 48, beamLen, 16),
-    new THREE.MeshStandardMaterial({ color: 0x4c545c, metalness: 0.7, roughness: 0.4 }),
-  )
-  beam.rotation.x = Math.PI / 2
-  beam.position.set(x, z, 0)
-  g.add(beam)
-
-  const specWidth = axle.tireSpec?.match(/^(\d{3})/)
-  const width = clamp(specWidth ? Number(specWidth[1]) : params.tireWidth, 180, 480)
-  const gap = 50
-  const sides = [-1, 1]
-  for (const side of sides) {
-    const center = side * (track / 2)
-    const offsets = dual ? [-width / 2 - gap / 2, width / 2 + gap / 2] : [0]
-    for (const extra of offsets) {
-      g.add(makeWheel(radius, width, x, z, center + extra))
-    }
-  }
-
-  const zFrame = frame.bottomZ - ground + lift(axle.x)
-  const towerH = Math.max(30, zFrame - z)
-  const yRail = (frame.outerWidthStraight / 2) - frame.flangeWidth
-  for (const side of sides) {
-    const tower = new THREE.Mesh(
-      new THREE.BoxGeometry(70, towerH, 50),
-      new THREE.MeshStandardMaterial({ color: 0x596068, metalness: 0.5, roughness: 0.5 }),
-    )
-    tower.position.set(x, z + towerH / 2, side * Math.max(180, yRail - 40))
-    g.add(tower)
-  }
+  addAxleAssembly(g, { ...axle, tireDiameter: diameter }, index, world)
   parent.add(g)
-}
-
-function makeWheel(radius: number, width: number, x: number, y: number, z: number): THREE.Group {
-  const g = new THREE.Group()
-  const rubber = new THREE.MeshStandardMaterial({ color: 0x3a4046, roughness: 0.9, metalness: 0.04 })
-  const metal = new THREE.MeshStandardMaterial({ color: 0xd5d8dc, roughness: 0.32, metalness: 0.85 })
-  const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, width, 28), rubber)
-  tire.rotation.x = Math.PI / 2
-  const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.62, radius * 0.62, width * 0.62, 20), metal)
-  rim.rotation.x = Math.PI / 2
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.18, radius * 0.18, width * 0.7, 12), metal)
-  hub.rotation.x = Math.PI / 2
-  g.add(tire, rim, hub)
-  g.position.set(x, y, z)
-  return g
 }
 
 function shapeMesh(
@@ -651,19 +604,6 @@ function shapeMesh(
   return meshFromPositions(pos, mat)
 }
 
-function yOn(path: Pt[], x: number): number | null {
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i]
-    const b = path[i + 1]
-    const min = Math.min(a.x, b.x)
-    const max = Math.max(a.x, b.x)
-    if (x < min - 1 || x > max + 1) continue
-    const t = Math.abs(b.x - a.x) < 1e-6 ? 0 : (x - a.x) / (b.x - a.x)
-    return a.y + (b.y - a.y) * clamp(t, 0, 1)
-  }
-  return null
-}
-
 function sAtDrawingX(sts: Station[], drawingX: number): number | null {
   if (drawingX < sts[0].drawingX - 20 || drawingX > sts[sts.length - 1].drawingX + 20) return null
   let i = 0
@@ -731,18 +671,10 @@ function meshFromPositions(pos: number[], mat: THREE.Material): THREE.Mesh {
 let sharedFrame: THREE.MeshStandardMaterial | null = null
 function frameMat(): THREE.MeshStandardMaterial {
   if (!sharedFrame) {
-    sharedFrame = new THREE.MeshStandardMaterial({
-      color: 0xb5bec6,
-      metalness: 0.74,
-      roughness: 0.36,
-      side: THREE.DoubleSide,
-    })
+    sharedFrame = paint.clone()
+    sharedFrame.side = THREE.DoubleSide
+    sharedFrame.color.set(0x343b42)
   }
   return sharedFrame
 }
 
-function hash(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0
-  return h
-}
