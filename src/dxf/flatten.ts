@@ -1,6 +1,6 @@
 import { layerMatches } from '../lib/geom'
 import { tessellateArc, tessellateBulge, tessellateCircle, tessellateEllipse, tessellateSpline } from './tessellate'
-import type { ArcRec, Circ, DxfDb, DxfEntity, FlatDrawing, Txt } from './types'
+import type { ArcRec, Circ, DxfDb, DxfEntity, FlatDrawing, Loop, Txt } from './types'
 
 const TOL = 0.5
 const CORE_IGNORE_BLOCKS = new Set(['PREL', 'PRELIM', 'PRELIMINARY'])
@@ -50,6 +50,7 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
     layers: new Map(),
     blockInserts: [],
     inserts: [],
+    loops: [],
   }
   const stack = new Set<string>()
 
@@ -75,7 +76,7 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
   ) => {
     const localTol = worldTol / Math.max(scale, 1e-6)
     const layer = !entity.layer || entity.layer === '0' ? parentLayer : entity.layer
-    if (entity.type !== 'INSERT' && entity.type !== 'TEXT' && geometryIgnore.has(layer)) return
+    if (entity.type !== 'INSERT' && entity.type !== 'TEXT' && entity.type !== 'DIMENSION' && geometryIgnore.has(layer)) return
     switch (entity.type) {
       case 'LINE': {
         const [x1, y1] = xf(entity.x ?? 0, entity.y ?? 0)
@@ -110,14 +111,39 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
       case 'POLYLINE': {
         const verts = entity.verts ?? []
         if (verts.length < 2) break
-        const count = entity.closed ? verts.length : verts.length - 1
+        const worldVerts = verts.map((vert) => {
+          const [x, y] = xf(vert.x, vert.y)
+          return { x, y, bulge: vert.bulge }
+        })
+        const count = entity.closed ? worldVerts.length : worldVerts.length - 1
         for (let i = 0; i < count; i++) {
-          const a = verts[i]
-          const b = verts[(i + 1) % verts.length]
-          const [x1, y1] = xf(a.x, a.y)
-          const [x2, y2] = xf(b.x, b.y)
-          emitPoly(layer, tessellateBulge(x1, y1, x2, y2, a.bulge || 0, worldTol), rootBlock)
+          const a = worldVerts[i]
+          const b = worldVerts[(i + 1) % worldVerts.length]
+          emitPoly(layer, tessellateBulge(a.x, a.y, b.x, b.y, a.bulge || 0, worldTol), rootBlock)
         }
+        if (entity.closed) recordLoop(flat.loops, worldVerts, layer, rootBlock)
+        break
+      }
+      case 'HATCH': {
+        const verts = (entity.verts ?? []).map((vert) => {
+          const [x, y] = xf(vert.x, vert.y)
+          return { x, y }
+        })
+        recordLoop(flat.loops, verts, layer, rootBlock)
+        break
+      }
+      case 'DIMENSION': {
+        if (!entity.text || ignoreLayers.has(layer)) break
+        if (!/[LHW]\d{3}/i.test(entity.text)) break
+        const [x, y] = xf(entity.x ?? 0, entity.y ?? 0)
+        flat.texts.push({
+          layer,
+          x,
+          y,
+          text: entity.text,
+          rotation: entity.rotation ?? 0,
+          block: rootBlock,
+        })
         break
       }
       case 'ELLIPSE': {
@@ -218,6 +244,22 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
     visit(entity, (x, y) => [x, y], entity.layer || '0', '', 0, 1, 0)
   }
   return flat
+}
+
+function recordLoop(loops: Loop[], pts: { x: number; y: number }[], layer: string, block: string) {
+  if (pts.length < 3) return
+  let x0 = Infinity
+  let y0 = Infinity
+  let x1 = -Infinity
+  let y1 = -Infinity
+  for (const point of pts) {
+    x0 = Math.min(x0, point.x)
+    y0 = Math.min(y0, point.y)
+    x1 = Math.max(x1, point.x)
+    y1 = Math.max(y1, point.y)
+  }
+  if (x1 - x0 < 20 || y1 - y0 < 20) return
+  loops.push({ layer, block, x0, y0, x1, y1 })
 }
 
 function makeTransform(

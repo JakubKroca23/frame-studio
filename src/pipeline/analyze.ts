@@ -1,6 +1,6 @@
 import { flatten, type HoleFrameFix } from '../dxf/flatten'
 import { parseDxf } from '../dxf/parse'
-import type { Circ, DxfDb, InsertRec, Seg, Txt } from '../dxf/types'
+import type { Circ, DxfDb, InsertRec, Loop, Seg, Txt } from '../dxf/types'
 import {
   bboxOf,
   boxHeight,
@@ -15,6 +15,7 @@ import {
   type Pt,
 } from '../lib/geom'
 import type { Axle, CabModel, ChassisModel, Crossmember, Dimension, Hole, PartModel, Slice } from '../model/types'
+import { annotateParts } from './annotate'
 import { classifyBlock } from '../profile/classify'
 import { detectProfile } from '../profile/registry'
 import { scaniaIcdProfile } from '../profile/scania-icd'
@@ -72,8 +73,16 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
     flange: sem.flangeWidth ? dmap.get(sem.flangeWidth) : undefined,
     height: sem.frameHeight ? dmap.get(sem.frameHeight) : undefined,
   })
-  if (frame) frame.section = profile.sectionLayer ? extractSection(db, profile.sectionLayer) : null
-  else warnings.push('Podélníky se nepodařilo spolehlivě najít.')
+  if (frame) {
+    frame.section = profile.sectionLayer ? extractSection(db, profile.sectionLayer) : null
+    const flangeDim = sem.flangeWidth ? dmap.get(sem.flangeWidth) : undefined
+    frame.sources = {
+      height: 'measured',
+      width: 'measured',
+      flange: flangeDim != null || frame.flangeWidth !== 90 ? 'measured' : 'estimated',
+      section: frame.section ? 'measured' : 'estimated',
+    }
+  } else warnings.push('Podélníky se nepodařilo spolehlivě najít.')
 
   const splitY = frame ? (frame.topZ + frame.centerY) / 2 : estimateSplitY(flat.segments)
   const holes = dedupeHoles(extractHoles(flat.circles, profile, frame))
@@ -96,7 +105,8 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
   const crossmembers = frame ? extractCrossmembers(crossSegs.length ? crossSegs : frameTop, frame) : []
   const cab = extractCab(flat.segments, profile, splitY, classify, frame?.centerY ?? null)
   if (!cab) warnings.push('Kabina se nepodařela ohraničit.')
-  const components = extractComponents(flat.segments, profile, splitY, frame, axles, cab, classify)
+  const components = extractComponents(flat.segments, profile, splitY, frame, axles, cab, classify, flat.loops)
+  annotateParts(components, flat.texts, frame, axles, cab)
 
   verify(dims, frame, axles, profile)
   const header = readHeader(flat.texts, flat.blockInserts, profile)
@@ -283,14 +293,19 @@ function axlesFromInserts(inserts: InsertRec[], texts: Txt[], profile: Profile, 
     const fromSpec = tireSpec ? tireDiameterMm(tireSpec) : null
     const label = profile.semantics.tireDiameters?.[index]
     const trackLabel = profile.semantics.tracks?.[index]
+    const labelled = label ? dmap.get(label) : undefined
+    const tireDiameter = Math.round(fromSpec ?? labelled ?? 1076)
     return {
       index,
       x: Math.round(cluster.x),
       z: Math.round(cluster.y),
-      tireDiameter: Math.round(fromSpec ?? (label ? dmap.get(label) : undefined) ?? 1076),
+      tireDiameter,
       tireSpec,
       track: trackLabel ? (dmap.get(trackLabel) ?? null) : null,
       dual: cluster.rear > 0,
+      tireSource: fromSpec || labelled != null ? 'measured' : 'estimated',
+      tireConfidence: fromSpec ? 0.9 : labelled != null ? 0.8 : 0.35,
+      dualSource: 'measured',
     }
   })
 }
@@ -384,6 +399,9 @@ function extractAxles(
       tireDiameter,
       track: tracks[index] ?? null,
       dual,
+      tireSource: counted != null || fromLabel != null ? 'measured' : 'estimated',
+      tireConfidence: counted != null ? 0.88 : fromLabel != null ? 0.8 : 0.34,
+      dualSource: 'estimated',
     }
   })
 }
@@ -454,6 +472,7 @@ function extractComponents(
   axles: Axle[],
   cab: CabModel | null,
   classify: (name: string) => BlockViewName | null,
+  loops: Loop[],
 ): PartModel[] {
   const partRe = new RegExp(profile.componentPattern ?? DEFAULT_PART.source)
   const skip = (profile.componentSkip ?? []).map((pattern) => new RegExp(pattern))
@@ -489,14 +508,16 @@ function extractComponents(
   for (const [stem, names] of groups) {
     const sides: { name: string; bb: BBox; pts: Pt[] }[] = []
     const tops: { name: string; bb: BBox; pts: Pt[] }[] = []
-    const both: { side: BBox; top: BBox; sidePts: Pt[]; topPts: Pt[] }[] = []
+    const both: { side: BBox; top: BBox; sidePts: Pt[]; topPts: Pt[]; contour?: boolean }[] = []
     for (const name of names) {
       const list = byBlock.get(name) ?? []
       const sidePts = robustPoints(pointsOf(list, (y, layer, block) => pointRole(block, layer, y, profile, splitY, classify) === 'side'))
       const topPts = robustPoints(pointsOf(list, (y, layer, block) => pointRole(block, layer, y, profile, splitY, classify) === 'top'))
-      const sb = bboxOf(sidePts)
-      const tb = bboxOf(topPts)
-      if (sb && tb) both.push({ side: sb, top: tb, sidePts, topPts })
+      const sideTight = tightenBox(bboxOf(sidePts), name, loops)
+      const topTight = tightenBox(bboxOf(topPts), name, loops)
+      const sb = sideTight.box
+      const tb = topTight.box
+      if (sb && tb) both.push({ side: sb, top: tb, sidePts, topPts, contour: sideTight.closed || topTight.closed })
       else if (sb) sides.push({ name, bb: sb, pts: sidePts })
       else if (tb) tops.push({ name, bb: tb, pts: topPts })
     }
@@ -514,7 +535,7 @@ function extractComponents(
       }
       if (best >= 0) {
         used.add(best)
-        both.push({ side: s.bb, top: tops[best].bb, sidePts: s.pts, topPts: tops[best].pts })
+        both.push({ side: s.bb, top: tops[best].bb, sidePts: s.pts, topPts: tops[best].pts, contour: false })
       }
     }
     let n = 0
@@ -527,12 +548,40 @@ function extractComponents(
         side: item.side,
         top: item.top,
         samples,
+        contour: item.contour,
       })
       n++
     }
   }
   parts.sort((a, b) => partVolume(b) - partVolume(a))
   return parts.slice(0, 64)
+}
+
+function tightenBox(box: BBox | null, block: string, loops: Loop[]): { box: BBox | null; closed: boolean } {
+  if (!box) return { box: null, closed: false }
+  const host = Math.max(0, box.x1 - box.x0) * Math.max(0, box.y1 - box.y0)
+  if (host < 1) return { box, closed: false }
+  let best: Loop | null = null
+  let bestArea = 0
+  let closed = false
+  for (const loop of loops) {
+    if (loop.block !== block) continue
+    const lw = loop.x1 - loop.x0
+    const lh = loop.y1 - loop.y0
+    const ox = overlap1d(loop.x0, loop.x1, box.x0, box.x1)
+    const oy = overlap1d(loop.y0, loop.y1, box.y0, box.y1)
+    if (ox < lw * 0.8 || oy < lh * 0.8) continue
+    const area = lw * lh
+    const ratio = area / host
+    if (ratio > 0.5 && ratio <= 1.05) closed = true
+    if (ratio < 0.82 || ratio > 0.995) continue
+    if (area > bestArea) {
+      best = loop
+      bestArea = area
+    }
+  }
+  if (!best) return { box, closed }
+  return { box: { x0: best.x0, y0: best.y0, x1: best.x1, y1: best.y1 }, closed: true }
 }
 
 function keepPart(side: BBox, top: BBox, _frame: ChassisModel['frame'], axles: Axle[], cab: CabModel | null): boolean {

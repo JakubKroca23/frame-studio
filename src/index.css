@@ -278,6 +278,111 @@ body {
   font-size: 13px;
 }
 
+.app.is-review {
+  grid-template-rows: 52px minmax(0, 1fr);
+  grid-template-areas:
+    "head head"
+    "side review";
+}
+
+.review-pane {
+  grid-area: review;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  min-height: 0;
+  background: #f4f0e8;
+}
+
+.review-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px 12px;
+}
+
+.review-side {
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  padding: 12px;
+  min-height: 0;
+}
+
+.review-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  max-height: 32vh;
+  overflow: auto;
+}
+
+.review-item {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.review-item.on {
+  border-color: #e7c2b6;
+  background: white;
+}
+
+.review-item strong,
+.review-item small {
+  display: block;
+}
+
+.review-item small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.conf {
+  flex: 0 0 auto;
+  min-width: 42px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.conf.high {
+  color: #1f7a4d;
+}
+
+.conf.mid {
+  color: #b45309;
+}
+
+.conf.low {
+  color: #c2410c;
+}
+
+.review-form {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.review-form h2 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
 @media (max-width: 960px) {
   .app {
     grid-template-columns: 1fr;
@@ -299,5 +404,23 @@ body {
 
   .empty-hint h2 {
     font-size: 22px;
+  }
+
+  .app.is-review {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(70vh, auto);
+    grid-template-areas:
+      "head"
+      "side"
+      "review";
+  }
+
+  .review-pane {
+    grid-template-columns: 1fr;
+    min-height: 70vh;
+  }
+
+  .review-stage {
+    min-height: 52vh;
   }
 }

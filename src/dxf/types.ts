@@ -106,4 +106,15 @@ export interface FlatDrawing {
   blockInserts: string[]
   /** Model-space inserts, before block contents are exploded. */
   inserts: InsertRec[]
+  /** Closed polylines and hatch boundaries, in world coordinates. */
+  loops: Loop[]
+}
+
+export interface Loop {
+  layer: string
+  block: string
+  x0: number
+  y0: number
+  x1: number
+  y1: number
 }

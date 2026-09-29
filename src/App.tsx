@@ -8,6 +8,7 @@ import { downloadBlob, exportGlb, exportStl } from './export/download'
 import type { ChassisModel } from './model/types'
 import { useApp } from './state'
 import { DrawingPreview } from './view/DrawingPreview'
+import { ReviewBoard } from './view/ReviewBoard'
 import { Viewport } from './view/Viewport'
 
 const KEY_DIMS: [string, string][] = [
@@ -41,7 +42,9 @@ export default function App() {
   const [over, setOver] = useState(false)
   const [exporting, setExporting] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
-  const { status, message, error, fileName, model, params, setParams, setShow, setTrack, loadFile, loadSample } = useApp()
+  const { status, phase, message, error, fileName, source, model, params, setParams, setShow, setTrack, setPhase, confirmReview, loadFile, loadSample } = useApp()
+  const detected = source ?? model
+  const reviewing = phase === 'review' && !!source
 
   async function takeFile(file: File) {
     await loadFile(file)
@@ -71,7 +74,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={reviewing ? 'app is-review' : 'app'}>
       <header className="app-header">
         <div className="brand">
           <h1>Podvozek</h1>
@@ -92,7 +95,7 @@ export default function App() {
         >
           <div className="stack">
             <p style={{ margin: 0, fontSize: 14 }}>
-              Přetáhněte sem DXF, nebo archiv .dxf.gz, .tgz či .zip. Texty se čtou jako Windows-1252.
+              Přetáhněte sem DXF nebo DWG, případně archiv .dxf.gz, .tgz či .zip. Texty se čtou jako Windows-1252.
             </p>
             <div className="row">
               <Button onClick={() => fileRef.current?.click()}>Nahrát výkres</Button>
@@ -107,7 +110,7 @@ export default function App() {
               ref={fileRef}
               hidden
               type="file"
-              accept=".dxf,.gz,.tgz,.zip,application/dxf,application/gzip,application/zip"
+              accept=".dxf,.dwg,.gz,.tgz,.zip,application/dxf,application/acad,application/gzip,application/zip"
               onChange={(event) => {
                 const file = event.target.files?.[0]
                 if (file) void takeFile(file)
@@ -120,7 +123,20 @@ export default function App() {
         {status === 'loading' ? <p className="status">{message || 'Zpracovávám výkres…'}</p> : null}
         {status === 'error' ? <p className="status error">{error}</p> : null}
 
-        {model ? <Detection model={model} /> : null}
+        {detected ? <Detection model={detected} /> : null}
+        {reviewing ? (
+          <div className="row" style={{ marginTop: 12 }}>
+            <Button variant="rust" onClick={confirmReview}>
+              Vygenerovat 3D
+            </Button>
+          </div>
+        ) : model ? (
+          <div className="row" style={{ marginTop: 12 }}>
+            <Button variant="outline" onClick={() => setPhase('review')}>
+              Zpět ke kontrole
+            </Button>
+          </div>
+        ) : null}
 
         <section className="block">
           <h2>Parametry</h2>
@@ -269,10 +285,10 @@ export default function App() {
         <section className="block">
           <h2>Export</h2>
           <div className="row">
-            <Button variant="rust" disabled={!model || !!exporting} onClick={() => void save('glb')}>
+            <Button variant="rust" disabled={!model || reviewing || !!exporting} onClick={() => void save('glb')}>
               {exporting === 'glb' ? 'Exportuji…' : 'Export GLB'}
             </Button>
-            <Button variant="outline" disabled={!model || !!exporting} onClick={() => void save('stl')}>
+            <Button variant="outline" disabled={!model || reviewing || !!exporting} onClick={() => void save('stl')}>
               {exporting === 'stl' ? 'Exportuji…' : 'Export STL'}
             </Button>
           </div>
@@ -281,8 +297,14 @@ export default function App() {
         </section>
       </aside>
 
-      <Viewport model={model} params={params} groupRef={groupRef} />
-      <DrawingPreview model={model} />
+      {reviewing ? (
+        <ReviewBoard />
+      ) : (
+        <>
+          <Viewport model={model} params={params} groupRef={groupRef} />
+          <DrawingPreview model={model} />
+        </>
+      )}
     </div>
   )
 }

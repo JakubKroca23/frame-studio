@@ -36,6 +36,9 @@ export interface Axle {
   tireSpec?: string
   track: number | null
   dual: boolean
+  tireSource?: 'measured' | 'estimated'
+  tireConfidence?: number
+  dualSource?: 'measured' | 'estimated'
 }
 
 export interface Crossmember {
@@ -64,6 +67,12 @@ export interface FrameModel {
   liner: { x0: number; x1: number } | null
   /** Rolled section read from a detail view, when the drawing contains one. */
   section: FrameSection | null
+  sources?: {
+    height: 'measured' | 'estimated'
+    width: 'measured' | 'estimated'
+    flange: 'measured' | 'estimated'
+    section: 'measured' | 'estimated'
+  }
 }
 
 export interface PartModel {
@@ -73,6 +82,13 @@ export interface PartModel {
   top: BBox | null
   samples: Slice[]
   warning?: string
+  /** Visual class used by the review step and the 3D builder. */
+  kind?: string
+  confidence?: number
+  source?: 'measured' | 'estimated' | 'user'
+  evidence?: string
+  /** A closed contour in this block tightened or confirmed the box. */
+  contour?: boolean
 }
 
 export interface CabModel {
@@ -111,6 +127,10 @@ export interface ChassisModel {
   crossmembers: Crossmember[]
   cab: CabModel | null
   components: PartModel[]
+  /** Axle indexes whose mudguards were removed in the review. Absent means draw every axle. */
+  skipMudguards?: number[]
+  /** Set when the model was rebuilt from the detection review. Suppresses guessed extra parts. */
+  reviewApplied?: boolean
   /** Flat x1,y1,x2,y2 arrays keyed by drawing role, for the 2D check view. */
   preview: {
     segments: Record<string, number[]>

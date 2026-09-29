@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { clamp } from '../lib/geom'
+import type { EquipKind } from '../pipeline/kinds'
 import type { Axle, CabModel, ChassisModel, ChassisParams, FrameModel, PartModel } from '../model/types'
 import {
   adblue,
@@ -182,7 +183,7 @@ export function addAxleAssembly(parent: THREE.Group, axle: Axle, index: number, 
   }
 
   if (!axle.dual) addSteering(parent, world, x, z, track, index === 0)
-  addMudguards(parent, x, z, radius, width, track, dual)
+  if (!world.model.skipMudguards?.includes(axle.index)) addMudguards(parent, x, z, radius, width, track, dual)
 }
 
 function addSuspension(
@@ -533,8 +534,6 @@ interface Placed {
   z: number
 }
 
-type EquipKind = 'fuel' | 'adblue' | 'battery' | 'air' | 'exhaust' | 'stack' | 'toolbox' | 'shield' | 'skirt' | 'case' | 'bracket' | 'skip'
-
 const PREFIX: Record<string, EquipKind> = {
   FT: 'fuel',
   AT: 'air',
@@ -558,13 +557,15 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   brackets.userData.role = 'components'
 
   const outer = world.frame.outerWidthStraight
-  const placed = dedupe(
-    world.model.components
-      .filter((part) => part.side && part.top)
-      .map((part) => measure(part, world))
-      .filter((item): item is Placed => item !== null && !inCabVolume(item, world))
-      .filter((item) => !(cabOverlap(item, world) > 0.45 && Math.abs(item.y) < outer * 0.7)),
-  )
+  const measured = world.model.components
+    .filter((part) => part.side && part.top)
+    .map((part) => measure(part, world))
+    .filter((item): item is Placed => item !== null && (item.part.source === 'user' || !inCabVolume(item, world)))
+    .filter((item) => item.part.source === 'user' || !(cabOverlap(item, world) > 0.45 && Math.abs(item.y) < outer * 0.7))
+  const placed = [
+    ...dedupe(measured.filter((item) => item.part.source !== 'user')),
+    ...measured.filter((item) => item.part.source === 'user'),
+  ]
 
   let fuel = 0
   let batteryCount = 0
@@ -575,6 +576,7 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   for (const item of placed) {
     const kind = classify(item, world)
     if (kind === 'skip') continue
+    const before = equipment.children.length
     if (kind === 'bracket') {
       addPlate(brackets, item, steel)
       continue
@@ -603,23 +605,38 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
       shields++
     } else if (kind === 'skirt') {
       addPlate(equipment, item, paintDark)
+    } else if (kind === 'steps') {
+      addSteps(equipment, item)
     } else if (Math.abs(item.y) > world.frame.outerWidthStraight * 0.28) {
       addTankBody(equipment, fitBeside(item, world, 700), false)
     } else {
       addLiddedBox(equipment, item, paintDark)
     }
+    const tagged = equipment.children[before]
+    if (tagged) tagged.userData.kind = kind
   }
 
   const drawn = equipment.children.length
-  if (fuel === 0) addTankBody(equipment, defaultFuel(world), false)
-  if (batteryCount === 0 && drawn < 3) addLiddedBox(equipment, defaultBattery(world), battery)
-  if (air === 0 && drawn < 3) addDefaultAir(equipment, world)
-  if (exhaust === 0 && drawn < 3) addDefaultExhaust(equipment, world)
+  if (!world.model.reviewApplied) {
+    if (fuel === 0) addTankBody(equipment, defaultFuel(world), false)
+    if (batteryCount === 0 && drawn < 3) addLiddedBox(equipment, defaultBattery(world), battery)
+    if (air === 0 && drawn < 3) addDefaultAir(equipment, world)
+    if (exhaust === 0 && drawn < 3) addDefaultExhaust(equipment, world)
+  }
   addRearBar(equipment, world, shields > 0)
   return { equipment, brackets }
 }
 
+function addSteps(parent: THREE.Group, item: Placed) {
+  const count = Math.min(4, Math.max(2, Math.round(item.height / 180)))
+  for (let i = 0; i < count; i++) {
+    const y = item.z - item.height / 2 + 36 + i * ((item.height - 50) / count)
+    parent.add(solid([item.len * 0.92, 22, item.width * 0.88], paintDark, [item.x, y, item.y]))
+  }
+}
+
 function classify(item: Placed, world: World): EquipKind {
+  if (item.part.kind) return item.part.kind as EquipKind
   const outer = world.frame.outerWidthStraight
   if (item.width > outer * 1.7 && item.len < 1600) return 'skip'
   if (item.width > outer * 0.85 && item.len < 420 && item.height < 480 && Math.abs(item.y) < outer * 0.35) return 'skip'

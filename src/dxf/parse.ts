@@ -277,6 +277,30 @@ function entityFromBag(bag: Bag): DxfEntity | null {
         fits: fxs.map((x, i) => ({ x, y: fys[i] ?? 0 })),
       }
     }
+    case 'DIMENSION': {
+      const explicit = str(bag, 1)
+      const measurement = num(bag, 42)
+      const text = explicit && explicit.trim() && explicit.trim() !== '<>' ? explicit : measurement != null ? String(measurement) : ''
+      if (!text) return null
+      return {
+        type: 'DIMENSION',
+        layer,
+        text,
+        x: num(bag, 11) ?? num(bag, 10) ?? 0,
+        y: num(bag, 21) ?? num(bag, 20) ?? 0,
+      }
+    }
+    case 'HATCH': {
+      const xs = bag.n.get(10) ?? []
+      const ys = bag.n.get(20) ?? []
+      if (xs.length < 3) return null
+      return {
+        type: 'HATCH',
+        layer,
+        closed: true,
+        verts: xs.map((x, i) => ({ x, y: ys[i] ?? 0, bulge: 0 })),
+      }
+    }
     default:
       return null
   }
