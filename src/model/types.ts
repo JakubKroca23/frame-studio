@@ -1,0 +1,165 @@
+import type { BBox, Pt } from '../lib/geom'
+
+export interface Dimension {
+  label: string
+  value: number | null
+  x: number
+  y: number
+  confidence: number
+  source: 'inline' | 'paired' | 'missing'
+  verified?: { method: string; expected: number; delta: number; ok: boolean }
+}
+
+export interface Hole {
+  x: number
+  z: number
+  d: number
+  side: 'left' | 'right'
+}
+
+export interface Axle {
+  index: number
+  /** Drawing x of the axle centre. */
+  x: number
+  /** Drawing y (side view) of the axle centre. */
+  z: number
+  tireDiameter: number
+  track: number | null
+  dual: boolean
+}
+
+export interface Crossmember {
+  x: number
+  thickness: number
+}
+
+export interface Slice {
+  x: number
+  z0: number
+  z1: number
+  y0: number
+  y1: number
+}
+
+export interface FrameModel {
+  /** Outer edge of each rail in top-view drawing coordinates, front → rear. */
+  left: Pt[]
+  right: Pt[]
+  topZ: number
+  bottomZ: number
+  centerY: number
+  flangeWidth: number
+  outerWidthStraight: number
+  frontOuterWidth: number
+  liner: { x0: number; x1: number } | null
+}
+
+export interface PartModel {
+  id: string
+  partNumber: string
+  side: BBox | null
+  top: BBox | null
+  samples: Slice[]
+  warning?: string
+}
+
+export interface CabModel {
+  side: BBox
+  top: BBox
+  samples: Slice[]
+}
+
+export interface ChassisHeader {
+  chassisType?: string
+  icdNo?: string
+  title?: string
+  totalWeight?: string
+  frontWeight?: string
+  rearWeight?: string
+}
+
+export interface ChassisModel {
+  version: 1
+  profileId: string
+  profileName: string
+  manufacturer: string
+  score: number
+  warnings: string[]
+  units: 'mm'
+  dxfVersion: string
+  header: ChassisHeader
+  extents: BBox
+  views: { side: BBox | null; top: BBox | null }
+  dimensions: Dimension[]
+  frame: FrameModel | null
+  holes: Hole[]
+  axles: Axle[]
+  crossmembers: Crossmember[]
+  cab: CabModel | null
+  components: PartModel[]
+  /** Flat x1,y1,x2,y2 arrays keyed by drawing role, for the 2D check view. */
+  preview: {
+    segments: Record<string, number[]>
+    circles: Record<string, number[]>
+  }
+  stats: {
+    segmentCount: number
+    circleCount: number
+    blockCount: number
+    holeCount: number
+    parseMs: number
+  }
+}
+
+export interface ChassisParams {
+  webThickness: number
+  flangeThickness: number
+  cornerRadius: number
+  linerEnabled: boolean
+  linerThickness: number
+  loadState: 'laden' | 'unladen'
+  tireSpec: string
+  /** When true, each axle keeps the diameter read from the drawing. */
+  useDrawingTires: boolean
+  tireWidth: number
+  /** Dual wheels on the middle axle (6x2 drive). */
+  dualDrive: boolean
+  /** 0 = use the dimension extracted for that axle. */
+  tracks: [number, number, number]
+  lod: 0 | 1 | 2
+  holes: 'off' | 'markers' | 'geometry'
+  show: {
+    frame: boolean
+    liner: boolean
+    crossmembers: boolean
+    axles: boolean
+    cab: boolean
+    components: boolean
+    holes: boolean
+  }
+}
+
+export const defaultParams: ChassisParams = {
+  webThickness: 8,
+  flangeThickness: 8,
+  cornerRadius: 10,
+  linerEnabled: true,
+  linerThickness: 6,
+  loadState: 'laden',
+  tireSpec: '315/80 R22.5',
+  useDrawingTires: true,
+  tireWidth: 315,
+  dualDrive: true,
+  tracks: [0, 0, 0],
+  lod: 2,
+  holes: 'geometry',
+  show: {
+    frame: true,
+    liner: true,
+    crossmembers: true,
+    axles: true,
+    cab: true,
+    components: true,
+    holes: true,
+  },
+}
