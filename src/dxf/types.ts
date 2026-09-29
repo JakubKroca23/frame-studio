@@ -86,6 +86,15 @@ export interface Txt {
   block: string
 }
 
+export interface InsertRec {
+  name: string
+  layer: string
+  x: number
+  y: number
+  sx: number
+  sy: number
+}
+
 export interface FlatDrawing {
   version: string
   units: number
@@ -95,4 +104,6 @@ export interface FlatDrawing {
   texts: Txt[]
   layers: Map<string, number>
   blockInserts: string[]
+  /** Model-space inserts, before block contents are exploded. */
+  inserts: InsertRec[]
 }

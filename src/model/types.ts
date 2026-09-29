@@ -1,5 +1,14 @@
 import type { BBox, Pt } from '../lib/geom'
 
+export interface FrameSection {
+  height: number
+  flangeWidth: number
+  webThickness: number
+  flangeThickness: number
+  outerRadius: number
+  innerRadius: number
+}
+
 export interface Dimension {
   label: string
   value: number | null
@@ -24,6 +33,7 @@ export interface Axle {
   /** Drawing y (side view) of the axle centre. */
   z: number
   tireDiameter: number
+  tireSpec?: string
   track: number | null
   dual: boolean
 }
@@ -52,6 +62,8 @@ export interface FrameModel {
   outerWidthStraight: number
   frontOuterWidth: number
   liner: { x0: number; x1: number } | null
+  /** Rolled section read from a detail view, when the drawing contains one. */
+  section: FrameSection | null
 }
 
 export interface PartModel {
@@ -73,6 +85,8 @@ export interface ChassisHeader {
   chassisType?: string
   icdNo?: string
   title?: string
+  orderNo?: string
+  cabType?: string
   totalWeight?: string
   frontWeight?: string
   rearWeight?: string
@@ -89,7 +103,7 @@ export interface ChassisModel {
   dxfVersion: string
   header: ChassisHeader
   extents: BBox
-  views: { side: BBox | null; top: BBox | null }
+  views: { side: BBox | null; top: BBox | null; front: BBox | null }
   dimensions: Dimension[]
   frame: FrameModel | null
   holes: Hole[]
@@ -124,8 +138,8 @@ export interface ChassisParams {
   tireWidth: number
   /** Dual wheels on the middle axle (6x2 drive). */
   dualDrive: boolean
-  /** 0 = use the dimension extracted for that axle. */
-  tracks: [number, number, number]
+  /** 0 = use the dimension extracted for that axle. One entry per axle. */
+  tracks: number[]
   lod: 0 | 1 | 2
   holes: 'off' | 'markers' | 'geometry'
   show: {

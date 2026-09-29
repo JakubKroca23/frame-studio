@@ -5,6 +5,9 @@ interface Bag {
   layer: string
   n: Map<number, number[]>
   s: Map<number, string[]>
+  /** LWPOLYLINE vertices, kept in file order so omitted bulges stay zero. */
+  verts?: { x: number; y: number; bulge: number }[]
+  flags?: number
 }
 
 const NUM_CODES = new Set([
@@ -75,6 +78,16 @@ export function parseDxf(text: string): DxfDb {
       poly = null
       return
     }
+    if (finished.type === 'LWPOLYLINE') {
+      const entity: DxfEntity = {
+        type: 'POLYLINE',
+        layer: finished.layer || '0',
+        verts: finished.verts ?? [],
+        closed: ((finished.flags ?? 0) & 1) === 1,
+      }
+      pushEntity(db, mode, currentBlock, entity)
+      return
+    }
     const entity = entityFromBag(finished)
     if (entity) {
       if (entity.text) db.textSamples.push(entity.text)
@@ -132,7 +145,7 @@ export function parseDxf(text: string): DxfDb {
         poly = null
         continue
       }
-      bag = { type: value, layer: '0', n: new Map(), s: new Map() }
+      bag = { type: value, layer: '0', n: new Map(), s: new Map(), verts: value === 'LWPOLYLINE' ? [] : undefined }
       continue
     }
 
@@ -148,6 +161,14 @@ export function parseDxf(text: string): DxfDb {
     if (code === 8) {
       bag.layer = value || '0'
       if (value) db.layers.add(value)
+    } else if (bag.type === 'LWPOLYLINE' && (code === 10 || code === 20 || code === 42 || code === 70)) {
+      const parsed = Number.parseFloat(value)
+      if (code === 70) bag.flags = Number.parseInt(value, 10) || 0
+      else if (Number.isFinite(parsed)) {
+        if (code === 10) bag.verts?.push({ x: parsed, y: 0, bulge: 0 })
+        else if (code === 20 && bag.verts && bag.verts.length) bag.verts[bag.verts.length - 1].y = parsed
+        else if (code === 42 && bag.verts && bag.verts.length) bag.verts[bag.verts.length - 1].bulge = parsed
+      }
     } else if (NUM_CODES.has(code)) {
       const parsed = Number.parseFloat(value)
       if (Number.isFinite(parsed)) {

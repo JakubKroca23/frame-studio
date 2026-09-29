@@ -147,8 +147,13 @@ export function disposeGroup(group: THREE.Object3D) {
 function makeLift(model: ChassisModel, params: ChassisParams): (drawingX: number) => number {
   if (params.loadState !== 'unladen') return () => 0
   const value = (label: string) => model.dimensions.find((d) => d.label === label && d.value !== null)?.value
-  const front = (value('H035') ?? 994) - (value('H036') ?? 973)
-  const rear = (value('H037') ?? 1012) - (value('H038') ?? 979)
+  const frontU = value('H035')
+  const frontL = value('H036')
+  if (frontU == null || frontL == null) return () => 0
+  const rearU = value('H037') ?? frontU
+  const rearL = value('H038') ?? frontL
+  const front = frontU - frontL
+  const rear = rearU - rearL
   const x0 = model.axles[0]?.x ?? model.frame?.left[0].x ?? 0
   const x1 = model.axles[model.axles.length - 1]?.x ?? x0 + 5000
   const span = Math.max(1, x1 - x0)
@@ -522,8 +527,8 @@ function addAxle(
   const specD = tireDiameterMm(params.tireSpec)
   const diameter = !params.useDrawingTires && specD ? specD : axle.tireDiameter
   const radius = diameter / 2
-  const track = params.tracks[index] > 0 ? params.tracks[index] : axle.track ?? 2000
-  const dual = index === 1 ? params.dualDrive : false
+  const track = (params.tracks[index] ?? 0) > 0 ? params.tracks[index] : axle.track ?? 2000
+  const dual = params.dualDrive && axle.dual
   const g = new THREE.Group()
   g.userData.drawingX = axle.x
   g.userData.role = 'axles'
@@ -538,7 +543,8 @@ function addAxle(
   beam.position.set(x, z, 0)
   g.add(beam)
 
-  const width = clamp(params.tireWidth, 180, 480)
+  const specWidth = axle.tireSpec?.match(/^(\d{3})/)
+  const width = clamp(specWidth ? Number(specWidth[1]) : params.tireWidth, 180, 480)
   const gap = 50
   const sides = [-1, 1]
   for (const side of sides) {

@@ -61,7 +61,8 @@ describe('Scania ICD sample', () => {
     expect(frame!.topZ - frame!.bottomZ).toBeCloseTo(270, 0)
     expect(frame!.left[0].x).toBeLessThan(1100)
     expect(frame!.left[frame!.left.length - 1].x).toBeGreaterThan(10000)
-    expect(model.holes.length).toBeGreaterThan(800)
+    // Identical circles (same side, centre and diameter) are collapsed.
+    expect(model.holes.length).toBeGreaterThan(700)
     const dia148 = model.holes.filter((h) => Math.abs(h.d - 14.8) < 0.2).length
     expect(dia148).toBeGreaterThan(400)
     expect(model.cab).not.toBeNull()

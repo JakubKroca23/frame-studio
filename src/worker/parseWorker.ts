@@ -11,7 +11,9 @@ export interface WorkerErr {
 
 self.onmessage = (event: MessageEvent<{ text: string }>) => {
   try {
-    const model = analyzeDxf(event.data.text)
+    const model = analyzeDxf(event.data.text, (stage) => {
+      self.postMessage({ progress: stage })
+    })
     self.postMessage({ ok: true, model } satisfies WorkerOk)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

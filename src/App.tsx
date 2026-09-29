@@ -10,14 +10,21 @@ import { useApp } from './state'
 import { DrawingPreview } from './view/DrawingPreview'
 import { Viewport } from './view/Viewport'
 
-const KEY_DIMS = [
+const KEY_DIMS: [string, string][] = [
   ['L011', 'Rozvor'],
-  ['L012.2', 'Poslední náprava'],
+  ['L015', 'Teoretický rozvor'],
+  ['L012.1', 'Rozteč náprav 1'],
+  ['L012.2', 'Rozteč náprav 2'],
+  ['L012.3', 'Rozteč náprav 3'],
   ['L016', 'Přední převis'],
+  ['L018', 'Rám před 1. nápravou'],
   ['L019', 'Zadní převis'],
   ['W036', 'Šířka rámu'],
+  ['W035', 'Šířka rámu vpředu'],
   ['W032.1', 'Pásnice'],
+  ['W032', 'Pásnice'],
   ['H032.1', 'Výška rámu'],
+  ['H032', 'Výška rámu'],
   ['H036', 'Výška předu, zatížený'],
   ['H038', 'Výška zadu, zatížený'],
   ['W013.1', 'Rozchod 1'],
@@ -26,7 +33,7 @@ const KEY_DIMS = [
   ['L022.1', 'Průměr pneu 1'],
   ['L022.2', 'Průměr pneu 2'],
   ['L022.3', 'Průměr pneu 3'],
-] as const
+]
 
 export default function App() {
   const groupRef = useRef<THREE.Group | null>(null)
@@ -34,11 +41,10 @@ export default function App() {
   const [over, setOver] = useState(false)
   const [exporting, setExporting] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
-  const { status, message, error, fileName, model, params, setParams, setShow, setTrack, loadText, loadSample } = useApp()
+  const { status, message, error, fileName, model, params, setParams, setShow, setTrack, loadFile, loadSample } = useApp()
 
   async function takeFile(file: File) {
-    const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer())
-    await loadText(file.name, text)
+    await loadFile(file)
   }
 
   function onDrop(event: DragEvent) {
@@ -85,18 +91,23 @@ export default function App() {
           onDrop={onDrop}
         >
           <div className="stack">
-            <p style={{ margin: 0, fontSize: 14 }}>Přetáhněte sem DXF, nebo ho vyberte ze souboru. Kódování Windows-1252.</p>
+            <p style={{ margin: 0, fontSize: 14 }}>
+              Přetáhněte sem DXF, nebo archiv .dxf.gz, .tgz či .zip. Texty se čtou jako Windows-1252.
+            </p>
             <div className="row">
-              <Button onClick={() => fileRef.current?.click()}>Nahrát DXF</Button>
-              <Button variant="outline" onClick={() => void loadSample()} disabled={status === 'loading'}>
-                Vzor Scania ICD
+              <Button onClick={() => fileRef.current?.click()}>Nahrát výkres</Button>
+              <Button variant="outline" onClick={() => void loadSample('scania')} disabled={status === 'loading'}>
+                Vzor Scania
+              </Button>
+              <Button variant="outline" onClick={() => void loadSample('volvo')} disabled={status === 'loading'}>
+                Vzor Volvo
               </Button>
             </div>
             <input
               ref={fileRef}
               hidden
               type="file"
-              accept=".dxf,application/dxf,.DXF"
+              accept=".dxf,.gz,.tgz,.zip,application/dxf,application/gzip,application/zip"
               onChange={(event) => {
                 const file = event.target.files?.[0]
                 if (file) void takeFile(file)
@@ -172,19 +183,19 @@ export default function App() {
           </div>
           <Toggle label="Průměr z výkresu" checked={params.useDrawingTires} onChange={(useDrawingTires) => setParams({ useDrawingTires })} />
           <NumField label="Šířka pneu" unit="mm" min={200} max={420} step={5} value={params.tireWidth} onChange={(tireWidth) => setParams({ tireWidth })} />
-          <Toggle label="Dvojmontáž prostřední nápravy" checked={params.dualDrive} onChange={(dualDrive) => setParams({ dualDrive })} />
+          <Toggle label="Dvojmontáž podle výkresu" checked={params.dualDrive} onChange={(dualDrive) => setParams({ dualDrive })} />
 
-          {(['Přední', 'Prostřední', 'Zadní'] as const).map((name, index) => (
-            <div className="field" key={name}>
-              <Label htmlFor={`track-${index}`}>Rozchod {name.toLowerCase()}</Label>
+          {trackNames(model?.axles.length ?? params.tracks.length).map((name, index) => (
+            <div className="field" key={`${name}-${index}`}>
+              <Label htmlFor={`track-${index}`}>Rozchod {name}</Label>
               <input
                 id={`track-${index}`}
                 className="text-input"
                 type="number"
                 min={0}
                 step={1}
-                value={params.tracks[index]}
-                onChange={(event) => setTrack(index as 0 | 1 | 2, Number(event.target.value))}
+                value={params.tracks[index] ?? 0}
+                onChange={(event) => setTrack(index, Number(event.target.value))}
               />
             </div>
           ))}
@@ -258,6 +269,11 @@ export default function App() {
   )
 }
 
+function trackNames(count: number): string[] {
+  if (count === 3) return ['přední', 'prostřední', 'zadní']
+  return Array.from({ length: Math.max(count, 1) }, (_, index) => `náprava ${index + 1}`)
+}
+
 function Detection({ model }: { model: ChassisModel }) {
   const byLabel = new Map(model.dimensions.map((item) => [item.label, item]))
   return (
@@ -273,10 +289,32 @@ function Detection({ model }: { model: ChassisModel }) {
             <th>Podvozek</th>
             <td>{model.header.chassisType ?? '—'}</td>
           </tr>
-          <tr>
-            <th>ICD</th>
-            <td>{model.header.icdNo ?? '—'}</td>
-          </tr>
+          {model.header.orderNo ? (
+            <tr>
+              <th>Objednávka</th>
+              <td>{model.header.orderNo}</td>
+            </tr>
+          ) : (
+            <tr>
+              <th>ICD</th>
+              <td>{model.header.icdNo ?? '—'}</td>
+            </tr>
+          )}
+          {model.header.cabType ? (
+            <tr>
+              <th>Kabina</th>
+              <td>{model.header.cabType}</td>
+            </tr>
+          ) : null}
+          {model.frame?.section ? (
+            <tr>
+              <th>Profil C</th>
+              <td>
+                {Math.round(model.frame.section.height)}×{Math.round(model.frame.section.flangeWidth)}×
+                {model.frame.section.webThickness} mm, R{model.frame.section.outerRadius}/R{model.frame.section.innerRadius}
+              </td>
+            </tr>
+          ) : null}
           <tr>
             <th>Hmotnost</th>
             <td>
@@ -295,7 +333,7 @@ function Detection({ model }: { model: ChassisModel }) {
             <th>Zpracování</th>
             <td>{Math.round(model.stats.parseMs)} ms</td>
           </tr>
-          {KEY_DIMS.map(([label, title]) => {
+          {KEY_DIMS.filter(([label]) => byLabel.has(label)).map(([label, title]) => {
             const item = byLabel.get(label)
             return (
               <tr key={label}>

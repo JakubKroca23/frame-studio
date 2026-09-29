@@ -58,6 +58,7 @@ export function DrawingPreview({ model }: { model: ChassisModel | null }) {
       }
 
       stroke('chassis', '#8d97a1', 0.7, 0.55)
+      stroke('front', '#6b5b95', 1, 0.85)
       stroke('cab', '#2f6f9f', 1, 0.8)
       stroke('component', '#8a5a2a', 1.1, 0.7)
       stroke('axle', '#b42318', 1.2, 0.9)
@@ -77,6 +78,7 @@ export function DrawingPreview({ model }: { model: ChassisModel | null }) {
       ctx.fillStyle = '#5c564e'
       if (model.views.side) label(ctx, map, model.views.side.x0 + 40, model.views.side.y1 - 40, 'Bokorys')
       if (model.views.top) label(ctx, map, model.views.top.x0 + 40, model.views.top.y1 - 30, 'Půdorys')
+      if (model.views.front) label(ctx, map, model.views.front.x0 + 40, model.views.front.y1 - 30, 'Čelní pohled')
       ctx.fillStyle = '#c24e28'
       ctx.fillText('Podélníky', 16, h - 16)
       ctx.fillStyle = '#0f6f86'
@@ -85,6 +87,8 @@ export function DrawingPreview({ model }: { model: ChassisModel | null }) {
       ctx.fillText('Nápravy', 170, h - 16)
       ctx.fillStyle = '#2f6f9f'
       ctx.fillText('Kabina', 250, h - 16)
+      ctx.fillStyle = '#6b5b95'
+      ctx.fillText('Čelo', 320, h - 16)
     }
     draw()
     const observer = new ResizeObserver(draw)
@@ -107,9 +111,10 @@ function previewBounds(model: ChassisModel): BBox {
   if (model.frame) {
     const xs = [...model.frame.left, ...model.frame.right].map((p) => p.x)
     const x0 = Math.min(...xs, model.cab?.side.x0 ?? Infinity) - 600
-    const x1 = Math.max(...xs) + 500
-    const y0 = Math.min(model.frame.centerY - 1800, model.cab?.top.y0 ?? Infinity) - 200
-    const y1 = Math.max(model.frame.topZ + 400, model.cab?.side.y1 ?? 0) + 250
+    const front = model.views.front
+    const x1 = Math.max(...xs, front?.x1 ?? 0) + 500
+    const y0 = Math.min(model.frame.centerY - 1800, model.cab?.top.y0 ?? Infinity, front?.y0 ?? Infinity) - 200
+    const y1 = Math.max(model.frame.topZ + 400, model.cab?.side.y1 ?? 0, front?.y1 ?? 0) + 250
     return { x0, y0, x1, y1 }
   }
   return model.extents

@@ -1,6 +1,6 @@
-import { flatten } from '../dxf/flatten'
+import { flatten, type HoleFrameFix } from '../dxf/flatten'
 import { parseDxf } from '../dxf/parse'
-import type { Circ, Seg, Txt } from '../dxf/types'
+import type { Circ, DxfDb, InsertRec, Seg, Txt } from '../dxf/types'
 import {
   bboxOf,
   boxHeight,
@@ -10,25 +10,29 @@ import {
   overlap1d,
   robustPoints,
   segLen,
+  tireDiameterMm,
   type BBox,
   type Pt,
 } from '../lib/geom'
 import type { Axle, CabModel, ChassisModel, Crossmember, Dimension, Hole, PartModel, Slice } from '../model/types'
+import { classifyBlock } from '../profile/classify'
 import { detectProfile } from '../profile/registry'
 import { scaniaIcdProfile } from '../profile/scania-icd'
-import type { Profile } from '../profile/types'
+import type { BlockViewName, Profile } from '../profile/types'
 import { dimensionMap, pairDimensions } from './dimensions'
 import { extractFrame } from './frame'
+import { extractSection } from './section'
 
-const PART_RE = /^(\d{7})(?:_\d+)?$/
+const DEFAULT_PART = /^(?<pn>\d{7})(?:_\d+)?$/
 
 /**
  * Pure DXF → chassis model pipeline.
  * The same function runs in a worker today and can move to a server function later;
  * the UI only consumes ChassisModel plus parameters.
  */
-export function analyzeDxf(text: string): ChassisModel {
+export function analyzeDxf(text: string, onProgress?: (stage: string) => void): ChassisModel {
   const t0 = performance.now()
+  onProgress?.('Čtu DXF…')
   const db = parseDxf(text)
   const match = detectProfile(db)
   const profile = match?.profile ?? scaniaIcdProfile
@@ -36,50 +40,91 @@ export function analyzeDxf(text: string): ChassisModel {
   if (!match) {
     warnings.push('Profil výrobce nebyl rozpoznán. Detekce zkouší pravidla Scania ICD jako výchozí.')
   }
+  if (db.units === 0) warnings.push('Výkres neuvádí jednotky. Počítá se s milimetry a kontroluje se proti kótám.')
 
   const named = (patterns: string[]) => [...db.layers].filter((l) => layerMatches(l, patterns))
+  onProgress?.('Rozkládám bloky…')
   const flat = flatten(db, {
     ignoreBlocks: profile.ignore.blocks,
+    ignoreBlockPatterns: profile.ignore.blockPatterns,
     ignoreLayers: profile.ignore.layers,
     geometryIgnoreLayers: named([...profile.views.dimensions, ...profile.views.info]),
+    holeFix: holeFixFrom(db, profile),
+    curveTolerance: profile.curveTolerance,
   })
 
   const on = (patterns: string[]) => (layer: string) => layerMatches(layer, patterns)
-  const frameTop = flat.segments.filter((s) => on(profile.views.frameTop)(s.layer))
-  const frameSide = flat.segments.filter((s) => on(profile.views.frameSide)(s.layer))
+  const classify = (name: string) => classifyBlock(name, profile.blockViews)
+  const windows = profile.blockViews ? viewWindows(flat.segments, classify) : null
+  const frameLayer = (layer: string) => on(profile.views.frameTop)(layer) || on(profile.views.frameSide)(layer)
+  const frameTop = flat.segments.filter((s) => frameLayer(s.layer) && inRole(s, 'top', windows, classify, profile))
+  const frameSide = flat.segments.filter((s) => frameLayer(s.layer) && inRole(s, 'side', windows, classify, profile))
+  const crossSegs = flat.segments.filter(
+    (s) => on(profile.views.crossmembers ?? profile.views.frameTop)(s.layer) && inRole(s, 'top', windows, classify, profile),
+  )
   const dims = pairDimensions(flat.texts, profile, on(profile.views.dimensions))
   const dmap = dimensionMap(dims)
   const sem = profile.semantics
 
-  const frame = extractFrame(frameTop, frameSide, {
+  onProgress?.('Skládám rám, nápravy a kabinu…')
+  const frame = extractFrame(frameTop.length ? frameTop : flat.segments.filter((s) => on(profile.views.frameTop)(s.layer)), frameSide.length ? frameSide : flat.segments.filter((s) => on(profile.views.frameSide)(s.layer)), {
     outerWidth: sem.frameOuterWidth ? dmap.get(sem.frameOuterWidth) : undefined,
     flange: sem.flangeWidth ? dmap.get(sem.flangeWidth) : undefined,
     height: sem.frameHeight ? dmap.get(sem.frameHeight) : undefined,
   })
-  if (!frame) warnings.push('Podélníky se nepodařilo spolehlivě najít.')
+  if (frame) frame.section = profile.sectionLayer ? extractSection(db, profile.sectionLayer) : null
+  else warnings.push('Podélníky se nepodařilo spolehlivě najít.')
 
   const splitY = frame ? (frame.topZ + frame.centerY) / 2 : estimateSplitY(flat.segments)
-  const holes = extractHoles(flat.circles, profile, frame)
-  const axles = extractAxles(flat.circles, flat.arcs, profile, dmap, frame)
+  const holes = dedupeHoles(extractHoles(flat.circles, profile, frame))
+  const axles = profile.axleInserts
+    ? axlesFromInserts(flat.inserts, flat.texts, profile, dmap)
+    : extractAxles(flat.circles, flat.arcs, profile, dmap, frame)
   if (axles.length === 0) warnings.push('Nápravy se nepodařilo najít.')
-  const crossmembers = frame ? extractCrossmembers(frameTop, frame) : []
-  const cab = extractCab(flat.segments, profile, splitY)
-  if (!cab) warnings.push('Kabina se nepodařila ohraničit.')
-  const components = extractComponents(flat.segments, profile, splitY, frame, axles, cab)
-
-  verify(dims, frame, axles)
-  const header = readHeader(flat.texts)
-  const extents = extentsOf(flat.segments, flat.texts)
-  const views = {
-    side: frame
-      ? bboxOf(frameSide.flatMap((s) => [{ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 }]).filter((p) => p.y > splitY - 200))
-      : null,
-    top: frame
-      ? bboxOf(frameTop.flatMap((s) => [{ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 }]).filter((p) => p.y < splitY))
-      : null,
+  if (frame && profile.innerLiner && axles[profile.innerLiner.axle]) {
+    const liner = linerFromText(flat.texts, profile, axles[profile.innerLiner.axle].x)
+    if (liner) frame.liner = liner
   }
+  if (profile.semantics.axleSpacings?.[0] && axles.length >= 2) {
+    const label = profile.semantics.axleSpacings[0]
+    const expected = dmap.get(label)
+    const actual = axles[1].x - axles[0].x
+    if (expected && Math.abs(expected - actual) > 30) {
+      warnings.push(`Kóta ${label} (${expected}) nesedí na vzdálenost náprav (${Math.round(actual)}). Jednotky výkresu nemusí být milimetry.`)
+    }
+  }
+  const crossmembers = frame ? extractCrossmembers(crossSegs.length ? crossSegs : frameTop, frame) : []
+  const cab = extractCab(flat.segments, profile, splitY, classify, frame?.centerY ?? null)
+  if (!cab) warnings.push('Kabina se nepodařela ohraničit.')
+  const components = extractComponents(flat.segments, profile, splitY, frame, axles, cab, classify)
 
-  const preview = buildPreview(flat.segments, flat.circles, profile, frame, axles, cab, components, splitY)
+  verify(dims, frame, axles, profile)
+  const header = readHeader(flat.texts, flat.blockInserts, profile)
+  const extents = extentsOf(flat.segments, flat.texts)
+  const rolePts = (role: BlockViewName) =>
+    flat.segments
+      .filter((s) => inRole(s, role, windows, classify, profile) && (on(profile.views.cab)(s.layer) || frameLayer(s.layer)))
+      .flatMap((s) => [
+        { x: s.x1, y: s.y1 },
+        { x: s.x2, y: s.y2 },
+      ])
+  const views = windows
+    ? {
+        side: bboxOf(rolePts('side')) ?? windows.side,
+        top: bboxOf(rolePts('top')) ?? windows.top,
+        front: windows.front,
+      }
+    : {
+        side: frame
+          ? bboxOf(frameSide.flatMap((s) => [{ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 }]).filter((p) => p.y > splitY - 200))
+          : null,
+        top: frame
+          ? bboxOf(frameTop.flatMap((s) => [{ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 }]).filter((p) => p.y < splitY))
+          : null,
+        front: null,
+      }
+
+  const preview = buildPreview(flat.segments, flat.circles, profile, frame, axles, cab, components, splitY, windows, classify)
 
   return {
     version: 1,
@@ -109,6 +154,164 @@ export function analyzeDxf(text: string): ChassisModel {
       parseMs: Math.round(performance.now() - t0),
     },
   }
+}
+
+interface ViewWindows {
+  side: BBox | null
+  top: BBox | null
+  front: BBox | null
+}
+
+function holeFixFrom(db: DxfDb, profile: Profile): HoleFrameFix | undefined {
+  const spec = profile.holeFrame
+  if (!spec) return undefined
+  const reference = db.entities.find(
+    (entity) => entity.type === 'INSERT' && entity.name && new RegExp(spec.reference).test(entity.name),
+  )
+  return {
+    layers: spec.layers,
+    name: new RegExp(spec.name),
+    scale: reference?.sx || spec.fallback.scale,
+    ox: reference?.x ?? spec.fallback.x,
+    oy: reference?.y ?? spec.fallback.y,
+  }
+}
+
+function viewWindows(segs: Seg[], classify: (name: string) => BlockViewName | null): ViewWindows {
+  const boxes: Record<BlockViewName, BBox> = {
+    side: { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity },
+    top: { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity },
+    front: { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity },
+    rear: { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity },
+  }
+  for (const s of segs) {
+    const view = classify(s.block)
+    if (!view || view === 'rear') continue
+    const box = boxes[view]
+    box.x0 = Math.min(box.x0, s.x1, s.x2)
+    box.y0 = Math.min(box.y0, s.y1, s.y2)
+    box.x1 = Math.max(box.x1, s.x1, s.x2)
+    box.y1 = Math.max(box.y1, s.y1, s.y2)
+  }
+  const ok = (box: BBox) => box.x1 > box.x0 && box.y1 > box.y0
+  return {
+    side: ok(boxes.side) ? boxes.side : null,
+    top: ok(boxes.top) ? boxes.top : null,
+    front: ok(boxes.front) ? boxes.front : null,
+  }
+}
+
+function inRole(
+  seg: Seg,
+  role: BlockViewName,
+  windows: ViewWindows | null,
+  classify: (name: string) => BlockViewName | null,
+  profile: Profile,
+): boolean {
+  if (!windows) {
+    if (role === 'front' || role === 'rear') return false
+    return role === 'side' ? layerMatches(seg.layer, profile.views.frameSide) || layerMatches(seg.layer, profile.views.side) : layerMatches(seg.layer, profile.views.frameTop) || layerMatches(seg.layer, profile.views.top)
+  }
+  const fromBlock = classify(seg.block)
+  if (fromBlock) return fromBlock === role
+  const box = windows[role === 'rear' ? 'side' : role]
+  if (!box || role === 'rear') return false
+  const x = (seg.x1 + seg.x2) / 2
+  const y = (seg.y1 + seg.y2) / 2
+  const pad = 500
+  if (x < box.x0 - pad || x > box.x1 + pad || y < box.y0 - pad || y > box.y1 + pad) return false
+  let best: BlockViewName | null = null
+  let bestD = Infinity
+  for (const key of ['side', 'top', 'front'] as const) {
+    const candidate = windows[key]
+    if (!candidate) continue
+    if (x < candidate.x0 - pad || x > candidate.x1 + pad || y < candidate.y0 - pad || y > candidate.y1 + pad) continue
+    const cx = (candidate.x0 + candidate.x1) / 2
+    const cy = (candidate.y0 + candidate.y1) / 2
+    const d = (x - cx) ** 2 + (y - cy) ** 2
+    if (d < bestD) {
+      bestD = d
+      best = key
+    }
+  }
+  return best === role
+}
+
+function dedupeHoles(holes: Hole[]): Hole[] {
+  const seen = new Set<string>()
+  const out: Hole[] = []
+  for (const hole of holes) {
+    const key = `${hole.side}:${hole.x.toFixed(2)}:${hole.z.toFixed(2)}:${hole.d.toFixed(2)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(hole)
+  }
+  return out
+}
+
+function axlesFromInserts(inserts: InsertRec[], texts: Txt[], profile: Profile, dmap: Map<string, number>): Axle[] {
+  const spec = profile.axleInserts
+  if (!spec) return []
+  const nameRe = new RegExp(spec.name)
+  const hits = inserts.filter((insert) => nameRe.test(insert.name))
+  const clusters: { x: number; y: number; n: number; rear: number }[] = []
+  for (const hit of hits) {
+    const found = clusters.find((cluster) => Math.abs(cluster.x - hit.x) < 120)
+    const rear = layerMatches(hit.layer, spec.rearLayers) ? 1 : 0
+    if (found) {
+      found.x = (found.x * found.n + hit.x) / (found.n + 1)
+      found.y = (found.y * found.n + hit.y) / (found.n + 1)
+      found.rear += rear
+      found.n++
+    } else clusters.push({ x: hit.x, y: hit.y, n: 1, rear })
+  }
+  clusters.sort((a, b) => a.x - b.x)
+  const tireRe = profile.tireText ? new RegExp(profile.tireText) : null
+  const tireTexts = tireRe
+    ? texts.filter((text) => tireRe.test(text.text.replace(/\s+/g, '')))
+    : []
+  return clusters.map((cluster, index) => {
+    let tireSpec: string | undefined
+    let best = Infinity
+    for (const text of tireTexts) {
+      const d = Math.hypot(text.x - cluster.x, text.y - cluster.y)
+      if (d < best) {
+        best = d
+        tireSpec = text.text.replace(/\s+/g, '')
+      }
+    }
+    const fromSpec = tireSpec ? tireDiameterMm(tireSpec) : null
+    const label = profile.semantics.tireDiameters?.[index]
+    const trackLabel = profile.semantics.tracks?.[index]
+    return {
+      index,
+      x: Math.round(cluster.x),
+      z: Math.round(cluster.y),
+      tireDiameter: Math.round(fromSpec ?? (label ? dmap.get(label) : undefined) ?? 1076),
+      tireSpec,
+      track: trackLabel ? (dmap.get(trackLabel) ?? null) : null,
+      dual: cluster.rear > 0,
+    }
+  })
+}
+
+function linerFromText(texts: Txt[], profile: Profile, originX: number): { x0: number; x1: number } | null {
+  const spec = profile.innerLiner
+  if (!spec) return null
+  const read = (pattern: string) => {
+    const re = new RegExp(pattern, 'i')
+    for (const text of texts) {
+      const match = text.text.match(re)
+      if (match) return Number(match[1])
+    }
+    return null
+  }
+  const start = read(spec.start)
+  const stop = read(spec.stop)
+  if (start === null || stop === null) return null
+  const x0 = originX + spec.startSign * start
+  const x1 = originX + spec.stopSign * stop
+  return { x0: Math.min(x0, x1), x1: Math.max(x0, x1) }
 }
 
 function extractHoles(circles: Circ[], profile: Profile, frame: ChassisModel['frame']): Hole[] {
@@ -212,19 +415,33 @@ function extractCrossmembers(top: Seg[], frame: NonNullable<ChassisModel['frame'
   })
 }
 
-function extractCab(segs: Seg[], profile: Profile, splitY: number): CabModel | null {
+function extractCab(
+  segs: Seg[],
+  profile: Profile,
+  splitY: number,
+  classify: (name: string) => BlockViewName | null,
+  centerY: number | null,
+): CabModel | null {
   const cabSegs = segs.filter((s) => layerMatches(s.layer, profile.views.cab))
-  const sidePts = mainCluster(
-    robustPoints(pointsOf(cabSegs, (y) => y > splitY + 80)),
-    90,
-  )
+  const sidePts = mainCluster(robustPoints(pointsOf(cabSegs, (y, layer, block) => pointRole(block, layer, y, profile, splitY, classify) === 'side')), 90)
   const side = bboxOf(sidePts)
   if (!side || boxWidth(side) < 400 || boxHeight(side) < 600) return null
   const topPts = robustPoints(
-    pointsOf(cabSegs, (y) => y < splitY - 80).filter((p) => p.x > side.x0 - 400 && p.x < side.x1 + 400),
+    pointsOf(cabSegs, (y, layer, block) => pointRole(block, layer, y, profile, splitY, classify) === 'top').filter(
+      (p) => p.x > side.x0 - 400 && p.x < side.x1 + 800,
+    ),
   )
-  const top = bboxOf(topPts)
+  let top = bboxOf(topPts)
   if (!top || boxWidth(top) < 300) return null
+  const frontPts = pointsOf(cabSegs, (y, layer, block) => pointRole(block, layer, y, profile, splitY, classify) === 'front')
+  const front = bboxOf(robustPoints(frontPts))
+  if (front && centerY !== null) {
+    const width = boxWidth(front)
+    const lateral = boxHeight(top)
+    if (width > 1400 && width < 3200 && (lateral > width * 1.35 || lateral < width * 0.65)) {
+      top = { ...top, y0: centerY - width / 2, y1: centerY + width / 2 }
+    }
+  }
   const samples = makeSlices(sidePts, topPts, side, top, 22)
   return { side, top, samples }
 }
@@ -236,10 +453,19 @@ function extractComponents(
   frame: ChassisModel['frame'],
   axles: Axle[],
   cab: CabModel | null,
+  classify: (name: string) => BlockViewName | null,
 ): PartModel[] {
+  const partRe = new RegExp(profile.componentPattern ?? DEFAULT_PART.source)
+  const skip = (profile.componentSkip ?? []).map((pattern) => new RegExp(pattern))
+  const stemOf = (name: string) => {
+    if (skip.some((re) => re.test(name))) return null
+    const match = name.match(partRe)
+    if (!match?.groups?.pn) return null
+    return match.groups.cat ? `${match.groups.cat}_${match.groups.pn}` : match.groups.pn
+  }
   const byBlock = new Map<string, Seg[]>()
   for (const s of segs) {
-    if (!s.block || !PART_RE.test(s.block)) continue
+    if (!s.block || !stemOf(s.block)) continue
     let list = byBlock.get(s.block)
     if (!list) {
       list = []
@@ -249,7 +475,7 @@ function extractComponents(
   }
   const groups = new Map<string, string[]>()
   for (const name of byBlock.keys()) {
-    const stem = name.match(PART_RE)?.[1]
+    const stem = stemOf(name)
     if (!stem) continue
     let g = groups.get(stem)
     if (!g) {
@@ -266,8 +492,8 @@ function extractComponents(
     const both: { side: BBox; top: BBox; sidePts: Pt[]; topPts: Pt[] }[] = []
     for (const name of names) {
       const list = byBlock.get(name) ?? []
-      const sidePts = robustPoints(pointsOf(list, (y, layer) => isSidePoint(layer, y, profile, splitY)))
-      const topPts = robustPoints(pointsOf(list, (y, layer) => isTopPoint(layer, y, profile, splitY)))
+      const sidePts = robustPoints(pointsOf(list, (y, layer, block) => pointRole(block, layer, y, profile, splitY, classify) === 'side'))
+      const topPts = robustPoints(pointsOf(list, (y, layer, block) => pointRole(block, layer, y, profile, splitY, classify) === 'top'))
       const sb = bboxOf(sidePts)
       const tb = bboxOf(topPts)
       if (sb && tb) both.push({ side: sb, top: tb, sidePts, topPts })
@@ -306,7 +532,7 @@ function extractComponents(
     }
   }
   parts.sort((a, b) => partVolume(b) - partVolume(a))
-  return parts.slice(0, 48)
+  return parts.slice(0, 64)
 }
 
 function keepPart(side: BBox, top: BBox, _frame: ChassisModel['frame'], axles: Axle[], cab: CabModel | null): boolean {
@@ -337,24 +563,33 @@ function partVolume(p: PartModel): number {
   return x * boxHeight(p.side) * boxHeight(p.top)
 }
 
-function isSidePoint(layer: string, y: number, profile: Profile, splitY: number): boolean {
-  if (layerMatches(layer, profile.views.cab)) return y >= splitY
-  if (layerMatches(layer, profile.views.holesLeft) || layerMatches(layer, profile.views.holesRight)) return false
-  return layerMatches(layer, profile.views.side)
+function pointRole(
+  block: string,
+  layer: string,
+  y: number,
+  profile: Profile,
+  splitY: number,
+  classify: (name: string) => BlockViewName | null,
+): BlockViewName | null {
+  const fromBlock = classify(block)
+  if (fromBlock) return fromBlock
+  if (layerMatches(layer, profile.views.holesLeft) || layerMatches(layer, profile.views.holesRight)) return null
+  if (layerMatches(layer, profile.views.cab)) return y >= splitY ? 'side' : 'top'
+  const side = layerMatches(layer, profile.views.side)
+  const top = layerMatches(layer, profile.views.top)
+  if (side && !top) return 'side'
+  if (top && !side) return 'top'
+  if (side && top) return y >= splitY ? 'side' : 'top'
+  return null
 }
 
-function isTopPoint(layer: string, y: number, profile: Profile, splitY: number): boolean {
-  if (layerMatches(layer, profile.views.cab)) return y < splitY
-  return layerMatches(layer, profile.views.top)
-}
-
-function pointsOf(segs: Seg[], pred: (y: number, layer: string) => boolean): Pt[] {
+function pointsOf(segs: Seg[], pred: (y: number, layer: string, block: string) => boolean): Pt[] {
   const pts: Pt[] = []
   for (const s of segs) {
     const len = segLen(s.x1, s.y1, s.x2, s.y2)
     if (len > 2400 || len < 0.4) continue
     const my = (s.y1 + s.y2) / 2
-    if (!pred(my, s.layer)) continue
+    if (!pred(my, s.layer, s.block)) continue
     pts.push({ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 })
   }
   return pts
@@ -459,37 +694,58 @@ function mainCluster(pts: Pt[], cell: number): Pt[] {
   return out.length ? out : pts
 }
 
-function verify(dims: Dimension[], frame: ChassisModel['frame'], axles: Axle[]) {
+function verify(dims: Dimension[], frame: ChassisModel['frame'], axles: Axle[], profile: Profile) {
   const by = new Map<string, Dimension>()
   for (const d of dims) if (!by.has(d.label)) by.set(d.label, d)
-  const mark = (label: string, expected: number, method: string) => {
+  const mark = (label: string | undefined, expected: number, method: string) => {
+    if (!label) return
     const d = by.get(label)
     if (!d || d.value === null) return
     const delta = d.value - expected
     d.verified = { method, expected, delta, ok: Math.abs(delta) <= 5 }
     if (d.verified.ok) d.confidence = Math.max(d.confidence, 0.98)
   }
-  if (axles.length >= 2) mark('L011', axles[1].x - axles[0].x, 'vzdálenost 1. a 2. nápravy')
-  if (axles.length >= 3) mark('L012.2', axles[2].x - axles[1].x, 'vzdálenost 2. a 3. nápravy')
+  const sem = profile.semantics
+  const [from, to] = sem.wheelbaseAxles ?? [0, 1]
+  if (axles[from] && axles[to]) mark(sem.wheelbase, axles[to].x - axles[from].x, 'rozvor mezi nápravami z výkresu')
+  sem.axleSpacings?.forEach((label, index) => {
+    if (axles[index] && axles[index + 1]) mark(label, axles[index + 1].x - axles[index].x, 'rozteč sousedních náprav')
+  })
+  if (sem.theoreticalWheelbase && axles.length >= 4) {
+    const front = (axles[0].x + axles[1].x) / 2
+    const rear = (axles[2].x + axles[3].x) / 2
+    mark(sem.theoreticalWheelbase, rear - front, 'střed předního páru ke středu zadního páru')
+  }
   if (frame) {
-    mark('W036', frame.outerWidthStraight, 'vnější šířka podélníků')
-    mark('H032.1', frame.topZ - frame.bottomZ, 'výška podélníku v bokorysu')
-    mark('W032.1', frame.flangeWidth, 'šířka pásnice')
+    mark(sem.frameOuterWidth, frame.outerWidthStraight, 'vnější šířka podélníků')
+    mark(sem.frameOuterWidthFront, frame.frontOuterWidth, 'šířka rámu na předním konci')
+    mark(sem.frameHeight, frame.topZ - frame.bottomZ, 'výška podélníku v bokorysu')
+    mark(sem.flangeWidth, frame.flangeWidth, 'šířka pásnice')
     const rearX = Math.max(frame.left[frame.left.length - 1].x, frame.right[frame.right.length - 1].x)
-    if (axles.length) mark('L019', rearX - axles[axles.length - 1].x, 'konec rámu mínus poslední náprava')
+    const frontX = Math.min(frame.left[0].x, frame.right[0].x)
+    if (axles.length) {
+      mark(sem.rearOverhang, rearX - axles[axles.length - 1].x, 'konec rámu mínus poslední náprava')
+      mark(sem.frameFrontOverhang, axles[0].x - frontX, 'první náprava mínus začátek rámu')
+    }
   }
 }
 
-function readHeader(texts: Txt[]): ChassisModel['header'] {
+function readHeader(texts: Txt[], inserts: string[], profile: Profile): ChassisModel['header'] {
   const header: ChassisModel['header'] = {}
   const weights: { y: number; text: string }[] = []
   for (const t of texts) {
     const raw = t.text.trim()
     if (!header.title && /SCANIA ICD/i.test(raw)) header.title = raw
+    if (!header.title && /Volvo Order Information/i.test(raw)) header.title = 'Volvo Order Information'
     if (!header.chassisType && /^G\s+\d/i.test(raw)) header.chassisType = raw
     if (!header.icdNo && /^\d{13}$/.test(raw)) header.icdNo = raw
+    const order = raw.match(/FO Number \/ OM Number:\s*(\S+)/i)
+    if (order) header.orderNo = order[1]
     if (/^\d+\s*kg$/i.test(raw)) weights.push({ y: t.y, text: raw })
   }
+  const cab = inserts.map((name) => name.match(/^B_CAB[STF]C\d+_C\d+_(?:TYPE_)?([A-Z]{2})_/)).find(Boolean)
+  if (cab) header.cabType = cab[1]
+  if (profile.manufacturer === 'Volvo' && header.cabType && !header.chassisType) header.chassisType = `Volvo ${header.cabType}`
   weights.sort((a, b) => b.y - a.y)
   if (weights[0]) header.totalWeight = weights[0].text
   if (weights[1]) header.frontWeight = weights[1].text
@@ -535,6 +791,8 @@ function buildPreview(
   cab: CabModel | null,
   components: PartModel[],
   splitY: number,
+  windows: ViewWindows | null,
+  classify: (name: string) => BlockViewName | null,
 ): ChassisModel['preview'] {
   const segments: Record<string, number[]> = {
     chassis: [],
@@ -542,6 +800,7 @@ function buildPreview(
     frame: [],
     axle: [],
     component: [],
+    front: [],
   }
   const circs: Record<string, number[]> = { holes: [] }
   const push = (role: string, s: Seg) => {
@@ -549,16 +808,26 @@ function buildPreview(
     arr.push(s.x1, s.y1, s.x2, s.y2)
   }
   for (const s of segs) {
+    const role = pointRole(s.block, s.layer, (s.y1 + s.y2) / 2, profile, splitY, classify)
+    if (windows && !classify(s.block) && !inRole(s, 'side', windows, classify, profile) && !inRole(s, 'top', windows, classify, profile) && !inRole(s, 'front', windows, classify, profile)) {
+      continue
+    }
+    if (windows && role === 'front') {
+      if (layerMatches(s.layer, profile.views.cab)) push('front', s)
+      continue
+    }
     if (layerMatches(s.layer, profile.views.cab)) push('cab', s)
-    else if (layerMatches(s.layer, profile.views.frameTop) || layerMatches(s.layer, profile.views.frameSide))
-      push('chassis', s)
+    else if (layerMatches(s.layer, profile.views.frameTop) || layerMatches(s.layer, profile.views.frameSide)) push('chassis', s)
   }
   if (frame) {
     pushPoly(segments.frame, frame.left)
     pushPoly(segments.frame, frame.right)
   }
   for (const axle of axles) {
-    segments.axle.push(axle.x, splitY - 1600, axle.x, splitY + 2200)
+    if (frame) {
+      segments.axle.push(axle.x, frame.bottomZ - 900, axle.x, frame.topZ + 250)
+      segments.axle.push(axle.x, frame.centerY - 1500, axle.x, frame.centerY + 1500)
+    } else segments.axle.push(axle.x, splitY - 1600, axle.x, splitY + 2200)
   }
   if (cab) pushRect(segments.component, cab.side)
   for (const part of components) {

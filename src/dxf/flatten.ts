@@ -1,14 +1,31 @@
+import { layerMatches } from '../lib/geom'
 import { tessellateArc, tessellateBulge, tessellateCircle, tessellateEllipse, tessellateSpline } from './tessellate'
 import type { ArcRec, Circ, DxfDb, DxfEntity, FlatDrawing, Txt } from './types'
 
 const TOL = 0.5
 const CORE_IGNORE_BLOCKS = new Set(['PREL', 'PRELIM', 'PRELIMINARY'])
 
+export interface HoleFrameFix {
+  /** Layer globs of the 1:10 hole inserts. */
+  layers: string[]
+  /** Insert names that live in that local frame. */
+  name: RegExp
+  /** World = insert * scale + offset. Taken from a reference insert such as the cab. */
+  scale: number
+  ox: number
+  oy: number
+}
+
 export interface FlattenOptions {
   ignoreBlocks?: string[]
+  /** Regular expressions matched against block names. */
+  ignoreBlockPatterns?: string[]
   ignoreLayers?: string[]
   /** Skip curve/line geometry on these layers (texts are kept). */
   geometryIgnoreLayers?: string[]
+  holeFix?: HoleFrameFix
+  /** World-millimetre chord tolerance. Insert scale is divided out. */
+  curveTolerance?: number
 }
 
 /**
@@ -17,8 +34,12 @@ export interface FlattenOptions {
  */
 export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
   const ignoreBlocks = new Set([...CORE_IGNORE_BLOCKS, ...(options.ignoreBlocks ?? [])])
+  const ignoreBlockRes = (options.ignoreBlockPatterns ?? []).map((pattern) => new RegExp(pattern))
+  const ignoredName = (name: string) => ignoreBlocks.has(name) || ignoreBlockRes.some((re) => re.test(name))
   const ignoreLayers = new Set(options.ignoreLayers ?? [])
   const geometryIgnore = new Set(options.geometryIgnoreLayers ?? [])
+  const holeFix = options.holeFix
+  const worldTol = options.curveTolerance ?? TOL
   const flat: FlatDrawing = {
     version: db.version,
     units: db.units,
@@ -28,6 +49,7 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
     texts: [],
     layers: new Map(),
     blockInserts: [],
+    inserts: [],
   }
   const stack = new Set<string>()
 
@@ -48,7 +70,10 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
     parentLayer: string,
     rootBlock: string,
     depth: number,
+    scale: number,
+    rotDeg: number,
   ) => {
+    const localTol = worldTol / Math.max(scale, 1e-6)
     const layer = !entity.layer || entity.layer === '0' ? parentLayer : entity.layer
     if (entity.type !== 'INSERT' && entity.type !== 'TEXT' && geometryIgnore.has(layer)) return
     switch (entity.type) {
@@ -59,33 +84,27 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
         break
       }
       case 'CIRCLE': {
-        const r = entity.r ?? 0
+        const r = (entity.r ?? 0) * scale
         if (!(r > 0)) break
         const [x, y] = xf(entity.x ?? 0, entity.y ?? 0)
         if (ignoreLayers.has(layer)) break
         const circ: Circ = { layer, x, y, r, block: rootBlock }
         flat.circles.push(circ)
         flat.layers.set(layer, (flat.layers.get(layer) ?? 0) + 1)
-        if (r >= 15 && r < 2500) emitPoly(layer, tessellateCircle(x, y, r, TOL), rootBlock)
+        if (r >= 15 && r < 2500) emitPoly(layer, tessellateCircle(x, y, r, worldTol), rootBlock)
         break
       }
       case 'ARC': {
-        const r = entity.r ?? 0
+        const r = (entity.r ?? 0) * scale
         if (!(r > 0)) break
         const [cx, cy] = xf(entity.x ?? 0, entity.y ?? 0)
+        const a0 = (entity.a0 ?? 0) + rotDeg
+        const a1 = (entity.a1 ?? 0) + rotDeg
         if (!ignoreLayers.has(layer)) {
-          const arc: ArcRec = {
-            layer,
-            cx,
-            cy,
-            r,
-            a0: entity.a0 ?? 0,
-            a1: entity.a1 ?? 0,
-            block: rootBlock,
-          }
+          const arc: ArcRec = { layer, cx, cy, r, a0, a1, block: rootBlock }
           flat.arcs.push(arc)
         }
-        emitPoly(layer, tessellateArc(cx, cy, r, entity.a0 ?? 0, entity.a1 ?? 0, TOL), rootBlock)
+        emitPoly(layer, tessellateArc(cx, cy, r, a0, a1, worldTol), rootBlock)
         break
       }
       case 'POLYLINE': {
@@ -97,7 +116,7 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
           const b = verts[(i + 1) % verts.length]
           const [x1, y1] = xf(a.x, a.y)
           const [x2, y2] = xf(b.x, b.y)
-          emitPoly(layer, tessellateBulge(x1, y1, x2, y2, a.bulge || 0, TOL), rootBlock)
+          emitPoly(layer, tessellateBulge(x1, y1, x2, y2, a.bulge || 0, worldTol), rootBlock)
         }
         break
       }
@@ -113,7 +132,7 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
           entity.ratio ?? 1,
           entity.a0 ?? 0,
           entity.a1 ?? Math.PI * 2,
-          TOL,
+          localTol,
         )
         emitPoly(layer, pts, rootBlock)
         break
@@ -126,7 +145,7 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
             controls: (entity.controls ?? []).map((c) => ({ x: c.x, y: c.y, w: c.w ?? 1 })),
             fits: entity.fits ?? [],
           },
-          TOL,
+          localTol,
         )
         const world = local.map((p) => {
           const [x, y] = xf(p.x, p.y)
@@ -152,22 +171,27 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
       case 'INSERT': {
         if (depth > 6) break
         const name = entity.name || ''
-        if (!name || ignoreBlocks.has(name) || stack.has(name)) break
+        if (!name || ignoredName(name) || stack.has(name)) break
         const block = db.blocks.get(name)
         if (!block) break
+        let sx = entity.sx ?? 1
+        let sy = entity.sy ?? 1
+        let ox = entity.x ?? 0
+        let oy = entity.y ?? 0
+        let rot = entity.rotation ?? 0
+        if (depth === 0 && holeFix && layerMatches(layer, holeFix.layers) && holeFix.name.test(name)) {
+          sx = holeFix.scale
+          sy = holeFix.scale
+          ox = (entity.x ?? 0) * holeFix.scale + holeFix.ox
+          oy = (entity.y ?? 0) * holeFix.scale + holeFix.oy
+          rot = 0
+        }
         stack.add(name)
-        const child = makeTransform(
-          entity.x ?? 0,
-          entity.y ?? 0,
-          entity.rotation ?? 0,
-          entity.sx ?? 1,
-          entity.sy ?? 1,
-          block.baseX,
-          block.baseY,
-          xf,
-        )
+        const child = makeTransform(ox, oy, rot, sx, sy, block.baseX, block.baseY, xf)
         const childRoot = rootBlock || name
-        for (const ent of block.entities) visit(ent, child, layer, childRoot, depth + 1)
+        const childScale = scale * Math.abs(sx)
+        const childRot = rotDeg + rot
+        for (const ent of block.entities) visit(ent, child, layer, childRoot, depth + 1, childScale, childRot)
         stack.delete(name)
         break
       }
@@ -179,9 +203,19 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
   for (const entity of db.entities) {
     if (entity.type === 'INSERT') {
       const name = entity.name || ''
-      if (name && !ignoreBlocks.has(name)) flat.blockInserts.push(name)
+      if (name && !ignoredName(name)) {
+        flat.blockInserts.push(name)
+        flat.inserts.push({
+          name,
+          layer: entity.layer || '0',
+          x: entity.x ?? 0,
+          y: entity.y ?? 0,
+          sx: entity.sx ?? 1,
+          sy: entity.sy ?? 1,
+        })
+      }
     }
-    visit(entity, (x, y) => [x, y], entity.layer || '0', '', 0)
+    visit(entity, (x, y) => [x, y], entity.layer || '0', '', 0, 1, 0)
   }
   return flat
 }

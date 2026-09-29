@@ -49,6 +49,7 @@ export function extractFrame(
     outerWidthStraight,
     frontOuterWidth,
     liner,
+    section: null,
   }
 }
 
