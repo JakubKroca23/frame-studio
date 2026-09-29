@@ -154,6 +154,7 @@ export interface ChassisParams {
     holes: boolean
     drivetrain: boolean
     equipment: boolean
+    suspension: boolean
   }
 }
 
@@ -180,7 +181,8 @@ export const defaultParams: ChassisParams = {
     cab: true,
     components: true,
     holes: true,
-    drivetrain: true,
+    drivetrain: false,
     equipment: true,
+    suspension: false,
   },
 }

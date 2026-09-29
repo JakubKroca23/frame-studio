@@ -2,15 +2,18 @@ import * as THREE from 'three'
 import { clamp } from '../lib/geom'
 import type { Axle, CabModel, ChassisModel, ChassisParams, FrameModel, PartModel } from '../model/types'
 import {
+  adblue,
   alloy,
   battery,
   cabPaint,
+  cabRoof,
   cabTrim,
   castIron,
   exhaust,
   gasket,
   glass,
   lamp,
+  lampRed,
   paint,
   paintDark,
   plastic,
@@ -18,6 +21,7 @@ import {
   steel,
   tank,
   tankStrap,
+  toolbox,
 } from './materials'
 
 export interface World {
@@ -169,12 +173,12 @@ export function addAxleAssembly(parent: THREE.Group, axle: Axle, index: number, 
     const center = side * (track / 2)
     const offsets = dual ? [-width / 2 - gap / 2, width / 2 + gap / 2] : [0]
     for (const extra of offsets) {
-      parent.add(makeWheel(radius, width, x, z, center + extra))
+      parent.add(makeWheel(radius, width, x, z, center + extra, side))
     }
     const drumZ = dual ? center - side * (width + gap / 2 + 70) : center - side * (width / 2 + 70)
     parent.add(tube(radius * 0.36, 150, 'z', castIron, [x, z, drumZ], 16))
     parent.add(tube(42, 70, 'x', plastic, [x + 30, z, side * (track / 2 - (dual ? width + 80 : width / 2 + 40))], 10))
-    addSuspension(parent, world, x, z, zFrame, side, kind, axle.x)
+    if (params.show.suspension) addSuspension(parent, world, x, z, zFrame, side, kind, axle.x)
   }
 
   if (!axle.dual) addSteering(parent, world, x, z, track, index === 0)
@@ -261,35 +265,50 @@ function addSteering(parent: THREE.Group, world: World, x: number, z: number, tr
 function addMudguards(parent: THREE.Group, x: number, z: number, radius: number, width: number, track: number, dual: boolean) {
   for (const side of [-1, 1] as const) {
     const center = side * (track / 2)
-    const guardW = dual ? width * 2 + 70 : width + 50
-    const geo = new THREE.CylinderGeometry(radius + 70, radius + 70, guardW, 18, 1, true, Math.PI / 2, Math.PI)
-    const mesh = new THREE.Mesh(geo, plastic)
-    mesh.rotation.x = Math.PI / 2
+    const guardW = dual ? width * 2 + 90 : width + 80
+    const mesh = new THREE.Mesh(mudguardGeo(radius), plastic)
+    mesh.scale.set(1, 1, guardW)
     mesh.position.set(x, z, center)
-    mesh.material = plastic
     parent.add(mesh)
-    parent.add(tube(14, 220, 'y', paintDark, [x - radius * 0.2, z + radius * 0.72, center - side * (guardW / 2 + 10)], 6))
+    parent.add(tube(16, 200, 'y', paintDark, [x - radius * 0.55, z + radius * 0.72, center - side * (guardW / 2 + 10)], 10))
+    parent.add(tube(16, 200, 'y', paintDark, [x + radius * 0.42, z + radius * 0.78, center - side * (guardW / 2 + 10)], 10))
+    const flapTop = z + radius * 0.08
+    const flapBottom = 48
+    if (flapTop > flapBottom + 60) {
+      parent.add(solid([16, flapTop - flapBottom, guardW * 0.82], plastic, [x + radius + 36, (flapTop + flapBottom) / 2, center]))
+    }
   }
 }
 
-function makeWheel(radius: number, width: number, x: number, y: number, z: number) {
+const studGeo = new THREE.CylinderGeometry(11, 11, 28, 16)
+studGeo.userData.shared = true
+
+function makeWheel(radius: number, width: number, x: number, y: number, z: number, outward: number) {
   const g = new THREE.Group()
   g.name = 'wheel'
   const tire = new THREE.Mesh(tireGeo(radius, width), rubber)
   tire.rotation.x = Math.PI / 2
-  const barrel = tube(radius * 0.66, width * 0.7, 'z', alloy, [0, 0, 0], 20)
-  const disc = tube(radius * 0.46, width * 0.16, 'z', alloy, [0, 0, width * 0.22], 16)
-  const hub = tube(radius * 0.16, width * 0.42, 'z', steel, [0, 0, width * 0.16], 12)
-  const cap = tube(radius * 0.1, width * 0.12, 'z', alloy, [0, 0, width * 0.32], 10)
-  g.add(tire, barrel, disc, hub, cap)
-  const pcd = radius * 0.3
+  const barrel = new THREE.Mesh(rimBarrel(radius, width), alloy)
+  barrel.rotation.x = Math.PI / 2
+  const disc = new THREE.Mesh(rimDisc(radius), alloy)
+  const back = new THREE.Mesh(backplate(radius), plastic)
+  const cap = new THREE.Mesh(hubCap(radius), alloy)
+  const face = outward * width * 0.5
+  disc.position.z = face
+  back.position.z = outward * width * 0.45
+  if (outward < 0) back.rotation.y = Math.PI
+  cap.rotation.x = outward > 0 ? Math.PI / 2 : -Math.PI / 2
+  cap.position.z = outward * width * 0.58
+  if (outward < 0) disc.rotation.y = Math.PI
+  g.add(tire, barrel, back, disc, cap)
+  const pcd = radius * 0.22
   for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2
-    const bolt = new THREE.Mesh(boltGeo, steel)
-    bolt.rotation.x = Math.PI / 2
-    bolt.position.set(Math.cos(a) * pcd, Math.sin(a) * pcd, width * 0.3)
-    bolt.userData.noShadow = true
-    g.add(bolt)
+    const a = (i / 10) * Math.PI * 2 + 0.15
+    const stud = new THREE.Mesh(studGeo, steel)
+    stud.rotation.x = Math.PI / 2
+    stud.position.set(Math.cos(a) * pcd, Math.sin(a) * pcd, outward * width * 0.56)
+    stud.userData.noShadow = true
+    g.add(stud)
   }
   g.position.set(x, y, z)
   return g
@@ -300,23 +319,133 @@ function tireGeo(radius: number, width: number) {
   const key = `${Math.round(radius)}:${Math.round(width)}`
   const hit = tireCache.get(key)
   if (hit) return hit
-  const pts: THREE.Vector2[] = []
-  const n = 18
-  for (let i = 0; i <= n; i++) {
-    const t = i / n
-    const side = Math.sin(t * Math.PI)
-    let r = radius - 18 + side * 16
-    if (t > 0.2 && t < 0.8) {
-      const band = Math.sin((t - 0.2) * Math.PI * 9)
-      r += band > 0.35 ? 0 : -12
-      r = Math.min(r, radius)
-    }
-    r = Math.min(r, radius)
-    pts.push(new THREE.Vector2(Math.max(8, r), (t - 0.5) * width))
-  }
-  const geo = new THREE.LatheGeometry(pts, 28)
+  const half = width / 2
+  const bead = radius * 0.64
+  const v = (r: number, y: number) => new THREE.Vector2(r, y)
+  const pts = [
+    v(bead, -half * 0.5),
+    v(bead + 16, -half * 0.62),
+    v(radius * 0.78, -half * 0.86),
+    v(radius * 0.9, -half * 0.68),
+    v(radius * 0.975, -half * 0.46),
+    v(radius, -half * 0.3),
+    v(radius - 6, -half * 0.18),
+    v(radius, -half * 0.08),
+    v(radius - 6, half * 0.04),
+    v(radius, half * 0.16),
+    v(radius - 6, half * 0.28),
+    v(radius, half * 0.36),
+    v(radius * 0.975, half * 0.5),
+    v(radius * 0.9, half * 0.68),
+    v(radius * 0.78, half * 0.86),
+    v(bead + 16, half * 0.62),
+    v(bead, half * 0.5),
+    v(bead - 8, half * 0.22),
+    v(bead - 14, 0),
+    v(bead - 8, -half * 0.22),
+    v(bead, -half * 0.5),
+  ]
+  const geo = new THREE.LatheGeometry(pts, 80)
+  geo.computeVertexNormals()
   geo.userData.shared = true
   tireCache.set(key, geo)
+  return geo
+}
+
+const rimCache = new Map<string, THREE.LatheGeometry>()
+function rimBarrel(radius: number, width: number) {
+  const key = `${Math.round(radius)}:${Math.round(width)}`
+  const hit = rimCache.get(key)
+  if (hit) return hit
+  const flange = radius * 0.66
+  const seat = radius * 0.58
+  const well = radius * 0.47
+  const half = width * 0.22
+  const v = (r: number, y: number) => new THREE.Vector2(r, y)
+  const pts = [
+    v(flange, -half),
+    v(seat, -half * 0.72),
+    v(well, -half * 0.28),
+    v(well, half * 0.2),
+    v(seat, half * 0.68),
+    v(flange, half),
+    v(flange * 0.9, half * 0.86),
+    v(well * 0.94, half * 0.15),
+    v(well * 0.94, -half * 0.22),
+    v(flange * 0.9, -half * 0.86),
+    v(flange, -half),
+  ]
+  const geo = new THREE.LatheGeometry(pts, 64)
+  geo.computeVertexNormals()
+  geo.userData.shared = true
+  rimCache.set(key, geo)
+  return geo
+}
+
+const discCache = new Map<number, THREE.ExtrudeGeometry>()
+function rimDisc(radius: number) {
+  const key = Math.round(radius)
+  const hit = discCache.get(key)
+  if (hit) return hit
+  const outer = radius * 0.52
+  const shape = new THREE.Shape()
+  shape.absarc(0, 0, outer, 0, Math.PI * 2, false)
+  const bore = new THREE.Path()
+  bore.absarc(0, 0, radius * 0.1, 0, Math.PI * 2, true)
+  shape.holes.push(bore)
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.2
+    const hand = new THREE.Path()
+    hand.absarc(Math.cos(a) * radius * 0.3, Math.sin(a) * radius * 0.3, radius * 0.085, 0, Math.PI * 2, true)
+    shape.holes.push(hand)
+  }
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 18, bevelEnabled: true, bevelThickness: 4, bevelSize: 3, bevelSegments: 2, curveSegments: 28 })
+  geo.translate(0, 0, -8)
+  geo.userData.shared = true
+  discCache.set(key, geo)
+  return geo
+}
+
+const plateCache = new Map<number, THREE.CircleGeometry>()
+function backplate(radius: number) {
+  const key = Math.round(radius)
+  const hit = plateCache.get(key)
+  if (hit) return hit
+  const geo = new THREE.CircleGeometry(radius * 0.5, 32)
+  geo.userData.shared = true
+  plateCache.set(key, geo)
+  return geo
+}
+
+const capCache = new Map<number, THREE.LatheGeometry>()
+function hubCap(radius: number) {
+  const key = Math.round(radius)
+  const hit = capCache.get(key)
+  if (hit) return hit
+  const r = radius * 0.13
+  const v = (x: number, y: number) => new THREE.Vector2(x, y)
+  const pts = [v(0.01, r * 0.85), v(r * 0.72, r * 0.7), v(r, r * 0.15), v(r * 0.92, -r * 0.15), v(0.01, -r * 0.15)]
+  const geo = new THREE.LatheGeometry(pts, 32)
+  geo.computeVertexNormals()
+  geo.userData.shared = true
+  capCache.set(key, geo)
+  return geo
+}
+
+const guardCache = new Map<number, THREE.ExtrudeGeometry>()
+function mudguardGeo(radius: number) {
+  const key = Math.round(radius)
+  const hit = guardCache.get(key)
+  if (hit) return hit
+  const outer = radius + 95
+  const inner = radius + 58
+  const shape = new THREE.Shape()
+  shape.absarc(0, 0, outer, 0, Math.PI, false)
+  shape.absarc(0, 0, inner, Math.PI, 0, true)
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 28 })
+  geo.translate(0, 0, -0.5)
+  geo.userData.shared = true
+  guardCache.set(key, geo)
   return geo
 }
 
@@ -404,6 +533,22 @@ interface Placed {
   z: number
 }
 
+type EquipKind = 'fuel' | 'adblue' | 'battery' | 'air' | 'exhaust' | 'stack' | 'toolbox' | 'shield' | 'skirt' | 'case' | 'bracket' | 'skip'
+
+const PREFIX: Record<string, EquipKind> = {
+  FT: 'fuel',
+  AT: 'air',
+  BB: 'battery',
+  UT: 'toolbox',
+  MH: 'toolbox',
+  MP: 'toolbox',
+  WC: 'toolbox',
+  VE: 'stack',
+  EP: 'exhaust',
+  HS: 'shield',
+  SA: 'skirt',
+}
+
 export function buildEquipment(world: World): { equipment: THREE.Group; brackets: THREE.Group } {
   const equipment = new THREE.Group()
   equipment.name = 'equipment'
@@ -412,51 +557,175 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   brackets.name = 'components'
   brackets.userData.role = 'components'
 
-  const placed = world.model.components
-    .filter((part) => part.side && part.top)
-    .map((part) => measure(part, world))
-    .filter((item): item is Placed => item !== null && !insideCab(item, world))
+  const outer = world.frame.outerWidthStraight
+  const placed = dedupe(
+    world.model.components
+      .filter((part) => part.side && part.top)
+      .map((part) => measure(part, world))
+      .filter((item): item is Placed => item !== null && !inCabVolume(item, world))
+      .filter((item) => !(cabOverlap(item, world) > 0.45 && Math.abs(item.y) < outer * 0.7)),
+  )
 
-  const tanks = placed
-    .filter((item) => item.len > 520 && item.len < 2600 && item.height > 280 && item.height < 1200 && item.width > 220 && item.width < 1100 && Math.abs(item.y) > world.frame.outerWidthStraight * 0.28)
-    .sort((a, b) => b.len * b.height - a.len * a.height)
-  const used = new Set<string>()
-  if (tanks[0]) {
-    addTank(equipment, tanks[0], false)
-    used.add(tanks[0].part.id)
-  } else addDefaultFuel(equipment, world)
-  if (tanks[1]) {
-    addTank(equipment, tanks[1], true)
-    used.add(tanks[1].part.id)
-  } else addDefaultAdBlue(equipment, world)
+  let fuel = 0
+  let batteryCount = 0
+  let air = 0
+  let exhaust = 0
+  let shields = 0
 
-  const boxes = placed.filter((item) => !used.has(item.part.id))
-  const batteryBox = boxes.find((item) => item.len > 350 && item.len < 1100 && item.height > 220 && item.height < 700 && item.x < axleX(world, 0) + 1800)
-  if (batteryBox) {
-    addBattery(equipment, batteryBox)
-    used.add(batteryBox.part.id)
-  } else addDefaultBattery(equipment, world)
-
-  addAirTanks(equipment, world)
-  addExhaust(equipment, world)
-  addUnderrun(equipment, world)
-  addBodyBrackets(equipment, world)
-
-  if (world.params.lod >= 2) {
-    for (const item of boxes) {
-      if (used.has(item.part.id)) continue
-      if (item.len > 2400 || item.height > 1600 || item.width > 1600) continue
-      if (item.len < 80 && item.height < 80) continue
-      const mesh = solid(
-        [clamp(item.len, 40, 1800), clamp(item.height, 30, 900), clamp(item.width, 30, 900)],
-        item.height > item.width ? paintDark : steel,
-        [item.x, item.z, item.y],
-      )
-      mesh.name = item.part.partNumber
-      brackets.add(mesh)
+  for (const item of placed) {
+    const kind = classify(item, world)
+    if (kind === 'skip') continue
+    if (kind === 'bracket') {
+      addPlate(brackets, item, steel)
+      continue
+    }
+    if (kind === 'fuel') {
+      addTankBody(equipment, fitBeside(item, world, 780), false)
+      fuel++
+    } else if (kind === 'adblue') {
+      addTankBody(equipment, fitBeside(item, world, 560), true)
+    } else if (kind === 'battery') {
+      addLiddedBox(equipment, fitBeside(item, world, 620), battery)
+      batteryCount++
+    } else if (kind === 'toolbox') {
+      addLiddedBox(equipment, fitBeside(item, world, 640), toolbox)
+    } else if (kind === 'air') {
+      addAirTank(equipment, item)
+      air++
+    } else if (kind === 'exhaust') {
+      addExhaustBody(equipment, fitBeside(item, world, 560))
+      exhaust++
+    } else if (kind === 'stack') {
+      addStack(equipment, item)
+      exhaust++
+    } else if (kind === 'shield') {
+      addPlate(equipment, item, item.width < 80 || item.len < 80 ? steel : plastic)
+      shields++
+    } else if (kind === 'skirt') {
+      addPlate(equipment, item, paintDark)
+    } else if (Math.abs(item.y) > world.frame.outerWidthStraight * 0.28) {
+      addTankBody(equipment, fitBeside(item, world, 700), false)
+    } else {
+      addLiddedBox(equipment, item, paintDark)
     }
   }
+
+  const drawn = equipment.children.length
+  if (fuel === 0) addTankBody(equipment, defaultFuel(world), false)
+  if (batteryCount === 0 && drawn < 3) addLiddedBox(equipment, defaultBattery(world), battery)
+  if (air === 0 && drawn < 3) addDefaultAir(equipment, world)
+  if (exhaust === 0 && drawn < 3) addDefaultExhaust(equipment, world)
+  addRearBar(equipment, world, shields > 0)
   return { equipment, brackets }
+}
+
+function classify(item: Placed, world: World): EquipKind {
+  const outer = world.frame.outerWidthStraight
+  if (item.width > outer * 1.7 && item.len < 1600) return 'skip'
+  if (item.width > outer * 0.85 && item.len < 420 && item.height < 480 && Math.abs(item.y) < outer * 0.35) return 'skip'
+  if (cabOverlap(item, world) > 0.45 && Math.abs(item.y) < outer * 0.7) return 'skip'
+  if (hitsTyre(item, world)) return 'skip'
+  const prefix = item.part.partNumber.split('_')[0]
+  const known = PREFIX[prefix]
+  if (known) return known
+  const beside = Math.abs(item.y) > outer * 0.28
+  const small = Math.min(item.len, item.height, item.width)
+  const large = Math.max(item.len, item.height, item.width)
+  const mid = item.len + item.height + item.width - small - large
+  if (item.height > 1100 && item.len < 480 && item.width < 900) return 'stack'
+  if (item.len > 1500 && item.height < 190 && item.width > 500) return 'skirt'
+  if (small < 60 && large > 280) return 'shield'
+  if (small > 150 && small < 460 && large > small * 1.65 && mid < small * 1.6) return 'air'
+  if (beside && item.len >= 1100 && item.height >= 420 && item.width >= 420 && item.len >= item.height * 2.1) return 'fuel'
+  if (beside && item.len >= 320 && item.len <= 900 && item.height >= 200 && item.height <= 520 && item.width >= 220 && item.width <= 700) return 'adblue'
+  if (beside && item.len >= 450 && item.len <= 1700 && item.height >= 320 && item.height <= 900 && item.width >= 280 && item.width <= 1000 && item.x < axleMid(world)) return 'battery'
+  if (beside && item.len >= 400 && item.len <= 1500 && item.height >= 260 && item.height <= 820 && item.width >= 260 && item.width <= 900) return 'toolbox'
+  if (item.len >= 500 && item.len <= 1500 && item.height >= 240 && item.height <= 750 && item.width >= 180 && item.width <= 620) return 'exhaust'
+  if (large > 480 && small > 140) return 'case'
+  if (large > 90) return 'bracket'
+  return 'skip'
+}
+
+function dedupe(items: Placed[]): Placed[] {
+  const sorted = items.slice().sort((a, b) => b.len * b.height * b.width - a.len * a.height * a.width)
+  const kept: Placed[] = []
+  for (const item of sorted) {
+    if (kept.some((other) => samePlace(item, other))) continue
+    kept.push(item)
+  }
+  return kept
+}
+
+function samePlace(a: Placed, b: Placed) {
+  const sideA = Math.abs(a.y) > 250
+  const sideB = Math.abs(b.y) > 250
+  if (sideA !== sideB) return false
+  if (sideA && Math.sign(a.y) !== Math.sign(b.y)) return false
+  return overlapRatio(a, b) > 0.4 || footprintOverlap(a, b) > 0.62
+}
+
+function footprintOverlap(a: Placed, b: Placed) {
+  const dx = intervalOverlap(a.x, a.len, b.x, b.len)
+  const dy = intervalOverlap(a.y, a.width, b.y, b.width)
+  const area = Math.min(a.len * a.width, b.len * b.width)
+  return area > 1 ? (dx * dy) / area : 0
+}
+
+function cabOverlap(item: Placed, world: World) {
+  const cab = world.model.cab
+  if (!cab) return 0
+  const x0 = Math.max(cab.side.x0, cab.top.x0) - world.originX
+  const x1 = Math.min(cab.side.x1, cab.top.x1) - world.originX
+  return intervalOverlap(item.x, item.len, (x0 + x1) / 2, x1 - x0) / item.len
+}
+
+function overlapRatio(a: Placed, b: Placed) {
+  const dx = intervalOverlap(a.x, a.len, b.x, b.len)
+  const dy = intervalOverlap(a.y, a.width, b.y, b.width)
+  const dz = intervalOverlap(a.z, a.height, b.z, b.height)
+  const vol = Math.min(a.len * a.height * a.width, b.len * b.height * b.width)
+  return vol > 1 ? (dx * dy * dz) / vol : 0
+}
+
+function intervalOverlap(ca: number, sa: number, cb: number, sb: number) {
+  const a0 = ca - sa / 2
+  const a1 = ca + sa / 2
+  const b0 = cb - sb / 2
+  const b1 = cb + sb / 2
+  return Math.max(0, Math.min(a1, b1) - Math.max(a0, b0))
+}
+
+function hitsTyre(item: Placed, world: World) {
+  for (const axle of world.model.axles) {
+    const ax = axle.x - world.originX
+    const az = axle.z - world.ground
+    const r = axle.tireDiameter / 2
+    const dx = item.x - ax
+    const dz = item.z - az
+    const nearAxle = dx * dx + dz * dz < (r * 0.8) ** 2
+    if (nearAxle && item.width > world.frame.outerWidthStraight) return true
+    if (!nearAxle) continue
+    const track = axle.track ?? 2000
+    const spec = axle.tireSpec?.match(/^(\d{3})/)
+    const tyreW = spec ? Number(spec[1]) : 315
+    const dual = axle.dual
+    for (const side of [-1, 1]) {
+      const centers = dual ? [side * (track / 2 - tyreW * 0.55), side * (track / 2 + tyreW * 0.55)] : [side * (track / 2)]
+      for (const cz of centers) {
+        if (Math.abs(item.y - cz) < tyreW * 0.7 + item.width * 0.25) return true
+      }
+    }
+  }
+  return false
+}
+
+function fitBeside(item: Placed, world: World, maxThick: number): Placed {
+  const half = world.frame.outerWidthStraight / 2
+  const outward = Math.sign(item.y) || -1
+  const width = clamp(Math.min(item.width, maxThick), 140, maxThick)
+  const inner = Math.abs(item.y) - item.width / 2
+  const y = inner < half + 16 ? outward * (half + 36 + width / 2) : item.y
+  return { ...item, width, y }
 }
 
 function measure(part: PartModel, world: World): Placed | null {
@@ -478,117 +747,159 @@ function measure(part: PartModel, world: World): Placed | null {
   }
 }
 
-function insideCab(item: Placed, world: World): boolean {
+function inCabVolume(item: Placed, world: World): boolean {
   const cab = world.model.cab
   if (!cab) return false
-  const side = cab.side
-  const top = cab.top
-  const cx = item.x + world.originX
-  const cy = item.y + world.centerY
-  const inX = cx > side.x0 + 200 && cx < side.x1 - 200 && cx > top.x0 + 200 && cx < top.x1 - 200
-  const inY = cy > top.y0 + 80 && cy < top.y1 - 80
-  const inZ = item.z + world.ground > side.y0 + 400
-  return inX && inY && inZ
+  const x0 = Math.max(cab.side.x0, cab.top.x0) - world.originX
+  const x1 = Math.min(cab.side.x1, cab.top.x1) - world.originX
+  const halfW = Math.min(Math.abs(cab.top.y1 - cab.top.y0) / 2, 1300)
+  const z0 = cab.side.y0 - world.ground
+  const z1 = cab.side.y1 - world.ground
+  return item.x > x0 + 120 && item.x < x1 - 80 && Math.abs(item.y) < halfW - 80 && item.z > z0 + 280 && item.z < z1 - 80
 }
 
-function addTank(parent: THREE.Group, item: Placed, small: boolean) {
-  const radius = clamp(Math.min(item.height, item.width) / 2, small ? 160 : 240, small ? 280 : 420)
-  const length = clamp(item.len, 400, 2200)
-  const y = Math.sign(item.y || 1) * (Math.abs(item.y) || radius + 400)
-  const z = Math.max(radius + 40, item.z)
-  const body = tube(radius, length, 'x', small ? plastic : tank, [item.x, z, y], 20)
-  parent.add(body)
-  for (const end of [-1, 1]) {
-    parent.add(tube(radius * 0.92, 36, 'x', small ? plastic : tank, [item.x + end * (length / 2), z, y], 16))
+function seatZ(item: Placed, height: number) {
+  return item.z - height / 2 < 16 ? height / 2 + 16 : item.z
+}
+
+function addTankBody(parent: THREE.Group, item: Placed, blue: boolean) {
+  const height = clamp(item.height, 200, 1100)
+  const width = clamp(item.width, 160, 1100)
+  const length = clamp(item.len, 280, 2800)
+  const z = seatZ(item, height)
+  const outward = Math.sign(item.y) || -1
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  const radius = height / 2
+  const squash = clamp(width / height, 0.55, 1.35)
+  const body = tube(radius, length * 0.98, 'x', blue ? adblue : tank, [item.x, z, item.y], 36)
+  body.scale.z = squash
+  g.add(body)
+  for (const t of [-0.3, 0.28]) {
+    const band = tube(radius + 12, 26, 'x', tankStrap, [item.x + t * length, z, item.y], 28)
+    band.scale.z = squash * 1.06
+    g.add(band)
   }
-  for (const strap of [-0.28, 0.28]) {
-    parent.add(solid([28, radius * 2.05, radius * 2.05], tankStrap, [item.x + strap * length, z, y]))
+  const capY = item.y + outward * Math.min(width, height) * 0.18
+  g.add(tube(22, 26, 'y', blue ? adblue : plastic, [item.x + length * 0.16, z + radius + 4, capY], 16))
+  g.add(tube(13, 12, 'y', steel, [item.x + length * 0.16, z + radius + 20, capY], 12))
+  parent.add(g)
+}
+
+function addLiddedBox(parent: THREE.Group, item: Placed, mat: THREE.Material) {
+  const len = clamp(item.len, 220, 1800)
+  const height = clamp(item.height, 160, 900)
+  const width = clamp(item.width, 160, 1000)
+  const z = seatZ(item, height)
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  g.add(solid([len, height * 0.84, width], mat, [item.x, z - height * 0.05, item.y]))
+  g.add(solid([len + 18, height * 0.14, width + 14], paintDark, [item.x, z + height * 0.42, item.y]))
+  g.add(solid([len * 0.62, 8, 12], cabTrim, [item.x, z + height * 0.5, item.y + width * 0.12]))
+  g.add(tube(14, 22, 'y', gasket, [item.x - len * 0.28, z + height * 0.52, item.y - width * 0.16], 10))
+  parent.add(g)
+}
+
+function addAirTank(parent: THREE.Group, item: Placed) {
+  const choices = [
+    { axis: 'x' as const, len: item.len, dia: Math.min(item.height, item.width) },
+    { axis: 'y' as const, len: item.height, dia: Math.min(item.len, item.width) },
+    { axis: 'z' as const, len: item.width, dia: Math.min(item.len, item.height) },
+  ].sort((a, b) => b.len - a.len)
+  const axis = choices[0].axis
+  const radius = clamp(choices[0].dia / 2, 50, 260)
+  const length = clamp(choices[0].len, radius * 2.4, 2200)
+  const z = axis === 'y' ? item.z : seatZ(item, radius * 2)
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  g.add(tube(radius, length, axis, tank, [item.x, z, item.y], 28))
+  for (const t of [-0.28, 0.28]) {
+    const shift = t * length
+    const at: [number, number, number] =
+      axis === 'x' ? [item.x + shift, z, item.y] : axis === 'y' ? [item.x, z + shift, item.y] : [item.x, z, item.y + shift]
+    g.add(tube(radius + 7, 18, axis, tankStrap, at, 20))
   }
-  parent.add(solid([length * 0.7, 16, 70], paintDark, [item.x, z + radius + 8, y]))
+  parent.add(g)
 }
 
-function addDefaultFuel(parent: THREE.Group, world: World) {
-  const x = betweenAxles(world, 0.42)
-  const radius = 310
-  const y = -(world.frame.outerWidthStraight / 2 + radius + 30)
-  const z = world.frame.bottomZ - world.ground - 20
-  addTank(parent, fake(x, y, Math.max(radius + 20, z), 1500, radius * 2, radius * 2), false)
+function addExhaustBody(parent: THREE.Group, item: Placed) {
+  const dia = clamp(Math.min(item.height, item.width), 140, 640)
+  const length = clamp(item.len, 320, 1700)
+  const z = seatZ(item, dia)
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  g.add(tube(dia / 2, length, 'x', exhaust, [item.x, z, item.y], 28))
+  g.add(tube(dia * 0.16, dia * 0.85, 'y', exhaust, [item.x + length * 0.32, z + dia * 0.55, item.y], 16))
+  g.add(tube(dia * 0.22, 20, 'y', paintDark, [item.x + length * 0.32, z + dia * 0.95, item.y], 14))
+  const outward = Math.sign(item.y) || 1
+  g.add(solid([length * 0.72, dia * 0.7, 12], steel, [item.x, z, item.y - outward * dia * 0.42]))
+  parent.add(g)
 }
 
-function addDefaultAdBlue(parent: THREE.Group, world: World) {
-  const x = betweenAxles(world, 0.22)
-  const radius = 190
-  const y = world.frame.outerWidthStraight / 2 + radius + 20
-  const z = world.frame.bottomZ - world.ground + 40
-  addTank(parent, fake(x, y, Math.max(radius, z), 620, radius * 2, radius * 2), true)
+function addStack(parent: THREE.Group, item: Placed) {
+  const dia = clamp(Math.min(item.len, item.width), 90, 360)
+  const height = clamp(item.height, 400, 2200)
+  const z = Math.max(item.z, height / 2)
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  g.add(tube(dia / 2, height, 'y', exhaust, [item.x, z, item.y], 24))
+  g.add(tube(dia * 0.72, 22, 'y', paintDark, [item.x, z + height / 2, item.y], 16))
+  g.add(tube(dia * 0.28, 180, 'x', exhaust, [item.x, z - height * 0.2, item.y], 12))
+  parent.add(g)
 }
 
-function addBattery(parent: THREE.Group, item: Placed) {
-  parent.add(solid([item.len, item.height, item.width], battery, [item.x, item.z, item.y]))
-  parent.add(solid([item.len * 0.92, 18, item.width * 0.86], plastic, [item.x, item.z + item.height / 2, item.y]))
-  parent.add(solid([40, 28, 40], gasket, [item.x - item.len * 0.28, item.z + item.height / 2 + 10, item.y]))
+function addPlate(parent: THREE.Group, item: Placed, mat: THREE.Material) {
+  const height = Math.max(item.height, 8)
+  const z = item.z - height / 2 < 8 ? height / 2 + 8 : item.z
+  const mesh = solid([Math.max(item.len, 8), height, Math.max(item.width, 6)], mat, [item.x, z, item.y])
+  mesh.name = item.part.partNumber
+  parent.add(mesh)
 }
 
-function addDefaultBattery(parent: THREE.Group, world: World) {
-  const x = axleX(world, 0) - 700
-  const y = -(world.frame.outerWidthStraight / 2 + 180)
+function addDefaultAir(parent: THREE.Group, world: World) {
+  const x = axleX(world, 0) + 1100
   const z = world.frame.bottomZ - world.ground + 80
-  addBattery(parent, fake(x, y, z, 680, 420, 380))
-}
-
-function addAirTanks(parent: THREE.Group, world: World) {
-  const x = axleX(world, 0) + 900
-  const z = world.frame.bottomZ - world.ground + 40
-  const span = Math.max(180, world.frame.outerWidthStraight / 2 - world.flangeW - 80)
+  const span = Math.max(160, world.frame.outerWidthStraight / 2 - world.flangeW - 70)
   for (const side of [-1, 1]) {
-    parent.add(tube(130, 780, 'x', paint, [x, z, side * span * 0.45], 16))
-    parent.add(solid([40, 70, 40], steel, [x, z + 150, side * span * 0.45]))
+    addAirTank(parent, fake(x, side * span * 0.35, z, 820, 260, 260, 'air'))
   }
 }
 
-function addExhaust(parent: THREE.Group, world: World) {
-  const x0 = axleX(world, 0) - 200
-  const y = world.frame.outerWidthStraight / 2 + 220
-  const z = world.frame.bottomZ - world.ground + 60
-  parent.add(tube(70, 900, 'x', exhaust, [x0 - 200, z + 40, y * 0.55], 12))
-  parent.add(solid([520, 560, 420], exhaust, [x0 + 700, z + 80, y]))
-  parent.add(tube(48, 700, 'y', exhaust, [x0 + 860, z + 420, y], 10))
-  parent.add(solid([180, 80, 180], paintDark, [x0 + 860, z + 760, y]))
+function addDefaultExhaust(parent: THREE.Group, world: World) {
+  const x = axleX(world, 0) + 700
+  const y = world.frame.outerWidthStraight / 2 + 280
+  const z = world.frame.bottomZ - world.ground + 160
+  addExhaustBody(parent, fake(x, y, z, 900, 420, 380, 'exhaust'))
 }
 
-function addUnderrun(parent: THREE.Group, world: World) {
-  const { frame, originX, ground } = world
-  const front = frame.left[0].x - originX
-  const rear = frame.left[frame.left.length - 1].x - originX
-  const half = frame.outerWidthStraight / 2 + 40
-  const low = 420
-  parent.add(solid([80, 140, half * 2], paint, [front + 80, low, 0]))
-  parent.add(solid([70, 120, half * 2], paint, [rear - 40, low - 20, 0]))
-  const zHang = frame.bottomZ - ground
-  parent.add(solid([40, Math.max(40, zHang - low), 50], paintDark, [front + 80, (low + zHang) / 2, -half + 80]))
-  parent.add(solid([40, Math.max(40, zHang - low), 50], paintDark, [front + 80, (low + zHang) / 2, half - 80]))
+function addRearBar(parent: THREE.Group, world: World, hasShields: boolean) {
+  const rear = world.frame.left[world.frame.left.length - 1].x - world.originX
+  const half = world.frame.outerWidthStraight / 2 + 30
+  const low = 460
+  parent.add(solid([70, 120, half * 2], paint, [rear - 30, low, 0]))
+  const zHang = world.frame.bottomZ - world.ground
+  parent.add(solid([36, Math.max(40, zHang - low), 46], paintDark, [rear - 30, (low + zHang) / 2, -half + 70]))
+  parent.add(solid([36, Math.max(40, zHang - low), 46], paintDark, [rear - 30, (low + zHang) / 2, half - 70]))
+  if (hasShields) return
   const a0 = axleX(world, 0)
   const rearAxle = axleX(world, world.model.axles.length - 1)
   if (rearAxle - a0 > 1800) {
-    parent.add(solid([rearAxle - a0 - 1600, 70, 40], paintDark, [(a0 + rearAxle) / 2, 560, -(frame.outerWidthStraight / 2 + 20)]))
-    parent.add(solid([rearAxle - a0 - 1600, 70, 40], paintDark, [(a0 + rearAxle) / 2, 560, frame.outerWidthStraight / 2 + 20]))
+    parent.add(solid([rearAxle - a0 - 1400, 80, 36], paintDark, [(a0 + rearAxle) / 2, 520, -(world.frame.outerWidthStraight / 2 + 24)]))
+    parent.add(solid([rearAxle - a0 - 1400, 80, 36], paintDark, [(a0 + rearAxle) / 2, 520, world.frame.outerWidthStraight / 2 + 24]))
   }
 }
 
-function addBodyBrackets(parent: THREE.Group, world: World) {
-  const cab = world.model.cab
-  const start = cab ? Math.max(cab.side.x1, cab.top.x1) - world.originX + 200 : axleX(world, 0) + 400
-  const end = world.frame.left[world.frame.left.length - 1].x - world.originX - 180
-  const z = world.frame.topZ - world.ground + 18
-  for (let x = start; x < end; x += 980) {
-    for (const side of [-1, 1] as const) {
-      const y = railZ(world, x + world.originX, side)
-      if (y === null) continue
-      parent.add(solid([160, 14, world.flangeW + 20], steel, [x, z, y]))
-      parent.add(solid([14, 70, 14], steel, [x - 50, z + 28, y]))
-      parent.add(solid([14, 70, 14], steel, [x + 50, z + 28, y]))
-    }
-  }
+function defaultFuel(world: World): Placed {
+  const radius = 310
+  const y = -(world.frame.outerWidthStraight / 2 + radius + 40)
+  const z = Math.max(radius + 20, world.frame.bottomZ - world.ground - 10)
+  return fake(betweenAxles(world, 0.55), y, z, 1600, radius * 2, radius * 1.3, 'fuel')
+}
+
+function defaultBattery(world: World): Placed {
+  const y = -(world.frame.outerWidthStraight / 2 + 220)
+  const z = world.frame.bottomZ - world.ground + 120
+  return fake(axleX(world, 0) + 900, y, z, 720, 460, 400, 'battery')
 }
 
 export function buildCab(cab: CabModel, world: World): THREE.Group {
@@ -601,44 +912,110 @@ export function buildCab(cab: CabModel, world: World): THREE.Group {
   const x1 = Math.min(side.x1, top.x1)
   const rawW = Math.abs(top.y1 - top.y0)
   const width = clamp(Math.min(rawW, 2550), 1800, 2550)
-  const height = Math.max(900, side.y1 - side.y0)
+  const height = Math.max(1400, side.y1 - side.y0)
   const lift = world.lift((x0 + x1) / 2)
   const z0 = side.y0 - world.ground + lift
-  const z1 = z0 + height
   const xA = x0 - world.originX
-  const xB = x1 - world.originX
-  const len = Math.max(400, xB - xA)
-  const midX = (xA + xB) / 2
-  const bodyZ = z0 + height * 0.56
-  const bodyH = height * 0.78
-  g.add(solid([len * 0.22, height * 0.28, width * 0.96], plastic, [xA + len * 0.08, z0 + height * 0.16, 0]))
-  const shell = solid([len * 0.9, bodyH, width * 0.94], cabPaint, [midX + len * 0.04, bodyZ, 0])
-  shell.userData.noShadow = false
+  const len = Math.max(1400, x1 - x0)
+  const shell = new THREE.Mesh(cabShell(len, height, width), cabPaint)
+  shell.position.set(xA, z0, 0)
   g.add(shell)
-  g.add(solid([len * 0.86, 36, width * 0.9], cabTrim, [midX + len * 0.04, z1 - 24, 0]))
-  const glassH = height * 0.34
-  const wind = solid([48, glassH, width * 0.78], glass, [xA + len * 0.16, z0 + height * 0.62, 0])
-  wind.rotation.z = -0.22
+
+  const sx0 = len * 0.01
+  const sy0 = height * 0.3
+  const sx1 = len * 0.2
+  const sy1 = height * 0.78
+  const mx = (sx0 + sx1) / 2
+  const my = (sy0 + sy1) / 2
+  const ang = Math.atan2(sy1 - sy0, sx1 - sx0)
+  const glassLen = Math.hypot(sx1 - sx0, sy1 - sy0) * 0.9
+  const wind = solid([28, glassLen, width * 0.78], glass, [xA + mx, z0 + my, 0])
+  wind.rotation.z = ang - Math.PI / 2
   g.add(wind)
-  g.add(solid([len * 0.34, height * 0.22, 18], glass, [midX, z0 + height * 0.58, width * 0.47]))
-  g.add(solid([len * 0.34, height * 0.22, 18], glass, [midX, z0 + height * 0.58, -width * 0.47]))
-  g.add(solid([len * 0.2, 16, width * 0.7], cabTrim, [xA + len * 0.12, z0 + height * 0.84, 0], [0, 0, -0.15]))
-  for (let i = 0; i < 5; i++) {
-    g.add(solid([22, height * 0.16, width * 0.1], paintDark, [xA + len * 0.07, z0 + height * 0.4, (i - 2) * width * 0.12]))
+  const visor = solid([len * 0.22, 22, width * 0.84], paintDark, [xA + len * 0.16, z0 + height * 0.8, 0])
+  visor.rotation.z = -0.35
+  g.add(visor)
+
+  const grilleY = height * 0.18
+  g.add(solid([36, height * 0.16, width * 0.58], paintDark, [xA + len * 0.02, z0 + grilleY, 0]))
+  const volvo = world.model.profileId.includes('volvo')
+  if (volvo) {
+    const slash = solid([14, height * 0.13, 16], cabTrim, [xA + len * 0.012, z0 + grilleY, 0])
+    slash.rotation.z = 0.85
+    g.add(slash)
+  } else {
+    for (let i = 0; i < 5; i++) {
+      g.add(solid([14, 10, width * 0.5], cabTrim, [xA + len * 0.008, z0 + grilleY - height * 0.06 + i * height * 0.028, 0]))
+    }
   }
-  g.add(solid([30, 70, 160], lamp, [xA + 20, z0 + height * 0.22, width * 0.32]))
-  g.add(solid([30, 70, 160], lamp, [xA + 20, z0 + height * 0.22, -width * 0.32]))
-  for (const sideSign of [-1, 1]) {
-    g.add(tube(16, 180, 'z', paintDark, [xA + len * 0.22, z0 + height * 0.55, sideSign * (width / 2 + 70)], 6))
-    g.add(solid([160, 280, 28], plastic, [xA + len * 0.2, z0 + height * 0.52, sideSign * (width / 2 + 150)]))
+  g.add(solid([len * 0.1, height * 0.1, width * 0.98], plastic, [xA + len * 0.045, z0 + height * 0.07, 0]))
+  for (const sz of [-1, 1]) {
+    g.add(tube(46, 80, 'x', lamp, [xA + len * 0.03, z0 + height * 0.16, sz * width * 0.34], 20))
+    g.add(tube(22, 36, 'x', lamp, [xA + len * 0.02, z0 + height * 0.1, sz * width * 0.44], 14))
+    g.add(solid([14, 26, 64], lampRed, [xA + 6, z0 + height * 0.05, sz * width * 0.3]))
+    g.add(solid([len * 0.62, height * 0.1, 16], paintDark, [xA + len * 0.52, z0 + height * 0.07, sz * (width / 2 + 6)]))
   }
-  g.add(solid([len * 0.55, 8, width * 0.2], cabTrim, [midX, z0 + height * 0.34, width * 0.2]))
+
+  for (const sz of [-1, 1] as const) {
+    const doorX = xA + len * 0.5
+    const doorZ = z0 + height * 0.4
+    const face = sz * (width / 2 + 8)
+    g.add(solid([len * 0.36, height * 0.5, 18], cabRoof, [doorX, doorZ, face]))
+    g.add(solid([len * 0.28, height * 0.22, 14], glass, [doorX + len * 0.01, doorZ + height * 0.12, face + sz * 10]))
+    g.add(solid([10, height * 0.5, 10], paintDark, [doorX - len * 0.18, doorZ, face + sz * 4]))
+    g.add(solid([64, 16, 12], cabTrim, [doorX + len * 0.08, doorZ - height * 0.04, face + sz * 12]))
+    const step = Math.max(210, z0 * 0.35 + 40)
+    g.add(solid([210, 26, 240], plastic, [xA + len * 0.2, step, sz * (width / 2 - 30)]))
+    g.add(solid([180, 24, 210], plastic, [xA + len * 0.19, step + 190, sz * (width / 2 - 10)]))
+    g.add(tube(14, height * 0.22, 'y', steel, [xA + len * 0.16, step + height * 0.16, sz * (width / 2 - 90)], 10))
+    const armZ = sz * (width / 2 + 150)
+    g.add(tube(16, 280, 'z', paintDark, [xA + len * 0.22, z0 + height * 0.58, sz * (width / 2 + 70)], 10))
+    g.add(solid([200, 280, 34], plastic, [xA + len * 0.2, z0 + height * 0.56, armZ]))
+    g.add(solid([150, 200, 8], glass, [xA + len * 0.2, z0 + height * 0.56, armZ + sz * 20]))
+  }
+  g.add(solid([len * 0.55, 16, width * 0.72], cabRoof, [xA + len * 0.58, z0 + height - 8, 0]))
   return g
+}
+
+const cabCache = new Map<string, THREE.ExtrudeGeometry>()
+function cabShell(len: number, height: number, width: number) {
+  const key = `${Math.round(len)}:${Math.round(height)}:${Math.round(width)}`
+  const hit = cabCache.get(key)
+  if (hit) return hit
+  const shape = new THREE.Shape()
+  shape.moveTo(0, height * 0.05)
+  shape.lineTo(0, height * 0.3)
+  shape.lineTo(len * 0.2, height * 0.78)
+  shape.quadraticCurveTo(len * 0.3, height * 0.99, len * 0.42, height)
+  shape.lineTo(len * 0.78, height * 0.97)
+  shape.quadraticCurveTo(len * 0.96, height * 0.9, len, height * 0.7)
+  shape.lineTo(len, height * 0.08)
+  shape.lineTo(len * 0.9, 0)
+  shape.lineTo(len * 0.08, 0)
+  shape.lineTo(0, height * 0.05)
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: width,
+    bevelEnabled: true,
+    bevelThickness: 10,
+    bevelSize: 10,
+    bevelSegments: 2,
+    curveSegments: 12,
+  })
+  geo.translate(0, 0, -width / 2)
+  geo.computeVertexNormals()
+  geo.userData.shared = true
+  cabCache.set(key, geo)
+  return geo
 }
 
 function axleX(world: World, index: number) {
   const axle = world.model.axles[index]
   return (axle?.x ?? world.originX) - world.originX
+}
+
+function axleMid(world: World) {
+  const last = axleX(world, Math.max(0, world.model.axles.length - 1))
+  return axleX(world, 0) + (last - axleX(world, 0)) * 0.45
 }
 
 function betweenAxles(world: World, t: number) {
@@ -647,9 +1024,9 @@ function betweenAxles(world: World, t: number) {
   return a + (b - a) * t
 }
 
-function fake(x: number, y: number, z: number, len: number, height: number, width: number): Placed {
+function fake(x: number, y: number, z: number, len: number, height: number, width: number, partNumber = 'default'): Placed {
   return {
-    part: { id: 'default', partNumber: 'default', side: null, top: null, samples: [] },
+    part: { id: partNumber, partNumber, side: null, top: null, samples: [] },
     len,
     height,
     width,

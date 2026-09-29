@@ -255,6 +255,7 @@ export default function App() {
               ['crossmembers', 'Příčky'],
               ['axles', 'Nápravy a kola'],
               ['drivetrain', 'Hnací ústrojí'],
+              ['suspension', 'Odpružení'],
               ['equipment', 'Nádrže a výbava'],
               ['cab', 'Kabina'],
               ['components', 'Díly z výkresu'],

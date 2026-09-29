@@ -18,7 +18,7 @@ interface Station {
 
 let cabMat: THREE.MeshStandardMaterial | null = null
 function cabFallback() {
-  if (!cabMat) cabMat = new THREE.MeshStandardMaterial({ color: 0xe6e2d8, metalness: 0.2, roughness: 0.5 })
+  if (!cabMat) cabMat = new THREE.MeshStandardMaterial({ color: 0x1e4f86, metalness: 0.28, roughness: 0.42 })
   return cabMat
 }
 
@@ -63,9 +63,9 @@ export function buildChassisGroup(model: ChassisModel, params: ChassisParams): T
     g.name = 'liner'
     g.userData.role = 'liner'
     const linerMat = new THREE.MeshStandardMaterial({
-      color: 0x6a737c,
-      metalness: 0.55,
-      roughness: 0.5,
+      color: 0x2a3138,
+      metalness: 0.62,
+      roughness: 0.42,
       side: THREE.DoubleSide,
     })
     for (const sts of [leftSt, rightSt]) {
@@ -673,7 +673,7 @@ function frameMat(): THREE.MeshStandardMaterial {
   if (!sharedFrame) {
     sharedFrame = paint.clone()
     sharedFrame.side = THREE.DoubleSide
-    sharedFrame.color.set(0x343b42)
+    sharedFrame.color.set(0x121418)
   }
   return sharedFrame
 }

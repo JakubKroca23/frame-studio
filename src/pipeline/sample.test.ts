@@ -116,7 +116,10 @@ describe('Scania ICD sample', () => {
   })
 
   it('builds suspension, a driveline and running equipment around the axles', () => {
-    const group = buildChassisGroup(model, defaultParams)
+    const group = buildChassisGroup(model, {
+      ...defaultParams,
+      show: { ...defaultParams.show, drivetrain: true, suspension: true },
+    })
     expect(group.getObjectByName('drivetrain')).toBeTruthy()
     expect(group.getObjectByName('equipment')).toBeTruthy()
     let springs = 0

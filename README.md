@@ -36,8 +36,8 @@ npm run build     # kontrola typů a produkční build
 - Podélníky jako C profil tažený po půdorysné trase, včetně rozšíření nebo zúžení vepředu. U Volva se tloušťka a poloměry vezmou z řezu ve výkresu (300×90×8, R13/R5), ne z výchozích hodnot.
 - Nápravy a kola z výkresu. Scania má tři nápravy, Volvo čtyři; zadní nápravy Volva jsou dvojmontáž. Průměr pneu z oblouků, z textu (`385/65R22.5`, `315/80R22.5`) nebo ze zadaného rozměru.
 - Kabina a díly jako přibližné siluety. Čelní pohled, pokud ve výkresu je, může zúžit šířku. Scania čelní pohled nemá.
-- Živá změna tlouštěk, poloměru, zatížení, pneumatik, odpružení (listy, vzduch, smíšené), detailu a viditelnosti skupin.
-- Podvozek má tvar skutečného rámu: C profil, příčky s výztuhami a šrouby, listová pera nebo vzduchové měchy, tlumiče, řízení, diferenciál, kardan, motor se skříní, nádrže, výfuk, blatníky a kabina s oknem. Poloha rámu, otvorů a náprav zůstává z výkresu. Nádrže a akumulátor se posadí na díl z výkresu, když jeho obrys sedí; jinak se použije typická poloha.
+- Živá změna tlouštěk, poloměru, zatížení, pneumatik, odpružení (listy, vzduch, smíšené), detailu a viditelnosti skupin. Odpružení a hnací ústrojí jsou ve výchozím stavu skryté.
+- Podvozek má tvar skutečného rámu: tmavý C profil, příčky s výztuhami a šrouby, výztuha, ocelová kola s plnou pneumatikou a blatníky. Poloha rámu, otvorů a náprav zůstává z výkresu. Nádrže, akumulátor, vzduchojemy, výfuk, schránky a boční kryty se kreslí ve velikosti a poloze dílu z výkresu; chybí-li díl, použije se typická poloha vedle rámu.
 - Panel detekce s kótami a kontrolou proti geometrii.
 - Náhled 2D detekce (bok, půdorys, u Volva i čelo) a export GLB a STL (milimetry, Y nahoru).
 
@@ -53,4 +53,4 @@ npm run build     # kontrola typů a produkční build
 
 ## Omezení
 
-Kabina, motor, nádrže, pera a blatníky jsou typizované tvary usazené na rozměry z výkresu, ne naskenovaná geometrie každého dílu. Drobné díly z DXF jsou oříznuté na 64 největších a kreslí se jako jednoduchá tělesa. Detaily mimo hlavní pohledy (řez zadního PTO u Volva) se do rámu nemíchají — slouží jen ke čtení průřezu. Nezatížený stav jen nadzvedne rám vůči kolům, a jen když výkres má kóty H035/H036. Vnitřní výztuha je deska ve zjištěném rozsahu X, ne přesný tvar vložky. Točnice se nekreslí: vzorové podvozky jsou solo, ne tahač.
+Kabina, nádrže a blatníky jsou typizované tvary usazené na rozměry z výkresu, ne naskenovaná geometrie každého dílu. Objemné díly vedle rámu drží délku a výšku z výkresu; když je půdorys širší než nádrž, těleso se posune těsně vedle podélníku, aby rám zůstal čitelný. Drobné díly z DXF jsou oříznuté na 64 největších. Detaily mimo hlavní pohledy (řez zadního PTO u Volva) se do rámu nemíchají — slouží jen ke čtení průřezu. Nezatížený stav jen nadzvedne rám vůči kolům, a jen když výkres má kóty H035/H036. Vnitřní výztuha je deska ve zjištěném rozsahu X, ne přesný tvar vložky. Točnice se nekreslí: vzorové podvozky jsou solo, ne tahač. Listová pera, měchy a hnací ústrojí v modelu jsou, ve výchozím pohledu jsou vypnuté.
