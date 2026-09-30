@@ -147,7 +147,7 @@ export function databaseToDxf(db: DwgDatabase, fallbackVersion: string): string 
     const prev = blocks.get(name)
     if (!prev || (block.entities?.length ?? 0) > (prev.entities?.length ?? 0)) blocks.set(name, block)
   }
-  const minLine = entityCount(db) > 100000 ? 8 : 0
+  const minLine = 0.4
   for (const block of blocks.values()) {
     const name = block.name || ''
     push(0, 'BLOCK')
@@ -173,12 +173,6 @@ export function databaseToDxf(db: DwgDatabase, fallbackVersion: string): string 
 function isSpace(name: string) {
   const upper = name.toUpperCase()
   return upper === '*MODEL_SPACE' || upper === '*PAPER_SPACE' || upper.startsWith('*PAPER_SPACE')
-}
-
-function entityCount(db: DwgDatabase) {
-  let count = db.entities?.length ?? 0
-  for (const block of db.tables?.BLOCK_RECORD?.entries ?? []) count += block.entities?.length ?? 0
-  return count
 }
 
 function emitEntity(push: (code: number, value: string | number) => void, entity: Ent, minLine = 0) {

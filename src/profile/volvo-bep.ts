@@ -69,7 +69,7 @@ export const volvoBepProfile: Profile = {
     maxGap: 400,
   },
   componentPattern: '^B_(?<cat>[A-Z]{2,3})_(?<pn>\\d{7,8})',
-  componentSkip: ['^B_(FA|RA|XM|FI|BI|HG)_', '^B_RIM_', '^FAI_', '^RAI_', '^B_CAB'],
+  componentSkip: ['^B_(FA|RA|XM|CM|FI|BI|HG)_', '^B_RIM_', '^FAI_', '^RAI_', '^B_CAB'],
   axleInserts: {
     name: '^B_RIM_DISC_WHEEL_.*SV$',
     frontLayers: ['06_*'],

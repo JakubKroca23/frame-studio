@@ -4,7 +4,6 @@ import type { Circ, DxfDb, InsertRec, Loop, Seg, Txt } from '../dxf/types'
 import {
   bboxOf,
   boxHeight,
-  boxOk,
   boxWidth,
   layerMatches,
   overlap1d,
@@ -24,6 +23,7 @@ import { dimensionMap, pairDimensions } from './dimensions'
 import { extractFrame } from './frame'
 import { extractRaisedBodies } from './raised'
 import { extractSection } from './section'
+import { envelope } from '../mesh/silhouette'
 
 const DEFAULT_PART = /^(?<pn>\d{7})(?:_\d+)?$/
 
@@ -162,7 +162,7 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
         front: null,
       }
 
-  const preview = buildPreview(flat.segments, flat.circles, profile, frame, axles, cab, components, splitY, windows, classify)
+  const preview = buildPreview(flat.segments, flat.circles, flat.texts, profile, frame, axles, splitY, windows, classify)
 
   return {
     version: 1,
@@ -522,7 +522,16 @@ function extractCab(
     }
   }
   const samples = makeSlices(sidePts, topPts, side, top, 22)
-  return { side, top, samples }
+  return {
+    side,
+    top,
+    samples,
+    silhouettes: {
+      side: envelope(sidePts, 56) ?? undefined,
+      top: envelope(topPts, 56) ?? undefined,
+      front: envelope(frontPts, 40) ?? undefined,
+    },
+  }
 }
 
 function extractComponents(
@@ -658,7 +667,16 @@ function keepPart(side: BBox, top: BBox, _frame: ChassisModel['frame'], axles: A
   const cx = (Math.max(side.x0, top.x0) + Math.min(side.x1, top.x1)) / 2
   if (sz > 850 && axles.some((a) => Math.abs(a.x - cx) < 500)) return false
   if (cab && contained(side, cab.side, 0.75) && contained(top, cab.top, 0.55) && sz > 500) return false
+  if (_frame && betweenRails(top, _frame) && (sz < 240 || (sx < 520 && sz < 360))) return false
   return true
+}
+
+/** Plan footprint sits between the rails: a liner, a crossmember, or a plate on the web. */
+function betweenRails(top: BBox, frame: NonNullable<ChassisModel['frame']>): boolean {
+  const half = frame.outerWidthStraight / 2
+  const mid = (top.y0 + top.y1) / 2
+  const width = boxHeight(top)
+  return Math.abs(mid - frame.centerY) + width / 2 < half * 0.92
 }
 
 function contained(inner: BBox, outer: BBox, frac: number): boolean {
@@ -897,16 +915,16 @@ function estimateSplitY(segs: Seg[]): number {
 function buildPreview(
   segs: Seg[],
   circles: Circ[],
+  texts: Txt[],
   profile: Profile,
   frame: ChassisModel['frame'],
   axles: Axle[],
-  cab: CabModel | null,
-  components: PartModel[],
   splitY: number,
   windows: ViewWindows | null,
   classify: (name: string) => BlockViewName | null,
 ): ChassisModel['preview'] {
   const segments: Record<string, number[]> = {
+    sheet: [],
     chassis: [],
     cab: [],
     frame: [],
@@ -914,16 +932,21 @@ function buildPreview(
     component: [],
     front: [],
   }
-  const circs: Record<string, number[]> = { holes: [] }
+  const circs: Record<string, number[]> = { holes: [], detail: [] }
+  const labels: { x: number; y: number; text: string }[] = []
   const push = (role: string, s: Seg) => {
     const arr = segments[role]
     arr.push(s.x1, s.y1, s.x2, s.y2)
   }
+  const inSheet = (s: Seg) => {
+    if (!windows) return true
+    if (classify(s.block)) return true
+    return inRole(s, 'side', windows, classify, profile) || inRole(s, 'top', windows, classify, profile) || inRole(s, 'front', windows, classify, profile)
+  }
   for (const s of segs) {
     const role = pointRole(s.block, s.layer, (s.y1 + s.y2) / 2, profile, splitY, classify)
-    if (windows && !classify(s.block) && !inRole(s, 'side', windows, classify, profile) && !inRole(s, 'top', windows, classify, profile) && !inRole(s, 'front', windows, classify, profile)) {
-      continue
-    }
+    if (!inSheet(s)) continue
+    push('sheet', s)
     if (windows && role === 'front') {
       if (layerMatches(s.layer, profile.views.cab)) push('front', s)
       continue
@@ -941,26 +964,26 @@ function buildPreview(
       segments.axle.push(axle.x, frame.centerY - 1500, axle.x, frame.centerY + 1500)
     } else segments.axle.push(axle.x, splitY - 1600, axle.x, splitY + 2200)
   }
-  if (cab) pushRect(segments.component, cab.side)
-  for (const part of components) {
-    if (part.top) pushRect(segments.component, part.top)
-    if (part.side) pushRect(segments.component, part.side)
-  }
   for (const c of circles) {
-    if (layerMatches(c.layer, profile.views.holesLeft) || layerMatches(c.layer, profile.views.holesRight)) {
-      if (c.r * 2 >= 6 && c.r * 2 <= 40) circs.holes.push(c.x, c.y, c.r)
+    const hole = layerMatches(c.layer, profile.views.holesLeft) || layerMatches(c.layer, profile.views.holesRight)
+    if (hole && c.r * 2 >= 6 && c.r * 2 <= 40) circs.holes.push(c.x, c.y, c.r)
+    else if (c.r >= 2 && c.r <= 900 && inSheet({ layer: c.layer, x1: c.x, y1: c.y, x2: c.x, y2: c.y, block: c.block })) {
+      circs.detail.push(c.x, c.y, c.r)
     }
   }
-  return { segments, circles: circs }
+  for (const text of texts) {
+    const clean = text.text.replace(/\s+/g, ' ').trim()
+    if (clean.length < 2 || clean.length > 28) continue
+    if (!/[A-Za-zÁ-ž]/.test(clean)) continue
+    if (!inSheet({ layer: text.layer, x1: text.x, y1: text.y, x2: text.x, y2: text.y, block: text.block })) continue
+    labels.push({ x: text.x, y: text.y, text: clean })
+    if (labels.length >= 500) break
+  }
+  return { segments, circles: circs, labels }
 }
 
 function pushPoly(arr: number[], pts: Pt[]) {
   for (let i = 1; i < pts.length; i++) arr.push(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y)
-}
-
-function pushRect(arr: number[], b: BBox) {
-  if (!boxOk(b)) return
-  arr.push(b.x0, b.y0, b.x1, b.y0, b.x1, b.y0, b.x1, b.y1, b.x1, b.y1, b.x0, b.y1, b.x0, b.y1, b.x0, b.y0)
 }
 
 function mode(values: number[]): number | null {

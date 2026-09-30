@@ -100,6 +100,8 @@ export interface CabModel {
   side: BBox
   top: BBox
   samples: Slice[]
+  /** Outer envelopes of the cab blocks: side and top in drawing coordinates, front in its own view. */
+  silhouettes?: { side?: Pt[]; top?: Pt[]; front?: Pt[] }
   /** Closed side-view ring. The shell is extruded from this instead of a generic cab. */
   profile?: Pt[]
   confidence?: number
@@ -153,6 +155,8 @@ export interface ChassisModel {
   preview: {
     segments: Record<string, number[]>
     circles: Record<string, number[]>
+    /** Short drawing texts, drawn only when the view is zoomed in. */
+    labels?: { x: number; y: number; text: string }[]
   }
   stats: {
     segmentCount: number

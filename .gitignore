@@ -12,6 +12,9 @@ dist
 uploads
 dist-ssr
 *.local
+test-results
+playwright-report
+blob-report
 
 # Editor directories and files
 .vscode/*

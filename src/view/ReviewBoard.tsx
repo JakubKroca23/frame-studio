@@ -6,7 +6,7 @@ import { EQUIP_LABELS, type EquipKind } from '../pipeline/kinds'
 import { applyOutline, newEquipmentFromOutline, reshapeElement, type ReviewElement } from '../pipeline/review'
 import { useApp } from '../state'
 import { easeScale, fitView, nextTargetScale, panBy, screenToWorld, viewAbout, wheelIntent, wheelZoomFactor, worldToScreen, zoomLimits, type ReviewView } from './reviewCamera'
-import { handleAnchor, hitHandle, resizeBox, type BoxSide, type HandleId } from './reviewHandles'
+import { handleAnchor, hitBorder, hitHandle, resizeBox, type BoxSide, type HandleId } from './reviewHandles'
 import { isTextEditing, reviewCommand } from './reviewKeys'
 import {
   buildEntityIndex,
@@ -84,6 +84,8 @@ export function ReviewBoard() {
   const [poly, setPoly] = useState<Pt[]>([])
   const [entityIds, setEntityIds] = useState<number[]>([])
   const [hideSkip, setHideSkip] = useState(true)
+  const [showMarks, setShowMarks] = useState(true)
+  const [fill, setFill] = useState(0)
   const [query, setQuery] = useState('')
   const [toast, setToast] = useState<string | null>(null)
   const [live, setLive] = useState<ReviewElement | null>(null)
@@ -117,17 +119,19 @@ export function ReviewBoard() {
   const zoomRef = useRef<ZoomAnim | null>(null)
   const lineCache = useRef<LineCache | null>(null)
   const fileSeen = useRef('')
-  const sceneRef = useRef({ model, review, selectedIds, hideSkip, live, windowMode, tool, poly, entityIds, snap: null as SnapHit | null })
+  const sceneRef = useRef({ model, review, selectedIds, hideSkip, live, windowMode, tool, poly, entityIds, snap: null as SnapHit | null, showMarks, fill, hoverId: null as string | null })
   const indexRef = useRef<EntityIndex | null>(null)
   const toolRef = useRef<ReviewTool>(null)
   const polyRef = useRef<Pt[]>([])
+  const polyDrag = useRef<{ x: number; y: number; px: number; py: number; moved: boolean } | null>(null)
+  const hoverRef = useRef<string | null>(null)
   const snapRef = useRef<SnapHit | null>(null)
   const finishPolyRef = useRef<() => void>(() => {})
   const cancelDraftRef = useRef<() => void>(() => {})
   const applyEntityRef = useRef<() => void>(() => {})
 
   useEffect(() => {
-    sceneRef.current = { model, review, selectedIds, hideSkip, live, windowMode, tool, poly, entityIds, snap: snapRef.current }
+    sceneRef.current = { model, review, selectedIds, hideSkip, live, windowMode, tool, poly, entityIds, snap: snapRef.current, showMarks, fill, hoverId: hoverRef.current }
     toolRef.current = tool
     polyRef.current = poly
     requestRef.current = () => {
@@ -176,6 +180,7 @@ export function ReviewBoard() {
     const nextKey = model ? fileKey(model) : ''
     if (fileSeen.current && fileSeen.current !== nextKey) undoStack.current = []
     fileSeen.current = nextKey
+    requestRef.current()
   })
 
   useEffect(() => {
@@ -390,11 +395,49 @@ export function ReviewBoard() {
         ctx.stroke()
         ctx.globalAlpha = 1
       }
-      stroke('chassis', '#8d97a1', 0.6, 0.45)
-      stroke('front', '#6b5b95', 1, 0.7)
-      stroke('cab', '#2f6f9f', 1, 0.45)
-      stroke('component', '#8a5a2a', 0.8, 0.35)
-      stroke('frame', '#5c564e', 1.4, 0.55)
+      const sheet = model.preview.segments.sheet
+      if (sheet?.length) stroke('sheet', '#1c1915', 1.05, 1)
+      else {
+        stroke('chassis', '#2a3138', 1, 0.9)
+        stroke('front', '#2a3138', 1, 0.9)
+        stroke('cab', '#1c1915', 1.1, 1)
+        stroke('component', '#3a332c', 0.9, 0.85)
+      }
+      stroke('frame', '#14120f', 1.7, 1)
+      if (!useBlit) {
+        const detail = model.preview.circles.detail
+        if (detail?.length) {
+          ctx.beginPath()
+          let any = false
+          for (let i = 0; i < detail.length; i += 3) {
+            const cx = detail[i]
+            const cy = detail[i + 1]
+            const r = detail[i + 2]
+            if (cx + r < vp.x0 || cx - r > vp.x1 || cy + r < vp.y0 || cy - r > vp.y1) continue
+            const [sx, sy] = map(cx, cy)
+            const radius = Math.max(0.6, r * view.scale)
+            ctx.moveTo(sx + radius, sy)
+            ctx.arc(sx, sy, radius, 0, Math.PI * 2)
+            any = true
+          }
+          if (any) {
+            ctx.strokeStyle = '#1c1915'
+            ctx.lineWidth = 1
+            ctx.stroke()
+          }
+        }
+        const labels = model.preview.labels
+        if (labels && view.scale > 0.11) {
+          ctx.fillStyle = '#2a2622'
+          ctx.font = '11px "Segoe UI", sans-serif'
+          const deck = new LabelDeck()
+          for (const item of labels) {
+            if (item.x < vp.x0 || item.x > vp.x1 || item.y < vp.y0 || item.y > vp.y1) continue
+            const [sx, sy] = map(item.x, item.y)
+            if (deck.take(sx, sy, item.text.length * 6.2, 12)) ctx.fillText(item.text, sx, sy)
+          }
+        }
+      }
 
       if (model.frame && !useBlit) {
         ctx.beginPath()
@@ -416,15 +459,31 @@ export function ReviewBoard() {
 
       const scene = sceneRef.current
       const chosen = new Set(scene.selectedIds)
+      const deck = new LabelDeck()
       for (const item of scene.review) {
         if (item.deleted || item.role === 'hole') continue
         if (scene.hideSkip && item.kind === 'skip') continue
         const drawn = scene.live?.id === item.id ? scene.live : item
         const on = chosen.has(item.id)
-        if (drawn.outline?.view === 'side') drawOutline(ctx, map, drawn.outline.points, drawn, on, vp)
-        else drawBox(ctx, map, drawn.side, drawn, on, vp)
-        if (drawn.outline?.view === 'top') drawOutline(ctx, map, drawn.outline.points, drawn, on, vp)
-        else drawBox(ctx, map, drawn.top, drawn, on, vp)
+        const hot = on || scene.hoverId === item.id
+        if (!scene.showMarks && !on) continue
+        if (drawn.role === 'liner') {
+          drawLiner(ctx, map, drawn, on, hot, scene.fill)
+          continue
+        }
+        if (drawn.role === 'crossmember') {
+          drawMember(ctx, map, drawn, on, hot, scene.fill)
+          if (on && chosen.size === 1) drawHandles(ctx, map, drawn.top)
+          continue
+        }
+        if (drawn.role === 'frame' && !on) continue
+        const sample = drawn.side ?? drawn.top
+        const wide = sample ? Math.abs(map(sample.x1, sample.y0)[0] - map(sample.x0, sample.y1)[0]) > 120 : false
+        const mark = { fill: hot ? Math.max(scene.fill, on ? 0.14 : 0.08) : scene.fill, label: on || hot || wide, deck }
+        if (drawn.outline?.view === 'side') drawOutline(ctx, map, drawn.outline.points, drawn, on, vp, mark)
+        else drawBox(ctx, map, drawn.side, drawn, on, vp, mark)
+        if (drawn.outline?.view === 'top') drawOutline(ctx, map, drawn.outline.points, drawn, on, vp, mark)
+        else drawBox(ctx, map, drawn.top, drawn, on, vp, mark)
         if (on && chosen.size === 1) {
           drawHandles(ctx, map, drawn.side)
           drawHandles(ctx, map, drawn.top)
@@ -515,23 +574,36 @@ export function ReviewBoard() {
     if (event.button !== 0) return
     const point = toDrawing(event)
     if (!point || !model) return
-    if (toolRef.current === 'polygon') {
-      const current = polyRef.current
-      const view = viewRef.current
-      if (current.length >= 3 && view) {
-        const rect = canvas.getBoundingClientRect()
-        const [sx, sy] = worldToScreen(view, rect.width, rect.height, current[0].x, current[0].y)
-        if (Math.hypot(sx - point.px, sy - point.py) <= 12 || shouldClose(current, point.x, point.y, snapTol())) {
-          finishPolyRef.current()
-          return
-        }
+    const edited = event.detail >= 2 ? outlineEditAt(point.px, point.py) : null
+    if (edited) {
+      applyVertexEdit(edited)
+      return
+    }
+    const vertex = vertexAt(point.px, point.py)
+    if (vertex) {
+      vertexDrag.current = { id: vertex.id, index: vertex.index, pushed: false }
+      drag.current = null
+      handleDrag.current = null
+      polyDrag.current = null
+      canvas.setPointerCapture(event.pointerId)
+      return
+    }
+    const grip = gripAt(point.px, point.py)
+    if (grip) {
+      const item = review.find((entry) => entry.id === grip.id)
+      const box = grip.which === 'side' ? item?.side : item?.top
+      if (item && box) {
+        handleDrag.current = { id: item.id, which: grip.which, handle: grip.handle, start: { ...box }, pushed: false }
+        drag.current = null
+        polyDrag.current = null
+        canvas.setPointerCapture(event.pointerId)
       }
-      const snapped = indexRef.current ? snapPoint(indexRef.current, point.x, point.y, snapTol()) : { x: point.x, y: point.y, kind: 'free' as const }
-      const next = [...current, { x: snapped.x, y: snapped.y }]
-      polyRef.current = next
-      setPoly(next)
-      sceneRef.current = { ...sceneRef.current, poly: next }
-      requestRef.current()
+      return
+    }
+    if (toolRef.current === 'polygon') {
+      polyDrag.current = { x: point.x, y: point.y, px: point.px, py: point.py, moved: false }
+      drag.current = null
+      canvas.setPointerCapture(event.pointerId)
       return
     }
     if (toolRef.current === 'entity' || toolRef.current === 'contour') {
@@ -574,30 +646,6 @@ export function ReviewBoard() {
       requestRef.current()
       return
     }
-    const edited = event.detail >= 2 ? outlineEditAt(point.px, point.py) : null
-    if (edited) {
-      applyVertexEdit(edited)
-      return
-    }
-    const vertex = vertexAt(point.px, point.py)
-    if (vertex) {
-      vertexDrag.current = { id: vertex.id, index: vertex.index, pushed: false }
-      drag.current = null
-      handleDrag.current = null
-      canvas.setPointerCapture(event.pointerId)
-      return
-    }
-    const grip = gripAt(point.px, point.py)
-    if (grip) {
-      const item = review.find((entry) => entry.id === grip.id)
-      const box = grip.which === 'side' ? item?.side : item?.top
-      if (item && box) {
-        handleDrag.current = { id: item.id, which: grip.which, handle: grip.handle, start: { ...box }, pushed: false }
-        drag.current = null
-        canvas.setPointerCapture(event.pointerId)
-      }
-      return
-    }
     const extend = event.ctrlKey || event.metaKey || event.shiftKey
     const hit = hitTest(point.x, point.y, review, hideSkip)
     if (hit && !windowMode) {
@@ -634,6 +682,23 @@ export function ReviewBoard() {
       return
     }
     const point = toDrawing(event)
+    const gesture = polyDrag.current
+    if (gesture && point) {
+      if (!gesture.moved && Math.hypot(point.px - gesture.px, point.py - gesture.py) > 6) gesture.moved = true
+      if (gesture.moved) {
+        const last = polyRef.current[polyRef.current.length - 1]
+        const min = Math.max(6, 4 / (viewRef.current?.scale || 1))
+        const seed = polyRef.current.length ? polyRef.current : [{ x: gesture.x, y: gesture.y }]
+        if (!last || Math.hypot(last.x - point.x, last.y - point.y) >= min) {
+          const next = [...seed, { x: point.x, y: point.y }]
+          polyRef.current = next
+          setPoly(next)
+          sceneRef.current = { ...sceneRef.current, poly: next }
+          requestRef.current()
+        }
+      }
+      return
+    }
     if (toolRef.current === 'polygon' && point && indexRef.current) {
       const snap = snapPoint(indexRef.current, point.x, point.y, snapTol())
       snapRef.current = snap
@@ -674,10 +739,16 @@ export function ReviewBoard() {
       requestRef.current()
       return
     }
-    if (point && !drag.current && selectedIds.length === 1 && !toolRef.current) {
-      const hoverVertex = vertexAt(point.px, point.py)
-      const hover = hoverVertex ? null : gripAt(point.px, point.py)
-      canvas.style.cursor = hoverVertex ? 'grab' : hover ? cursorFor(hover.handle) : ''
+    if (point && !drag.current && !toolRef.current) {
+      const hoverVertex = selectedIds.length === 1 ? vertexAt(point.px, point.py) : null
+      const hover = hoverVertex ? null : selectedIds.length === 1 ? gripAt(point.px, point.py) : null
+      const hit = hover || hoverVertex ? null : hitTest(point.x, point.y, review, hideSkip)
+      if (hoverRef.current !== hit) {
+        hoverRef.current = hit
+        sceneRef.current = { ...sceneRef.current, hoverId: hit }
+        requestRef.current()
+      }
+      canvas.style.cursor = hoverVertex ? 'grab' : hover ? cursorFor(hover.handle) : hit ? 'pointer' : ''
     }
     const start = drag.current
     if (!start || !point) return
@@ -715,6 +786,24 @@ export function ReviewBoard() {
       else if (!grip.pushed) requestRef.current()
       return
     }
+    const gesture = polyDrag.current
+    if (gesture) {
+      polyDrag.current = null
+      const point = toDrawing(event)
+      if (gesture.moved) {
+        if (polyRef.current.length >= 3) finishPolyRef.current()
+        else {
+          polyRef.current = []
+          setPoly([])
+          setToast('Obrys potřebuje aspoň tři body')
+          window.clearTimeout(toastTimer.current)
+          toastTimer.current = window.setTimeout(() => setToast(null), 2800)
+        }
+        return
+      }
+      if (point) placePolyPoint(point)
+      return
+    }
     const start = drag.current
     drag.current = null
     if (start?.drawing) requestRef.current()
@@ -743,6 +832,26 @@ export function ReviewBoard() {
     if (added) setSelectedIds([added.id])
   }
 
+  function placePolyPoint(point: { x: number; y: number; px: number; py: number }) {
+    const current = polyRef.current
+    const view = viewRef.current
+    const canvas = canvasRef.current
+    if (current.length >= 3 && view && canvas) {
+      const rect = canvas.getBoundingClientRect()
+      const [sx, sy] = worldToScreen(view, rect.width, rect.height, current[0].x, current[0].y)
+      if (Math.hypot(sx - point.px, sy - point.py) <= 14 || shouldClose(current, point.x, point.y, snapTol())) {
+        finishPolyRef.current()
+        return
+      }
+    }
+    const snapped = indexRef.current ? snapPoint(indexRef.current, point.x, point.y, snapTol()) : { x: point.x, y: point.y, kind: 'free' as const }
+    const next = [...current, { x: snapped.x, y: snapped.y }]
+    polyRef.current = next
+    setPoly(next)
+    sceneRef.current = { ...sceneRef.current, poly: next }
+    requestRef.current()
+  }
+
   function gripAt(px: number, py: number): { id: string; which: BoxSide; handle: HandleId } | null {
     if (selectedIds.length !== 1) return null
     const item = review.find((entry) => entry.id === selectedIds[0] && !entry.deleted)
@@ -756,7 +865,7 @@ export function ReviewBoard() {
     for (const which of faces) {
       const box = item[which]
       if (!box) continue
-      const handle = hitHandle(px, py, box, map)
+      const handle = hitHandle(px, py, box, map, 16) ?? hitBorder(px, py, box, map, 14)
       if (!handle) continue
       const anchor = handleAnchor(box, handle)
       const [sx, sy] = map(anchor.x, anchor.y)
@@ -915,7 +1024,7 @@ export function ReviewBoard() {
           <strong>Kontrola detekce</strong>
           <span>
             {doubtful ? `${doubtful} nejistých` : 'vše s vyšší jistotou'} · tažením přidáte oblast · Shift+tažení vybírá okno · úchyty a vrcholy mění obrys
-            {tool === 'polygon' ? ' · mnohoúhelník: klik, Enter uzavře, Esc zruší, Backspace maže bod, úchop na konce a průsečíky' : ''}
+            {tool === 'polygon' ? ' · mnohoúhelník: táhněte volný obrys, nebo klikejte body a Enter uzavře' : ''}
             {tool === 'entity' ? ' · klik na čáru, oblouk, kružnici nebo blok; Ctrl přidá' : ''}
             {tool === 'contour' ? ' · klik spojí uzavřený obrys pod kurzorem' : ''}
             {windowMode ? ' · tažení vybírá prvky' : ''}
@@ -964,7 +1073,7 @@ export function ReviewBoard() {
           >
             Výběr oknem
           </Button>
-          <Button variant={tool === 'polygon' ? 'rust' : 'outline'} size="sm" title="Klikáním bodů, Enter uzavře" onClick={() => armTool('polygon')}>
+          <Button variant={tool === 'polygon' ? 'rust' : 'outline'} size="sm" title="Tažení kreslí volný obrys, klikání přidává body" onClick={() => armTool('polygon')}>
             Mnohoúhelník
           </Button>
           <Button variant={tool === 'entity' ? 'rust' : 'outline'} size="sm" title="Čára, oblouk, kružnice nebo blok" onClick={() => armTool('entity')}>
@@ -995,6 +1104,14 @@ export function ReviewBoard() {
         <label className="toggle">
           <span>Skrýt vynechané</span>
           <input type="checkbox" checked={hideSkip} onChange={(event) => setHideSkip(event.target.checked)} />
+        </label>
+        <label className="toggle">
+          <span>Zobrazit detekce</span>
+          <input type="checkbox" checked={showMarks} onChange={(event) => setShowMarks(event.target.checked)} />
+        </label>
+        <label className="field">
+          <span>Výplň detekcí</span>
+          <input type="range" min={0} max={0.28} step={0.02} value={fill} onChange={(event) => setFill(Number(event.target.value))} />
         </label>
         <p className="status">
           Otvory rámu: {review.filter((item) => item.role === 'hole' && !item.deleted).length}. Kliknutím ve výkresu otevřete jeden otvor.
@@ -1150,6 +1267,23 @@ function ElementForm({
   )
 }
 
+interface MarkStyle {
+  fill: number
+  label: boolean
+  deck: LabelDeck
+}
+
+class LabelDeck {
+  private placed: { x: number; y: number; w: number; h: number }[] = []
+  take(x: number, y: number, w: number, h: number) {
+    for (const box of this.placed) {
+      if (x < box.x + box.w && x + w > box.x && y - h < box.y && y > box.y - box.h) return false
+    }
+    this.placed.push({ x, y: y - h, w, h })
+    return true
+  }
+}
+
 function drawOutline(
   ctx: CanvasRenderingContext2D,
   map: (x: number, y: number) => readonly [number, number],
@@ -1157,6 +1291,7 @@ function drawOutline(
   item: ReviewElement,
   on: boolean,
   vp: BBox,
+  mark: MarkStyle,
 ) {
   const bounds = polygonBounds(points)
   if (bounds.x1 < vp.x0 || bounds.x0 > vp.x1 || bounds.y1 < vp.y0 || bounds.y0 > vp.y1) return
@@ -1170,14 +1305,13 @@ function drawOutline(
   ctx.closePath()
   const color = item.confidence < 0.55 ? '#c2410c' : item.confidence < 0.8 ? '#b45309' : '#1f7a4d'
   ctx.strokeStyle = on ? '#9b2c1a' : color
-  ctx.fillStyle = on ? 'rgba(194, 78, 40, 0.18)' : 'rgba(31, 122, 77, 0.1)'
   ctx.lineWidth = on ? 2.4 : 1.6
-  ctx.fill()
+  if (mark.fill > 0.01) {
+    ctx.fillStyle = on ? `rgba(194, 78, 40, ${mark.fill})` : `rgba(31, 122, 77, ${mark.fill})`
+    ctx.fill()
+  }
   ctx.stroke()
-  ctx.fillStyle = '#1c1915'
-  ctx.font = '11px "Segoe UI", sans-serif'
-  const [ax, ay] = map(bounds.x0, bounds.y1)
-  if (item.title && bounds.x1 - bounds.x0 > 36) ctx.fillText(item.title, ax + 3, ay + 12)
+  paintLabel(ctx, map, bounds, item, mark)
   ctx.restore()
 }
 
@@ -1289,6 +1423,7 @@ function drawBox(
   item: ReviewElement,
   on: boolean,
   vp: BBox,
+  mark: MarkStyle,
 ) {
   if (!box) return
   if (box.x1 < vp.x0 || box.x0 > vp.x1 || box.y1 < vp.y0 || box.y0 > vp.y1) return
@@ -1297,16 +1432,104 @@ function drawBox(
   const color = item.confidence < 0.55 ? '#c2410c' : item.confidence < 0.8 ? '#b45309' : '#1f7a4d'
   ctx.save()
   ctx.strokeStyle = on ? '#9b2c1a' : color
-  ctx.fillStyle = on ? 'rgba(194, 78, 40, 0.16)' : item.source === 'estimated' ? 'rgba(180, 83, 9, 0.08)' : 'rgba(31, 122, 77, 0.08)'
   ctx.lineWidth = on ? 2.4 : 1.4
   if (item.source === 'estimated' || item.confidence < 0.6) ctx.setLineDash([5, 4])
-  ctx.fillRect(ax, ay, bx - ax, by - ay)
+  if (mark.fill > 0.01) {
+    ctx.fillStyle = on ? `rgba(194, 78, 40, ${mark.fill})` : item.source === 'estimated' ? `rgba(180, 83, 9, ${mark.fill})` : `rgba(31, 122, 77, ${mark.fill})`
+    ctx.fillRect(ax, ay, bx - ax, by - ay)
+  }
   ctx.strokeRect(ax, ay, bx - ax, by - ay)
   ctx.setLineDash([])
+  paintLabel(ctx, map, box, item, mark)
+  ctx.restore()
+}
+
+function paintLabel(
+  ctx: CanvasRenderingContext2D,
+  map: (x: number, y: number) => readonly [number, number],
+  box: BBox,
+  item: ReviewElement,
+  mark: MarkStyle,
+) {
+  const named = item.role === 'equipment' || item.role === 'axle' || item.role === 'cab' || item.role === 'frame' || item.role === 'mudguard'
+  if (!named || !item.title || !mark.label) return
+  const [ax, ay] = map(box.x0, box.y1)
+  const [bx] = map(box.x1, box.y0)
+  if (Math.abs(bx - ax) < 28) return
   ctx.fillStyle = '#1c1915'
   ctx.font = '11px "Segoe UI", sans-serif'
-  const text = item.role === 'equipment' || item.role === 'axle' || item.role === 'cab' || item.role === 'frame' ? item.title : ''
-  if (text && Math.abs(bx - ax) > 36) ctx.fillText(text, ax + 3, ay + 12)
+  if (mark.deck.take(ax + 3, ay + 12, item.title.length * 6.2, 14)) ctx.fillText(item.title, ax + 3, ay + 12)
+}
+
+function drawLiner(
+  ctx: CanvasRenderingContext2D,
+  map: (x: number, y: number) => readonly [number, number],
+  item: ReviewElement,
+  on: boolean,
+  hot: boolean,
+  fill: number,
+) {
+  const box = item.top
+  if (!box) return
+  const y0 = box.y0
+  const y1 = box.y1
+  const inset = Math.max(12, (y1 - y0) * 0.08)
+  ctx.save()
+  ctx.strokeStyle = on ? '#9b2c1a' : '#1f7a4d'
+  ctx.lineWidth = on ? 2.2 : 1.4
+  ctx.beginPath()
+  for (const y of [y0 + inset, y1 - inset]) {
+    const [ax, ay] = map(box.x0, y)
+    const [bx, by] = map(box.x1, y)
+    ctx.moveTo(ax, ay)
+    ctx.lineTo(bx, by)
+  }
+  ctx.stroke()
+  if ((on || hot) && fill > 0) {
+    const [ax, ay] = map(box.x0, y1 - inset)
+    const [bx, by] = map(box.x1, y0 + inset)
+    ctx.fillStyle = `rgba(31, 122, 77, ${Math.max(fill, 0.08)})`
+    ctx.fillRect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay))
+  }
+  ctx.restore()
+}
+
+function drawMember(
+  ctx: CanvasRenderingContext2D,
+  map: (x: number, y: number) => readonly [number, number],
+  item: ReviewElement,
+  on: boolean,
+  hot: boolean,
+  fill: number,
+) {
+  const box = item.top
+  if (!box) return
+  const x = (box.x0 + box.x1) / 2
+  ctx.save()
+  ctx.strokeStyle = on ? '#9b2c1a' : '#1f7a4d'
+  ctx.lineWidth = on || hot ? 2.4 : 1.6
+  ctx.beginPath()
+  const [ax, ay] = map(x, box.y0)
+  const [bx, by] = map(x, box.y1)
+  ctx.moveTo(ax, ay)
+  ctx.lineTo(bx, by)
+  if (Math.abs(box.x1 - box.x0) > 8) {
+    const [cx, cy] = map(box.x0, box.y0)
+    const [dx, dy] = map(box.x0, box.y1)
+    const [ex, ey] = map(box.x1, box.y0)
+    const [fx, fy] = map(box.x1, box.y1)
+    ctx.moveTo(cx, cy)
+    ctx.lineTo(dx, dy)
+    ctx.moveTo(ex, ey)
+    ctx.lineTo(fx, fy)
+  }
+  ctx.stroke()
+  if (on && fill > 0.01) {
+    const [px, py] = map(box.x0, box.y1)
+    const [qx, qy] = map(box.x1, box.y0)
+    ctx.fillStyle = `rgba(194, 78, 40, ${fill})`
+    ctx.fillRect(Math.min(px, qx), Math.min(py, qy), Math.abs(qx - px), Math.abs(qy - py))
+  }
   ctx.restore()
 }
 

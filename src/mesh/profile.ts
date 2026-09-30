@@ -6,8 +6,8 @@ export type ProfileUse = 'revolve' | 'extrude' | 'typed'
 
 /** Tanks follow the side profile by revolution. Boxes, cab and mudguards extrude it. */
 export function profileShape(kind: string): ProfileUse {
-  if (kind === 'fuel' || kind === 'adblue' || kind === 'air' || kind === 'exhaust') return 'revolve'
-  if (kind === 'battery' || kind === 'toolbox' || kind === 'case' || kind === 'shield' || kind === 'skirt' || kind === 'steps' || kind === 'bracket') return 'extrude'
+  if (kind === 'fuel' || kind === 'adblue' || kind === 'air' || kind === 'exhaust' || kind === 'hydraulic' || kind === 'spare') return 'revolve'
+  if (kind === 'battery' || kind === 'toolbox' || kind === 'case' || kind === 'shield' || kind === 'skirt' || kind === 'steps' || kind === 'bracket' || kind === 'fifth' || kind === 'underrun' || kind === 'light' || kind === 'pto') return 'extrude'
   return 'typed'
 }
 

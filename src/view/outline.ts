@@ -36,7 +36,8 @@ const JOIN = 4
 export function entitiesFromPreview(preview: { segments: Record<string, number[]>; circles: Record<string, number[]> }): DrawEntity[] {
   const out: DrawEntity[] = []
   let id = 0
-  for (const role of ['chassis', 'frame', 'cab', 'component', 'axle', 'front']) {
+  const roles = preview.segments.sheet?.length ? ['sheet', 'frame', 'axle'] : ['chassis', 'frame', 'cab', 'component', 'axle', 'front']
+  for (const role of roles) {
     const arr = preview.segments[role]
     if (!arr) continue
     for (let i = 0; i < arr.length; i += 4) {

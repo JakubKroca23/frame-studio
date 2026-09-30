@@ -96,8 +96,8 @@ export function buildReview(model: ChassisModel): ReviewElement[] {
         evidence: linerMeasured
           ? 'Úsek je z textu ve výkresu (inner liner).'
           : 'Úsek sleduje čáry těsně uvnitř podélníků v půdorysu. Text výztuhy ve výkresu není, tloušťku je třeba zadat.',
-        side: { x0: frame.liner.x0, y0: frame.bottomZ, x1: frame.liner.x1, y1: frame.topZ },
-        top: { x0: frame.liner.x0, y0: frame.centerY - 40, x1: frame.liner.x1, y1: frame.centerY + 40 },
+        side: null,
+        top: { x0: frame.liner.x0, y0: frame.centerY - frame.outerWidthStraight / 2, x1: frame.liner.x1, y1: frame.centerY + frame.outerWidthStraight / 2 },
         fields: [
           { key: 'x0', label: 'Od stanice', value: Math.round(frame.liner.x0), unit: 'mm', step: 1 },
           { key: 'x1', label: 'Do stanice', value: Math.round(frame.liner.x1), unit: 'mm', step: 1 },
@@ -137,16 +137,14 @@ export function buildReview(model: ChassisModel): ReviewElement[] {
   model.crossmembers.forEach((item, index) => {
     const y0 = frame ? frame.centerY - frame.outerWidthStraight / 2 : -400
     const y1 = frame ? frame.centerY + frame.outerWidthStraight / 2 : 400
-    const z0 = frame?.bottomZ ?? 0
-    const z1 = frame?.topZ ?? 270
     elements.push({
       id: `xm-${index}`,
       role: 'crossmember',
       title: `Příčka ${index + 1}`,
       confidence: 0.7,
       source: 'measured',
-      evidence: 'Svislá hrana napříč rámem v půdorysu.',
-      side: { x0: item.x - item.thickness / 2, y0: z0, x1: item.x + item.thickness / 2, y1: z1 },
+      evidence: 'Svislá hrana napříč rámem v půdorysu. Kreslí se jako čára, ne jako výplň stojiny.',
+      side: null,
       top: { x0: item.x - item.thickness / 2, y0, x1: item.x + item.thickness / 2, y1 },
       fields: [
         { key: 'x', label: 'Stanice', value: Math.round(item.x), unit: 'mm', step: 1 },

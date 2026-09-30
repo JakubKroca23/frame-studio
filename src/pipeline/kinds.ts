@@ -15,6 +15,12 @@ export type EquipKind =
   | 'case'
   | 'bracket'
   | 'crane'
+  | 'light'
+  | 'fifth'
+  | 'spare'
+  | 'hydraulic'
+  | 'pto'
+  | 'underrun'
   | 'skip'
 
 export const EQUIP_LABELS: Record<EquipKind, string> = {
@@ -31,6 +37,12 @@ export const EQUIP_LABELS: Record<EquipKind, string> = {
   case: 'Skříň',
   bracket: 'Držák',
   crane: 'Hydraulická ruka',
+  light: 'Světlo',
+  fifth: 'Točnice',
+  spare: 'Rezervní kolo',
+  hydraulic: 'Hydraulická nádrž',
+  pto: 'PTO',
+  underrun: 'Zadní zábrana',
   skip: 'Vynechat',
 }
 
@@ -46,6 +58,22 @@ export const BLOCK_PREFIX: Record<string, EquipKind> = {
   EP: 'exhaust',
   HS: 'shield',
   SA: 'skirt',
+  FS: 'skirt',
+  BP: 'adblue',
+  UH: 'air',
+  GB: 'exhaust',
+  BC: 'battery',
+  SR: 'case',
+  TC: 'case',
+  EB: 'case',
+  LC: 'light',
+  TL: 'light',
+  FE: 'fifth',
+  RP: 'underrun',
+  US: 'steps',
+  SB: 'steps',
+  BR: 'bracket',
+  AF: 'air',
 }
 
 export interface KindInput {
@@ -152,6 +180,12 @@ const TEXT_KINDS: [RegExp, EquipKind][] = [
   [/side\s*skirt|bočnic|bocnic/i, 'skirt'],
   [/mudguard|blatník|blatnik|zástěrk|zasterk/i, 'shield'],
   [/\bsteps?\b|stupát|stupat|schod/i, 'steps'],
+  [/točnic|tocnic|fifth\s*wheel|sedlov/i, 'fifth'],
+  [/rezerv|spare\s*wheel|náhradní kolo|nahradni kolo/i, 'spare'],
+  [/hydraulick.*nádrž|hydraul.*tank|olejová nádrž|olejova nadrz/i, 'hydraulic'],
+  [/\bpto\b|power\s*take/i, 'pto'],
+  [/světl|svetl|\blamp\b|\blight\b|mlhov/i, 'light'],
+  [/zadní zábran|zadni zabran|underrun/i, 'underrun'],
 ]
 
 export function kindFromText(raw: string): { kind: EquipKind; snippet: string } | null {

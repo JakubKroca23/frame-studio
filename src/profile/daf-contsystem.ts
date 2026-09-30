@@ -47,7 +47,7 @@ export const dafContsystemProfile: Profile = {
     ],
   },
   curveTolerance: 3,
-  minSegment: 8,
+  minSegment: 0.4,
   mirrorHoles: true,
   wheelCircleAsTire: true,
   raisedSplit: true,

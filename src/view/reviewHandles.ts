@@ -14,6 +14,36 @@ export function handleAnchor(box: BBox, id: HandleId): { x: number; y: number } 
   }
 }
 
+/** The pointer is on the rectangle border, away from a corner handle. */
+export function hitBorder(
+  px: number,
+  py: number,
+  box: BBox,
+  map: (x: number, y: number) => readonly [number, number],
+  radius = 12,
+): HandleId | null {
+  const nw = map(box.x0, box.y1)
+  const ne = map(box.x1, box.y1)
+  const se = map(box.x1, box.y0)
+  const sw = map(box.x0, box.y0)
+  const edges: [HandleId, readonly [number, number], readonly [number, number]][] = [
+    ['n', nw, ne],
+    ['e', ne, se],
+    ['s', se, sw],
+    ['w', sw, nw],
+  ]
+  let best: { id: HandleId; d: number } | null = null
+  for (const [id, a, b] of edges) {
+    const dx = b[0] - a[0]
+    const dy = b[1] - a[1]
+    const len2 = dx * dx + dy * dy
+    const t = len2 ? Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / len2)) : 0
+    const d = Math.hypot(px - (a[0] + dx * t), py - (a[1] + dy * t))
+    if (d <= radius && (!best || d < best.d)) best = { id, d }
+  }
+  return best?.id ?? null
+}
+
 /** Screen-space hit. `map` is world millimetres to canvas pixels. */
 export function hitHandle(
   px: number,

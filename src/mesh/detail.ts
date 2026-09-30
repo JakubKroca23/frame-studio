@@ -26,6 +26,7 @@ import {
   toolbox,
 } from './materials'
 import { extrudePlan, extrudeProfile, profileShape, revolveProfile } from './profile'
+import { tracedCab } from './silhouette'
 
 export interface World {
   model: ChassisModel
@@ -41,8 +42,6 @@ export interface World {
 
 const boxGeo = new THREE.BoxGeometry(1, 1, 1)
 boxGeo.userData.shared = true
-const boltGeo = new THREE.CylinderGeometry(7, 7, 16, 8)
-boltGeo.userData.shared = true
 
 function solid(size: [number, number, number], mat: THREE.Material, at: [number, number, number], rot?: [number, number, number]) {
   const mesh = new THREE.Mesh(boxGeo, mat)
@@ -127,23 +126,8 @@ export function addCrossmemberAssembly(
   const web = solid([thick, height, span - webT], paint, [x, cz, (innerL + innerR) / 2])
   web.userData.noShadow = false
   parent.add(web)
-  parent.add(solid([thick + 18, 10, span - webT - 8], paintDark, [x, cz + height / 2, (innerL + innerR) / 2]))
-  parent.add(solid([thick + 18, 10, span - webT - 8], paintDark, [x, cz - height / 2, (innerL + innerR) / 2]))
-  for (const side of [-1, 1] as const) {
-    const z = side < 0 ? innerL : innerR
-    const gusset = solid([thick + 36, railH * 0.72, 8], paint, [x, zBot + railH * 0.48, z + side * 6])
-    gusset.userData.noShadow = false
-    parent.add(gusset)
-    for (const up of [-1, 1]) {
-      for (const along of [-1, 1]) {
-        const bolt = new THREE.Mesh(boltGeo, steel)
-        bolt.rotation.x = Math.PI / 2
-        bolt.position.set(x + along * (thick * 0.28), zBot + railH * (0.32 + up * 0.22), z + side * 12)
-        bolt.userData.noShadow = true
-        parent.add(bolt)
-      }
-    }
-  }
+  parent.add(solid([thick + 8, 12, span - webT - 8], paintDark, [x, cz + height / 2, (innerL + innerR) / 2]))
+  parent.add(solid([thick + 8, 12, span - webT - 8], paintDark, [x, cz - height / 2, (innerL + innerR) / 2]))
 }
 
 export function addAxleAssembly(parent: THREE.Group, axle: Axle, index: number, world: World) {
@@ -364,7 +348,7 @@ function tireGeo(radius: number, width: number) {
     v(bead - 8, -half * 0.22),
     v(bead, -half * 0.5),
   ]
-  const geo = new THREE.LatheGeometry(pts, 80)
+  const geo = new THREE.LatheGeometry(pts, 96)
   geo.computeVertexNormals()
   geo.userData.shared = true
   tireCache.set(key, geo)
@@ -555,15 +539,31 @@ interface Placed {
 const PREFIX: Record<string, EquipKind> = {
   FT: 'fuel',
   AT: 'air',
+  UH: 'air',
+  AF: 'air',
   BB: 'battery',
+  BC: 'battery',
+  BP: 'adblue',
   UT: 'toolbox',
   MH: 'toolbox',
   MP: 'toolbox',
   WC: 'toolbox',
+  SR: 'case',
+  TC: 'case',
+  EB: 'case',
   VE: 'stack',
   EP: 'exhaust',
+  GB: 'exhaust',
   HS: 'shield',
   SA: 'skirt',
+  FS: 'skirt',
+  RP: 'underrun',
+  LC: 'light',
+  TL: 'light',
+  FE: 'fifth',
+  US: 'steps',
+  SB: 'steps',
+  BR: 'bracket',
 }
 
 export function buildEquipment(world: World): { equipment: THREE.Group; brackets: THREE.Group } {
@@ -632,6 +632,18 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
       addSteps(equipment, item)
     } else if (kind === 'crane') {
       addCrane(equipment, item)
+    } else if (kind === 'hydraulic') {
+      addTankBody(equipment, fitBeside(item, world, 700), false)
+    } else if (kind === 'fifth') {
+      addFifth(equipment, item)
+    } else if (kind === 'spare') {
+      addSpare(equipment, item)
+    } else if (kind === 'light') {
+      addLamp(equipment, item)
+    } else if (kind === 'pto') {
+      addLiddedBox(equipment, item, castIron)
+    } else if (kind === 'underrun') {
+      addPlate(equipment, { ...item, height: Math.max(item.height, 80) }, paintDark)
     } else if (Math.abs(item.y) > world.frame.outerWidthStraight * 0.28) {
       addTankBody(equipment, fitBeside(item, world, 700), false)
     } else {
@@ -696,6 +708,42 @@ function addCrane(parent: THREE.Group, item: Placed) {
   const boomH = clamp(height * 0.08, 64, 150)
   const boomZ = base + height * 0.1 + colH - boomH * 0.2
   g.add(solid([boomLen, boomH, colW * 0.7], cranePaint, [colX + boomLen / 2 - colD * 0.2, boomZ, item.y]))
+  parent.add(g)
+}
+
+function addFifth(parent: THREE.Group, item: Placed) {
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  const len = clamp(item.len, 400, 1400)
+  const width = clamp(item.width, 400, 1400)
+  const z = item.z + item.height / 2
+  g.add(solid([len, 28, width], paintDark, [item.x, z, item.y]))
+  g.add(tube(70, 48, 'y', steel, [item.x, z + 24, item.y], 24))
+  g.add(tube(28, 36, 'y', steel, [item.x, z + 50, item.y], 16))
+  parent.add(g)
+}
+
+function addSpare(parent: THREE.Group, item: Placed) {
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  const radius = clamp(Math.max(item.height, item.width) / 2, 180, 620)
+  const tyre = new THREE.Mesh(tireGeo(radius, clamp(item.len, 160, 360)), rubber)
+  tyre.rotation.z = Math.PI / 2
+  tyre.position.set(item.x, item.z, item.y)
+  const disc = new THREE.Mesh(rimDisc(radius), alloy)
+  disc.rotation.y = Math.PI / 2
+  disc.position.set(item.x, item.z, item.y)
+  g.add(tyre, disc)
+  parent.add(g)
+}
+
+function addLamp(parent: THREE.Group, item: Placed) {
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  const len = clamp(item.len, 40, 280)
+  const height = clamp(item.height, 40, 220)
+  g.add(solid([len, height, clamp(item.width, 30, 180)], plastic, [item.x, item.z, item.y]))
+  g.add(tube(Math.min(height, 80) * 0.35, 16, 'x', lamp, [item.x + Math.sign(item.x || 1) * len * 0.4, item.z, item.y], 16))
   parent.add(g)
 }
 
@@ -992,6 +1040,8 @@ function defaultBattery(world: World): Placed {
 }
 
 export function buildCab(cab: CabModel, world: World): THREE.Group {
+  const traced = tracedCab(cab, world)
+  if (traced) return traced
   const g = new THREE.Group()
   g.name = 'cab'
   g.userData.role = 'cab'

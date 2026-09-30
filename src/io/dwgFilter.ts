@@ -37,7 +37,7 @@ export async function filteredDwgToDxf(bytes: Uint8Array): Promise<string | null
   api.FS.writeFile(fileName, bytes)
   const path = api.stringToNewUTF8(fileName)
   try {
-    const ptr = api._dwg_filtered_dxf(path, 8)
+    const ptr = api._dwg_filtered_dxf(path, 0.4)
     if (!ptr) return null
     try {
       return api.UTF8ToString(ptr)
