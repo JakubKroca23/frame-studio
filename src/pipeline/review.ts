@@ -81,13 +81,16 @@ export function buildReview(model: ChassisModel): ReviewElement[] {
       ],
     })
     if (frame.liner) {
+      const linerMeasured = frame.sources?.liner !== 'estimated'
       elements.push({
         id: 'liner',
         role: 'liner',
         title: 'Vnitřní výztuha',
-        confidence: 0.86,
-        source: 'measured',
-        evidence: 'Úsek je z textu ve výkresu (inner liner).',
+        confidence: linerMeasured ? 0.86 : 0.55,
+        source: linerMeasured ? 'measured' : 'estimated',
+        evidence: linerMeasured
+          ? 'Úsek je z textu ve výkresu (inner liner).'
+          : 'Úsek sleduje čáry těsně uvnitř podélníků v půdorysu. Text výztuhy ve výkresu není, tloušťku je třeba zadat.',
         side: { x0: frame.liner.x0, y0: frame.bottomZ, x1: frame.liner.x1, y1: frame.topZ },
         top: { x0: frame.liner.x0, y0: frame.centerY - 40, x1: frame.liner.x1, y1: frame.centerY + 40 },
         fields: [

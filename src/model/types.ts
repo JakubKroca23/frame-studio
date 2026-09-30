@@ -72,6 +72,7 @@ export interface FrameModel {
     width: 'measured' | 'estimated'
     flange: 'measured' | 'estimated'
     section: 'measured' | 'estimated'
+    liner?: 'measured' | 'estimated'
   }
 }
 

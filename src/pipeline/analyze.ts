@@ -84,6 +84,7 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
       width: 'measured',
       flange: flangeDim != null || frame.flangeWidth !== 90 ? 'measured' : 'estimated',
       section: frame.section ? 'measured' : 'estimated',
+      liner: frame.liner ? 'estimated' : undefined,
     }
   } else warnings.push('Podélníky se nepodařilo spolehlivě najít.')
 
@@ -107,7 +108,10 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
   }
   if (frame && profile.innerLiner && axles[profile.innerLiner.axle]) {
     const liner = linerFromText(flat.texts, profile, axles[profile.innerLiner.axle].x)
-    if (liner) frame.liner = liner
+    if (liner) {
+      frame.liner = liner
+      if (frame.sources) frame.sources.liner = 'measured'
+    }
   }
   if (profile.semantics.axleSpacings?.[0] && axles.length >= 2) {
     const label = profile.semantics.axleSpacings[0]
