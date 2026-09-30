@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { buildChassisGroup } from '../mesh/build'
+import { initManifold } from '../mesh/manifold'
+import { solidReport } from '../mesh/silhouette'
 import { defaultParams, type ChassisModel } from '../model/types'
 import { tireDiameterMm } from '../lib/geom'
 import { analyzeDxf } from './analyze'
@@ -68,6 +70,31 @@ describe('Scania ICD sample', () => {
     expect(model.cab).not.toBeNull()
     expect(model.components.length).toBeGreaterThan(8)
     expect(model.crossmembers.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('builds a closed cab whose size matches the drawing', async () => {
+    await initManifold()
+    const group = buildChassisGroup(model, { ...defaultParams, holes: 'off', linerEnabled: false })
+    const shell = group.getObjectByName('cab-shell') as THREE.Mesh | undefined
+    expect(shell).toBeTruthy()
+    const report = solidReport(shell!.geometry)
+    expect(report.boundary).toBe(0)
+    expect(report.nonManifold).toBe(0)
+    expect(report.shells).toBe(1)
+    expect(report.volume).toBeGreaterThan(0)
+    shell!.geometry.computeBoundingBox()
+    const size = shell!.geometry.boundingBox!.getSize(new THREE.Vector3())
+    const cab = model.cab!
+    const length = Math.min(cab.side.x1, cab.top.x1) - Math.max(cab.side.x0, cab.top.x0)
+    const height = cab.side.y1 - cab.side.y0
+    const width = Math.abs(cab.top.y1 - cab.top.y0)
+    expect(Math.abs(size.x - length)).toBeLessThan(4)
+    expect(Math.abs(size.y - height)).toBeLessThan(4)
+    expect(Math.abs(size.z - width)).toBeLessThan(4)
+    group.traverse((child) => {
+      const mesh = child as THREE.Mesh
+      if (mesh.geometry && !mesh.geometry.userData.shared) mesh.geometry.dispose()
+    })
   })
 
   it('builds a frame whose bounding box matches the drawing', () => {

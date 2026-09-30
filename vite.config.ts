@@ -9,6 +9,9 @@ export default defineConfig({
     port: 47231,
     strictPort: true,
   },
+  optimizeDeps: {
+    exclude: ['manifold-3d'],
+  },
   test: {
     include: ['src/**/*.test.ts'],
     testTimeout: 180000,

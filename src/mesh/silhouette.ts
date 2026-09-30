@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import type { Pt } from '../lib/geom'
 import type { CabModel } from '../model/types'
-import { cabPaint, lamp } from './materials'
+import { manifoldApi } from './manifold'
+import { cabPaint } from './materials'
 
 /** Outer envelope of a point cloud. X is the station axis, Y the other drawing axis. */
 export function envelope(points: readonly Pt[], bins = 48): Pt[] | null {
@@ -14,37 +15,98 @@ export function envelope(points: readonly Pt[], bins = 48): Pt[] | null {
   }
   const span = maxX - minX
   if (span < 40) return null
-  const top = new Array<number>(bins).fill(-Infinity)
-  const bot = new Array<number>(bins).fill(Infinity)
-  const count = new Array<number>(bins).fill(0)
+  const top: (number | null)[] = new Array(bins).fill(null)
+  const bot: (number | null)[] = new Array(bins).fill(null)
   for (const point of points) {
     let index = Math.floor(((point.x - minX) / span) * (bins - 1))
     if (index < 0) index = 0
     if (index >= bins) index = bins - 1
-    count[index]++
-    if (point.y > top[index]) top[index] = point.y
-    if (point.y < bot[index]) bot[index] = point.y
+    if (top[index] === null || point.y > (top[index] as number)) top[index] = point.y
+    if (bot[index] === null || point.y < (bot[index] as number)) bot[index] = point.y
   }
+  const filledTop = fillGaps(top)
+  const filledBot = fillGaps(bot)
+  if (!filledTop || !filledBot) return null
+  for (let index = 0; index < bins; index++) {
+    if (filledTop[index] < filledBot[index]) {
+      const swap = filledTop[index]
+      filledTop[index] = filledBot[index]
+      filledBot[index] = swap
+    }
+  }
+  despike(filledTop)
+  despike(filledBot)
   const upper: Pt[] = []
   const lower: Pt[] = []
   for (let index = 0; index < bins; index++) {
-    if (!count[index]) continue
     const x = minX + (span * index) / Math.max(1, bins - 1)
-    upper.push({ x, y: top[index] })
-    lower.push({ x, y: bot[index] })
+    upper.push({ x, y: filledTop[index] })
+    lower.push({ x, y: filledBot[index] })
   }
-  if (upper.length < 4) return null
-  return [...smoothChain(upper), ...smoothChain(lower).reverse()]
+  const ring = [...simplifyChain(upper, 8), ...simplifyChain(lower, 8).reverse()]
+  return ring.length >= 4 ? ring : null
 }
 
-function smoothChain(chain: Pt[]): Pt[] {
-  if (chain.length < 5) return chain
-  return chain.map((point, index) => {
-    if (index === 0 || index === chain.length - 1) return point
-    const prev = chain[index - 1]
-    const next = chain[index + 1]
-    return { x: point.x, y: point.y * 0.5 + (prev.y + next.y) * 0.25 }
-  })
+function fillGaps(values: (number | null)[]): number[] | null {
+  if (!values.some((value) => value !== null)) return null
+  const out = values.slice()
+  let index = 0
+  while (index < out.length) {
+    if (out[index] !== null) {
+      index++
+      continue
+    }
+    let end = index
+    while (end < out.length && out[end] === null) end++
+    const left = index > 0 ? (out[index - 1] as number) : null
+    const right = end < out.length ? (out[end] as number) : null
+    for (let cursor = index; cursor < end; cursor++) {
+      if (left !== null && right !== null) {
+        const t = (cursor - (index - 1)) / (end - (index - 1))
+        out[cursor] = left + (right - left) * t
+      } else {
+        out[cursor] = (left ?? right) as number
+      }
+    }
+    index = end
+  }
+  return out as number[]
+}
+
+/** Drop a one-bin needle. A real slope stays between its neighbours, so it is kept. */
+function despike(values: number[]) {
+  const next = values.slice()
+  for (let index = 1; index < values.length - 1; index++) {
+    const peak = Math.max(values[index - 1], values[index + 1])
+    const valley = Math.min(values[index - 1], values[index + 1])
+    if (values[index] > peak + 80) next[index] = peak
+    else if (values[index] < valley - 80) next[index] = valley
+  }
+  for (let index = 0; index < values.length; index++) values[index] = next[index]
+}
+
+function simplifyChain(chain: Pt[], epsilon: number): Pt[] {
+  if (chain.length < 3) return chain
+  let farthest = 0
+  let distance = 0
+  const start = chain[0]
+  const end = chain[chain.length - 1]
+  const span = Math.hypot(end.x - start.x, end.y - start.y) || 1
+  for (let index = 1; index < chain.length - 1; index++) {
+    const point = chain[index]
+    const t = ((point.x - start.x) * (end.x - start.x) + (point.y - start.y) * (end.y - start.y)) / (span * span)
+    const px = start.x + (end.x - start.x) * t
+    const py = start.y + (end.y - start.y) * t
+    const d = Math.hypot(point.x - px, point.y - py)
+    if (d > distance) {
+      distance = d
+      farthest = index
+    }
+  }
+  if (distance <= epsilon) return [start, end]
+  const left = simplifyChain(chain.slice(0, farthest + 1), epsilon)
+  const right = simplifyChain(chain.slice(farthest), epsilon)
+  return [...left.slice(0, -1), ...right]
 }
 
 export interface CabSection {
@@ -80,86 +142,149 @@ export function cabSections(side: readonly Pt[], top: readonly Pt[], front: read
   return out
 }
 
+export interface CabSolid {
+  mesh: THREE.Mesh
+  side: Pt[]
+  top: Pt[]
+  originX: number
+  ground: number
+  centerY: number
+  liftY: number
+}
+
+/**
+ * Closed cab solid: side, plan and front outlines are extruded and intersected.
+ * Coordinates are drawing millimetres: X longitudinal, Y height, Z lateral.
+ */
+export function cabSolidGeometry(side: readonly Pt[], top: readonly Pt[], front: readonly Pt[] | null): THREE.BufferGeometry | null {
+  const api = manifoldApi()
+  if (!api) return null
+  const sideRing = asRing(side)
+  const topRing = asRing(top)
+  if (!sideRing || !topRing) return null
+  const sideBox = bounds(side)
+  const topBox = bounds(top)
+  const x0 = Math.max(sideBox.x0, topBox.x0)
+  const x1 = Math.min(sideBox.x1, topBox.x1)
+  const y0 = sideBox.y0
+  const y1 = sideBox.y1
+  const z0 = topBox.y0
+  const z1 = topBox.y1
+  if (x1 - x0 < 80 || y1 - y0 < 80 || z1 - z0 < 80) return null
+
+  const ox = x0
+  const oy = y0
+  const oz = (z0 + z1) / 2
+  const pad = 500
+  const { Manifold, CrossSection } = api
+  const trash: { delete(): void }[] = []
+  const keep = <T extends { delete(): void }>(obj: T): T => {
+    if (!trash.includes(obj)) trash.push(obj)
+    return obj
+  }
+  try {
+    const sideFlat = sideRing.map(([x, y]) => [x - ox, y - oy] as [number, number])
+    const sideCs = keep(new CrossSection([orient(sideFlat)]))
+    const sideSolid = keep(keep(sideCs.extrude(z1 - z0 + pad * 2)).translate([0, 0, z0 - oz - pad]))
+
+    const topFlat = topRing.map(([x, lateral]) => [x - ox, -(lateral - oz)] as [number, number])
+    const topCs = keep(new CrossSection([orient(topFlat)]))
+    const topExtruded = keep(keep(topCs.extrude(y1 - y0 + pad * 2)).translate([0, 0, -pad]))
+    const topSolid = keep(topExtruded.rotate(-90, 0, 0))
+
+    const solids = [sideSolid, topSolid]
+    const mapped = mapFront(front, { y0: z0, y1: z1 }, { y0, y1 })
+    if (mapped && mapped.length >= 3) {
+      const frontFlat = mapped.map((point) => [-(point.x - oz), point.y - oy] as [number, number])
+      const frontCs = keep(new CrossSection([orient(frontFlat)]))
+      const frontExtruded = keep(keep(frontCs.extrude(x1 - x0 + pad * 2)).translate([0, 0, -pad]))
+      solids.push(keep(frontExtruded.rotate(0, 90, 0)))
+    }
+
+    const result = keep(Manifold.intersection(solids))
+    if (result.isEmpty() || result.status() !== 'NoError') return null
+    const mesh = result.getMesh()
+    const stride = mesh.numProp
+    const count = mesh.numVert
+    const positions = new Float32Array(count * 3)
+    for (let index = 0; index < count; index++) {
+      positions[index * 3] = mesh.vertProperties[index * stride] + ox
+      positions[index * 3 + 1] = mesh.vertProperties[index * stride + 1] + oy
+      positions[index * 3 + 2] = mesh.vertProperties[index * stride + 2] + oz
+    }
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(mesh.triVerts), 1))
+    geometry.computeVertexNormals()
+    return geometry
+  } catch {
+    return null
+  } finally {
+    for (let index = trash.length - 1; index >= 0; index--) {
+      try {
+        trash[index].delete()
+      } catch {
+        /* already released */
+      }
+    }
+  }
+}
+
 export function tracedCab(
   cab: CabModel,
   world: { originX: number; ground: number; centerY: number; lift: (drawingX: number) => number },
-): THREE.Group | null {
+): CabSolid | null {
   const side = cab.silhouettes?.side
   const top = cab.silhouettes?.top
   if (!side || !top || side.length < 4 || top.length < 4) return null
   const fittedSide = fit(side, cab.side)
   const fittedTop = fit(top, cab.top)
-  const sections = cabSections(fittedSide, fittedTop, cab.silhouettes?.front ?? null, 40)
-  if (sections.length < 4) return null
-  const geo = sectionsGeometry(sections, world)
-  if (!geo) return null
-  const group = new THREE.Group()
-  group.name = 'cab'
-  group.userData.role = 'cab'
-  const shell = new THREE.Mesh(geo, cabPaint)
-  shell.castShadow = true
-  shell.receiveShadow = true
-  group.add(shell)
-  const nose = sections[1] ?? sections[0]
-  const yLift = world.lift(nose.x)
-  const low = Math.min(...nose.loop.map((point) => point.y))
-  const span = Math.max(...nose.loop.map((point) => point.x)) - Math.min(...nose.loop.map((point) => point.x))
-  if (span > 600) {
-    for (const sideSign of [-1, 1]) {
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(46, 20, 14), lamp)
-      bulb.position.set(nose.x - world.originX + 24, low - world.ground + yLift + 180, sideSign * span * 0.34)
-      group.add(bulb)
-    }
+  const geometry = cabSolidGeometry(fittedSide, fittedTop, cab.silhouettes?.front ?? null)
+  if (!geometry) return null
+  const liftY = world.lift((cab.side.x0 + cab.side.x1) / 2)
+  const position = geometry.getAttribute('position') as THREE.BufferAttribute
+  for (let index = 0; index < position.count; index++) {
+    position.setXYZ(
+      index,
+      position.getX(index) - world.originX,
+      position.getY(index) - world.ground + liftY,
+      position.getZ(index) - world.centerY,
+    )
   }
-  return group
+  position.needsUpdate = true
+  geometry.computeVertexNormals()
+  geometry.computeBoundingBox()
+  const mesh = new THREE.Mesh(geometry, cabPaint)
+  mesh.name = 'cab-shell'
+  mesh.userData.role = 'cab-shell'
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  return { mesh, side: fittedSide, top: fittedTop, originX: world.originX, ground: world.ground, centerY: world.centerY, liftY }
 }
 
-function sectionsGeometry(
-  sections: CabSection[],
-  world: { originX: number; ground: number; centerY: number; lift: (drawingX: number) => number },
-): THREE.BufferGeometry | null {
-  const verts: number[] = []
-  const indices: number[] = []
-  const bases: number[] = []
-  const count = sections[0].loop.length
-  for (const section of sections) {
-    bases.push(verts.length / 3)
-    const up = world.lift(section.x)
-    for (const point of section.loop) {
-      verts.push(section.x - world.originX, point.y - world.ground + up, point.x - world.centerY)
-    }
+function orient(ring: [number, number][]): [number, number][] {
+  let area = 0
+  for (let index = 0; index < ring.length; index++) {
+    const current = ring[index]
+    const next = ring[(index + 1) % ring.length]
+    area += current[0] * next[1] - next[0] * current[1]
   }
-  for (let s = 0; s < sections.length - 1; s++) {
-    const a = bases[s]
-    const b = bases[s + 1]
-    for (let i = 0; i < count; i++) {
-      const i2 = (i + 1) % count
-      indices.push(a + i, b + i, a + i2, a + i2, b + i, b + i2)
-    }
+  return area < 0 ? ring.slice().reverse() : ring
+}
+
+function asRing(points: readonly Pt[]): [number, number][] | null {
+  const cleaned: [number, number][] = []
+  for (const point of points) {
+    const last = cleaned[cleaned.length - 1]
+    if (last && Math.hypot(last[0] - point.x, last[1] - point.y) < 0.4) continue
+    cleaned.push([point.x, point.y])
   }
-  const cap = (base: number, reverse: boolean) => {
-    const center = verts.length / 3
-    let x = 0
-    let y = 0
-    let z = 0
-    for (let i = 0; i < count; i++) {
-      x += verts[(base + i) * 3]
-      y += verts[(base + i) * 3 + 1]
-      z += verts[(base + i) * 3 + 2]
-    }
-    verts.push(x / count, y / count, z / count)
-    for (let i = 0; i < count; i++) {
-      const i2 = (i + 1) % count
-      indices.push(center, reverse ? base + i2 : base + i, reverse ? base + i : base + i2)
-    }
+  if (cleaned.length > 2) {
+    const first = cleaned[0]
+    const last = cleaned[cleaned.length - 1]
+    if (Math.hypot(first[0] - last[0], first[1] - last[1]) < 0.4) cleaned.pop()
   }
-  cap(bases[0], true)
-  cap(bases[bases.length - 1], false)
-  const geo = new THREE.BufferGeometry()
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3))
-  geo.setIndex(indices)
-  geo.computeVertexNormals()
-  return geo
+  return cleaned.length >= 3 ? cleaned : null
 }
 
 function mapFront(front: readonly Pt[] | null, topBox: { y0: number; y1: number }, sideBox: { y0: number; y1: number }): Pt[] | null {
@@ -244,9 +369,7 @@ function clip(points: Pt[], inside: (point: Pt) => boolean, cross: (a: Pt, b: Pt
     const inB = inside(b)
     if (inA && inB) out.push(b)
     else if (inA && !inB) out.push(cross(a, b))
-    else if (!inA && inB) {
-      out.push(cross(a, b), b)
-    }
+    else if (!inA && inB) out.push(cross(a, b), b)
   }
   return out
 }
@@ -293,4 +416,72 @@ function resample(points: Pt[], count: number): Pt[] {
     }
   }
   return out
+}
+
+/** Every welded edge is shared by two triangles, and the winding faces outward. */
+export function solidReport(geometry: THREE.BufferGeometry): { boundary: number; nonManifold: number; shells: number; volume: number } {
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  if (!index) return { boundary: -1, nonManifold: -1, shells: 0, volume: 0 }
+  const idOf = (vertex: number) => vertex
+  const edgeCount = new Map<string, number>()
+  const edgeFaces = new Map<string, number[]>()
+  const triangles = index.count / 3
+  const parent = Array.from({ length: triangles }, (_, face) => face)
+  const find = (face: number): number => {
+    let root = face
+    while (parent[root] !== root) root = parent[root]
+    let cursor = face
+    while (parent[cursor] !== root) {
+      const next = parent[cursor]
+      parent[cursor] = root
+      cursor = next
+    }
+    return root
+  }
+  const join = (a: number, b: number) => {
+    const ra = find(a)
+    const rb = find(b)
+    if (ra !== rb) parent[rb] = ra
+  }
+  let volume = 0
+  for (let face = 0; face < triangles; face++) {
+    const a = idOf(index.getX(face * 3))
+    const b = idOf(index.getX(face * 3 + 1))
+    const c = idOf(index.getX(face * 3 + 2))
+    const ax = position.getX(index.getX(face * 3))
+    const ay = position.getY(index.getX(face * 3))
+    const az = position.getZ(index.getX(face * 3))
+    const bx = position.getX(index.getX(face * 3 + 1))
+    const by = position.getY(index.getX(face * 3 + 1))
+    const bz = position.getZ(index.getX(face * 3 + 1))
+    const cx = position.getX(index.getX(face * 3 + 2))
+    const cy = position.getY(index.getX(face * 3 + 2))
+    const cz = position.getZ(index.getX(face * 3 + 2))
+    volume += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)
+    for (const [u, v] of [
+      [a, b],
+      [b, c],
+      [c, a],
+    ] as const) {
+      if (u === v) continue
+      const key = u < v ? `${u}:${v}` : `${v}:${u}`
+      edgeCount.set(key, (edgeCount.get(key) ?? 0) + 1)
+      const faces = edgeFaces.get(key)
+      if (faces) {
+        join(faces[0], face)
+        faces.push(face)
+      } else edgeFaces.set(key, [face])
+    }
+  }
+  let boundary = 0
+  let nonManifold = 0
+  for (const count of edgeCount.values()) {
+    if (count === 2) continue
+    if (count === 1) boundary++
+    else nonManifold++
+  }
+  const shells = new Set<number>()
+  for (let face = 0; face < triangles; face++) shells.add(find(face))
+  return { boundary, nonManifold, shells: shells.size, volume: volume / 6 }
 }
