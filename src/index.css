@@ -304,6 +304,48 @@ body {
   font-size: 13px;
 }
 
+button.switch-track {
+  position: relative;
+  display: inline-block;
+  box-sizing: border-box;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #d5cfc3;
+  flex: 0 0 44px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+button.switch-track:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 2px;
+}
+
+button.switch-track[data-state='checked'] {
+  background: var(--rust);
+}
+
+button.switch-track .switch-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: none;
+  transform: translateX(0);
+  transition: transform 140ms ease;
+  pointer-events: none;
+}
+
+button.switch-track[data-state='checked'] .switch-knob {
+  transform: translateX(20px);
+}
+
 .app.is-review {
   grid-template-rows: 52px minmax(0, 1fr);
   grid-template-areas:
@@ -368,6 +410,11 @@ body {
 .review-item.on {
   border-color: #e7c2b6;
   background: white;
+}
+
+.review-item .in-scene {
+  color: #1f7a4d;
+  font-weight: 650;
 }
 
 .review-item strong,

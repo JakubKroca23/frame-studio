@@ -5,7 +5,7 @@ import type { ChassisModel, ChassisParams } from './model/types'
 import { defaultParams } from './model/types'
 import { analyzeDxf } from './pipeline/analyze'
 import { EQUIP_LABELS, type EquipKind } from './pipeline/kinds'
-import { applyReview, buildReview, newEquipment, paramsFromReview, syncEquipment, type ReviewElement } from './pipeline/review'
+import { buildReview, newEquipment, paramsFromReview, sceneModel, syncEquipment, type ReviewElement } from './pipeline/review'
 import type { BBox } from './lib/geom'
 
 interface AppState {
@@ -31,12 +31,32 @@ interface AppState {
   addReviewBox: (box: BBox, view: 'side' | 'top') => void
   resetReview: () => void
   confirmReview: () => void
+  includeInScene: (ids: string[]) => void
+  excludeFromScene: (ids: string[]) => void
+  commitElement: (element: ReviewElement) => void
+  deleteReviewIds: (ids: string[]) => void
   loadText: (name: string, text: string) => Promise<void>
   loadFile: (file: File) => Promise<void>
   loadSample: (which?: 'scania' | 'volvo') => Promise<void>
 }
 
-export const useApp = create<AppState>((set, get) => ({
+export const useApp = create<AppState>((set, get) => {
+  function publishScene(review: ReviewElement[]) {
+    const source = get().source
+    if (!source) return
+    const any = review.some((item) => item.in3d && !item.deleted)
+    if (!any) {
+      set({ review, model: null, phase: 'review' })
+      return
+    }
+    set({
+      review,
+      phase: 'scene',
+      model: sceneModel(source, review),
+      params: { ...get().params, ...paramsFromReview(review) },
+    })
+  }
+  return ({
   status: 'idle',
   phase: 'review',
   message: '',
@@ -75,10 +95,16 @@ export const useApp = create<AppState>((set, get) => ({
         return next
       }),
     }),
-  deleteReview: (id) =>
-    set({
-      review: get().review.map((item) => (item.id === id ? { ...item, deleted: true, source: 'user', confidence: 1 } : item)),
-    }),
+  deleteReview: (id) => get().deleteReviewIds([id]),
+  deleteReviewIds: (ids) => {
+    const drop = new Set(ids)
+    const review = get().review.map((item) =>
+      drop.has(item.id) && item.role !== 'frame' ? { ...item, deleted: true, in3d: false, source: 'user' as const, confidence: 1 } : item,
+    )
+    const touchedScene = get().review.some((item) => drop.has(item.id) && item.in3d && item.role !== 'frame')
+    if (touchedScene && get().model) publishScene(review)
+    else set({ review })
+  },
   restoreReview: (element) =>
     set({
       review: get().review.some((item) => item.id === element.id)
@@ -91,19 +117,26 @@ export const useApp = create<AppState>((set, get) => ({
   },
   resetReview: () => {
     const source = get().source
-    if (source) set({ review: buildReview(source) })
+    if (source) set({ review: buildReview(source), model: null, phase: 'review' })
   },
   confirmReview: () => {
-    const source = get().source
-    if (!source) return
-    const review = get().review
-    const model = applyReview(source, review)
-    set({
-      phase: 'scene',
-      model,
-      params: { ...get().params, ...paramsFromReview(review) },
-    })
+    const review = get().review.map((item) => (item.deleted ? item : { ...item, in3d: true }))
+    publishScene(review)
   },
+  includeInScene: (ids) => {
+    const pick = new Set(ids)
+    const review = get().review.map((item) => (pick.has(item.id) && !item.deleted ? { ...item, in3d: true } : item))
+    publishScene(review)
+  },
+  excludeFromScene: (ids) => {
+    const pick = new Set(ids)
+    const review = get().review.map((item) => (pick.has(item.id) ? { ...item, in3d: false } : item))
+    publishScene(review)
+  },
+  commitElement: (element) =>
+    set({
+      review: get().review.map((item) => (item.id === element.id ? element : item)),
+    }),
   loadText: async (name, text) => {
     set({ status: 'loading', message: 'Zpracovávám výkres…', error: null, fileName: name })
     try {
@@ -206,7 +239,7 @@ export const useApp = create<AppState>((set, get) => ({
       })
     }
   },
-}))
+}) })
 
 function parseDrawing(text: string, onProgress?: (message: string) => void, dwg?: Uint8Array): Promise<ChassisModel> {
   return new Promise((resolve, reject) => {

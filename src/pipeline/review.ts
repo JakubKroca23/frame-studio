@@ -23,6 +23,8 @@ export interface ReviewElement {
   source: 'measured' | 'estimated' | 'user'
   evidence: string
   deleted?: boolean
+  /** Included in the incremental 3D scene. */
+  in3d?: boolean
   side: BBox | null
   top: BBox | null
   fields: ReviewField[]
@@ -388,6 +390,159 @@ function equipmentPart(el: ReviewElement, index: number): PartModel {
       { x: side.x1, z0: side.y0, z1: side.y1, y0: top.y0, y1: top.y1 },
     ],
   }
+}
+
+function cloneElement(el: ReviewElement): ReviewElement {
+  return {
+    ...el,
+    side: el.side ? { ...el.side } : null,
+    top: el.top ? { ...el.top } : null,
+    fields: el.fields.map((field) => ({ ...field, options: field.options?.map((option) => ({ ...option })) })),
+  }
+}
+
+function setNum(el: ReviewElement, key: string, value: number) {
+  const field = el.fields.find((item) => item.key === key)
+  if (!field || typeof field.value !== 'number') return
+  field.value = Math.round(value * 10) / 10
+  field.estimated = false
+}
+
+/** Move a side or plan box and write the matching fields. The result is a user edit. */
+export function reshapeElement(el: ReviewElement, which: BoxFace, box: BBox): ReviewElement {
+  const next = cloneElement(el)
+  const span = normalizeBox(box)
+  if (which === 'side') next.side = span
+  else next.top = span
+  next.source = 'user'
+  next.confidence = 1
+  syncShapeFields(next, which)
+  return next
+}
+
+function normalizeBox(box: BBox): BBox {
+  return {
+    x0: Math.min(box.x0, box.x1),
+    y0: Math.min(box.y0, box.y1),
+    x1: Math.max(box.x0, box.x1),
+    y1: Math.max(box.y0, box.y1),
+  }
+}
+
+type BoxFace = 'side' | 'top'
+
+function syncShapeFields(el: ReviewElement, which: BoxFace) {
+  const side = el.side
+  const top = el.top
+  if (el.role === 'equipment') {
+    if (which === 'side' && side) {
+      const length = side.x1 - side.x0
+      const station = (side.x0 + side.x1) / 2
+      setNum(el, 'length', length)
+      setNum(el, 'station', station)
+      setNum(el, 'height', side.y1 - side.y0)
+      setNum(el, 'z0', side.y0)
+      if (top) {
+        top.x0 = station - length / 2
+        top.x1 = station + length / 2
+      }
+    } else if (top) {
+      const length = top.x1 - top.x0
+      const station = (top.x0 + top.x1) / 2
+      setNum(el, 'length', length)
+      setNum(el, 'station', station)
+      setNum(el, 'width', Math.abs(top.y1 - top.y0))
+      setNum(el, 'yCenter', (top.y0 + top.y1) / 2)
+      if (side) {
+        side.x0 = station - length / 2
+        side.x1 = station + length / 2
+      }
+    }
+    return
+  }
+  if (el.role === 'cab' && side && top) {
+    if (which === 'side') {
+      setNum(el, 'x0', side.x0)
+      setNum(el, 'x1', side.x1)
+      setNum(el, 'z0', side.y0)
+      setNum(el, 'z1', side.y1)
+      top.x0 = side.x0
+      top.x1 = side.x1
+    } else {
+      setNum(el, 'y0', top.y0)
+      setNum(el, 'y1', top.y1)
+      setNum(el, 'x0', top.x0)
+      setNum(el, 'x1', top.x1)
+      side.x0 = top.x0
+      side.x1 = top.x1
+    }
+    return
+  }
+  if (el.role === 'frame' && side) {
+    if (which === 'side') {
+      setNum(el, 'x0', side.x0)
+      setNum(el, 'x1', side.x1)
+      setNum(el, 'bottom', side.y0)
+      setNum(el, 'height', side.y1 - side.y0)
+      if (top) {
+        top.x0 = side.x0
+        top.x1 = side.x1
+      }
+    } else if (top) {
+      setNum(el, 'x0', top.x0)
+      setNum(el, 'x1', top.x1)
+      setNum(el, 'outer', Math.abs(top.y1 - top.y0))
+      side.x0 = top.x0
+      side.x1 = top.x1
+    }
+    return
+  }
+  if (el.role === 'crossmember') {
+    const box = which === 'top' && top ? top : side
+    if (!box) return
+    setNum(el, 'x', (box.x0 + box.x1) / 2)
+    setNum(el, 'thickness', Math.abs(box.x1 - box.x0))
+    return
+  }
+  if (el.role === 'axle' && side) {
+    if (which === 'side') {
+      setNum(el, 'x', (side.x0 + side.x1) / 2)
+      setNum(el, 'z', (side.y0 + side.y1) / 2)
+      setNum(el, 'diameter', Math.max(side.x1 - side.x0, side.y1 - side.y0))
+    } else if (top) {
+      setNum(el, 'track', Math.abs(top.y1 - top.y0))
+      setNum(el, 'x', (top.x0 + top.x1) / 2)
+    }
+    return
+  }
+  if (el.role === 'liner') {
+    const box = which === 'top' && top ? top : side
+    if (!box) return
+    setNum(el, 'x0', box.x0)
+    setNum(el, 'x1', box.x1)
+    return
+  }
+  if (el.role === 'hole' && side) {
+    setNum(el, 'x', (side.x0 + side.x1) / 2)
+    setNum(el, 'z', (side.y0 + side.y1) / 2)
+    setNum(el, 'd', Math.max(side.x1 - side.x0, side.y1 - side.y0))
+    return
+  }
+  if (el.role === 'mudguard' && side && which === 'side') setNum(el, 'diameter', Math.max(side.x1 - side.x0, side.y1 - side.y0))
+}
+
+/** 3D for the elements marked `in3d`. The origin stays on the full drawing so later parts do not jump. */
+export function sceneModel(source: ChassisModel, elements: ReviewElement[]): ChassisModel {
+  const included = elements.filter((item) => item.in3d && !item.deleted)
+  const masked = elements.map((item) => (item.in3d && !item.deleted ? item : { ...item, deleted: true }))
+  const model = applyReview(source, masked)
+  const anchorX = source.axles[0]?.x ?? source.frame?.left[0]?.x
+  if (anchorX != null) model.anchorX = anchorX
+  model.groundZ = source.axles.length
+    ? Math.min(...source.axles.map((axle) => axle.z - axle.tireDiameter / 2))
+    : (source.frame?.bottomZ ?? 0) - 700
+  if (!included.some((item) => item.role === 'frame')) model.omitFrame = true
+  return model
 }
 
 export function syncEquipment(el: ReviewElement) {

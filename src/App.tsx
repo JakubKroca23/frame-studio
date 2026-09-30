@@ -127,7 +127,7 @@ export default function App() {
         {reviewing ? (
           <div className="row" style={{ marginTop: 12 }}>
             <Button variant="rust" onClick={confirmReview}>
-              Vygenerovat 3D
+              Vygenerovat vše
             </Button>
           </div>
         ) : model ? (

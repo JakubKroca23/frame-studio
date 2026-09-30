@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { buildChassisGroup } from '../mesh/build'
 import { defaultParams } from '../model/types'
 import { analyzeDxf } from './analyze'
-import { applyReview, buildReview } from './review'
+import { applyReview, buildReview, reshapeElement, sceneModel } from './review'
 
 describe('detection review', () => {
   const model = analyzeDxf(readFileSync('fixtures/mini-chassis.dxf', 'utf8'))
@@ -56,5 +56,39 @@ describe('detection review', () => {
     expect(applied.skipMudguards).toContain(0)
     const again = applyReview(applied, review)
     expect(again.skipMudguards).toContain(0)
+  })
+
+  it('reshapes a box into user fields at full confidence', () => {
+    const review = buildReview(model)
+    const part = review.find((item) => item.role === 'equipment' && item.side && item.kind !== 'skip')
+    expect(part?.side).toBeTruthy()
+    if (!part?.side) return
+    const next = reshapeElement(part, 'side', { x0: part.side.x0, y0: part.side.y0, x1: part.side.x0 + 2400, y1: part.side.y0 + 900 })
+    expect(next.confidence).toBe(1)
+    expect(next.source).toBe('user')
+    expect(next.fields.find((field) => field.key === 'length')?.value).toBe(2400)
+    expect(next.fields.find((field) => field.key === 'height')?.value).toBe(900)
+    expect(next.fields.find((field) => field.key === 'length')?.estimated).toBe(false)
+  })
+
+  it('builds a 3D scene from only the marked elements and keeps the drawing origin', () => {
+    const review = buildReview(model)
+    const frame = review.find((item) => item.role === 'frame')
+    const part = review.find((item) => item.role === 'equipment' && item.kind !== 'skip')
+    expect(frame && part).toBeTruthy()
+    if (!frame || !part) return
+    frame.in3d = true
+    const onlyFrame = sceneModel(model, review)
+    expect(onlyFrame.omitFrame).toBeFalsy()
+    expect(onlyFrame.axles).toHaveLength(0)
+    expect(onlyFrame.cab).toBeNull()
+    expect(onlyFrame.components).toHaveLength(0)
+    expect(onlyFrame.anchorX).toBe(model.axles[0]?.x)
+    part.in3d = true
+    const withPart = sceneModel(model, review)
+    expect(withPart.components.some((item) => item.kind === part.kind)).toBe(true)
+    expect(withPart.axles).toHaveLength(0)
+    expect(withPart.anchorX).toBe(onlyFrame.anchorX)
+    expect(withPart.groundZ).toBe(onlyFrame.groundZ)
   })
 })

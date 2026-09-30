@@ -33,10 +33,10 @@ export function buildChassisGroup(model: ChassisModel, params: ChassisParams): T
   const frame = model.frame
   if (!frame) return root
 
-  const originX = model.axles[0]?.x ?? frame.left[0].x
-  const ground = model.axles.length
-    ? Math.min(...model.axles.map((a) => a.z - a.tireDiameter / 2))
-    : frame.bottomZ - 700
+  const originX = model.anchorX ?? model.axles[0]?.x ?? frame.left[0].x
+  const ground =
+    model.groundZ ??
+    (model.axles.length ? Math.min(...model.axles.map((a) => a.z - a.tireDiameter / 2)) : frame.bottomZ - 700)
   const lift = makeLift(model, params)
   const z0 = frame.bottomZ - ground
   const z1 = frame.topZ - ground
@@ -48,7 +48,7 @@ export function buildChassisGroup(model: ChassisModel, params: ChassisParams): T
   const leftSt = stations(frame.left, originX, frame.centerY, true)
   const rightSt = stations(frame.right, originX, frame.centerY, false)
 
-  if (params.show.frame || params.lod === 0) {
+  if (!model.omitFrame && (params.show.frame || params.lod === 0)) {
     const g = new THREE.Group()
     g.name = 'frame'
     g.userData.role = 'frame'

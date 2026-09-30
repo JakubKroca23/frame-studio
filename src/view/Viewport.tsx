@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { ChassisModel, ChassisParams } from '../model/types'
 import { buildChassisGroup, disposeGroup } from '../mesh/build'
+import { recallPose, rememberPose } from './cameraMemory'
 import { Button } from '../components/ui/button'
 
 export function Viewport({
@@ -143,26 +144,46 @@ function Chassis({
 
 function FrameCamera({ model, wheelFocus }: { model: ChassisModel; wheelFocus: RefObject<{ x: number; z: number }> }) {
   const camera = useThree((s) => s.camera)
-  const controls = useThree((s) => s.controls) as { target: THREE.Vector3; update: () => void } | null
-  const token = model.header.icdNo ?? model.profileId
+  const controls = useThree((s) => s.controls) as OrbitLike | null
+  const token = `${model.profileId}|${model.header.orderNo ?? ''}|${model.header.icdNo ?? ''}|${model.stats.parseMs}`
   useEffect(() => {
     if (!controls || !model.frame) return
-    const length = model.frame.left[model.frame.left.length - 1].x - model.frame.left[0].x
-    const origin = model.axles[0]?.x ?? model.frame.left[0].x
-    const centerX = length / 2 - (origin - model.frame.left[0].x)
-    const dist = Math.max(length, 8000) * 0.92
-    camera.position.set(centerX + dist * 0.42, 1600 + dist * 0.32, dist * 0.72)
-    controls.target.set(centerX, 900, 0)
+    const saved = recallPose(token)
+    if (saved) {
+      camera.position.set(saved.position[0], saved.position[1], saved.position[2])
+      controls.target.set(saved.target[0], saved.target[1], saved.target[2])
+    } else {
+      const length = model.frame.left[model.frame.left.length - 1].x - model.frame.left[0].x
+      const origin = model.anchorX ?? model.axles[0]?.x ?? model.frame.left[0].x
+      const centerX = length / 2 - (origin - model.frame.left[0].x)
+      const dist = Math.max(length, 8000) * 0.92
+      camera.position.set(centerX + dist * 0.42, 1600 + dist * 0.32, dist * 0.72)
+      controls.target.set(centerX, 900, 0)
+    }
     const axle = model.axles[Math.min(1, Math.max(0, model.axles.length - 1))]
     if (axle) {
       const spec = axle.tireSpec?.match(/^(\d{3})/)
       const tyreW = spec ? Number(spec[1]) : 315
       const outward = axle.dual ? tyreW / 2 + 30 : 0
+      const origin = model.anchorX ?? model.axles[0]?.x ?? model.frame.left[0].x
       wheelFocus.current = { x: axle.x - origin, z: Math.abs(axle.track || 2000) / 2 + outward }
     }
     controls.update()
+    const save = () => rememberPose(token, camera.position, controls.target)
+    controls.addEventListener('change', save)
+    return () => {
+      save()
+      controls.removeEventListener('change', save)
+    }
   }, [token, camera, controls, model, wheelFocus])
   return null
+}
+
+interface OrbitLike {
+  target: THREE.Vector3
+  update: () => void
+  addEventListener: (type: string, listener: () => void) => void
+  removeEventListener: (type: string, listener: () => void) => void
 }
 
 function StudioLights() {

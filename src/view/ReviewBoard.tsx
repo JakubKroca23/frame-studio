@@ -3,10 +3,12 @@ import { Button } from '../components/ui/button'
 import type { BBox } from '../lib/geom'
 import type { ChassisModel } from '../model/types'
 import { EQUIP_LABELS, type EquipKind } from '../pipeline/kinds'
-import type { ReviewElement } from '../pipeline/review'
+import { reshapeElement, type ReviewElement } from '../pipeline/review'
 import { useApp } from '../state'
 import { easeScale, fitView, nextTargetScale, panBy, screenToWorld, viewAbout, wheelIntent, wheelZoomFactor, worldToScreen, zoomLimits, type ReviewView } from './reviewCamera'
+import { handleAnchor, hitHandle, resizeBox, type BoxSide, type HandleId } from './reviewHandles'
 import { isTextEditing, reviewCommand } from './reviewKeys'
+import { applyWindowSelection, idsInWindow, toggleMember } from './reviewSelect'
 
 interface ZoomAnim {
   running: boolean
@@ -45,17 +47,32 @@ export function ReviewBoard() {
   const review = useApp((s) => s.review)
   const confirmReview = useApp((s) => s.confirmReview)
   const setReviewField = useApp((s) => s.setReviewField)
-  const deleteReview = useApp((s) => s.deleteReview)
+  const deleteReviewIds = useApp((s) => s.deleteReviewIds)
   const restoreReview = useApp((s) => s.restoreReview)
+  const commitElement = useApp((s) => s.commitElement)
+  const includeInScene = useApp((s) => s.includeInScene)
+  const excludeFromScene = useApp((s) => s.excludeFromScene)
   const addReviewBox = useApp((s) => s.addReviewBox)
   const resetReview = useApp((s) => s.resetReview)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [pick, setPick] = useState(false)
+  const [windowMode, setWindowMode] = useState(false)
   const [hideSkip, setHideSkip] = useState(true)
   const [query, setQuery] = useState('')
   const [toast, setToast] = useState<string | null>(null)
-  const drag = useRef<{ x: number; y: number; x2: number; y2: number; drawing: boolean } | null>(null)
+  const [live, setLive] = useState<ReviewElement | null>(null)
+  const drag = useRef<{
+    x: number
+    y: number
+    x2: number
+    y2: number
+    drawing: boolean
+    mode: 'region' | 'window'
+    additive: boolean
+    hit: string | null
+  } | null>(null)
+  const handleDrag = useRef<{ id: string; which: BoxSide; handle: HandleId; start: BBox; pushed: boolean } | null>(null)
   const panRef = useRef<{ id: number; x: number; y: number } | null>(null)
   const lastMiddle = useRef(0)
   const viewRef = useRef<ReviewView | null>(null)
@@ -68,16 +85,16 @@ export function ReviewBoard() {
   const deleteRef = useRef<() => void>(() => {})
   const undoRef = useRef<() => void>(() => {})
   const stopZoomRef = useRef<() => void>(() => {})
-  const undoStack = useRef<ReviewElement[]>([])
+  const undoStack = useRef<ReviewElement[][]>([])
   const toastTimer = useRef(0)
   const zoomRaf = useRef(0)
   const zoomRef = useRef<ZoomAnim | null>(null)
   const lineCache = useRef<LineCache | null>(null)
   const fileSeen = useRef('')
-  const sceneRef = useRef({ model, review, selected, hideSkip })
+  const sceneRef = useRef({ model, review, selectedIds, hideSkip, live, windowMode })
 
   useEffect(() => {
-    sceneRef.current = { model, review, selected, hideSkip }
+    sceneRef.current = { model, review, selectedIds, hideSkip, live, windowMode }
     requestRef.current = () => {
       if (rafRef.current) return
       rafRef.current = requestAnimationFrame(() => {
@@ -100,23 +117,24 @@ export function ReviewBoard() {
       requestRef.current()
     }
     deleteRef.current = () => {
-      const id = sceneRef.current.selected
-      if (!id) return
-      const item = useApp.getState().review.find((entry) => entry.id === id && !entry.deleted)
-      if (!item || item.role === 'frame') return
-      undoStack.current.push(snapshotElement(item))
+      const ids = sceneRef.current.selectedIds
+      const items = useApp.getState().review.filter((entry) => ids.includes(entry.id) && !entry.deleted && entry.role !== 'frame')
+      if (!items.length) return
+      undoStack.current.push(items.map(snapshotElement))
       if (undoStack.current.length > 40) undoStack.current.shift()
-      deleteReview(id)
-      setSelected(null)
-      setToast('Prvek smazán – Ctrl+Z vrátí')
+      deleteReviewIds(items.map((item) => item.id))
+      setSelectedIds((current) => current.filter((id) => !items.some((item) => item.id === id)))
+      setLive(null)
+      setToast(items.length > 1 ? 'Prvky smazány – Ctrl+Z vrátí' : 'Prvek smazán – Ctrl+Z vrátí')
       window.clearTimeout(toastTimer.current)
       toastTimer.current = window.setTimeout(() => setToast(null), 2800)
     }
     undoRef.current = () => {
-      const item = undoStack.current.pop()
-      if (!item) return
-      restoreReview(item)
-      setSelected(item.id)
+      const batch = undoStack.current.pop()
+      if (!batch?.length) return
+      for (const item of batch) restoreReview(item)
+      setSelectedIds(batch.map((item) => item.id))
+      setLive(null)
       setToast(null)
       window.clearTimeout(toastTimer.current)
     }
@@ -136,7 +154,9 @@ export function ReviewBoard() {
     })
   }, [review, hideSkip, query])
 
-  const current = review.find((item) => item.id === selected && !item.deleted) ?? null
+  const current = selectedIds.length === 1 ? (review.find((item) => item.id === selectedIds[0] && !item.deleted) ?? null) : null
+  const shown = live && current && live.id === current.id ? live : current
+  const selectedMany = review.filter((item) => selectedIds.includes(item.id) && !item.deleted)
   const doubtful = review.filter((item) => !item.deleted && item.confidence < 0.6 && item.role !== 'hole').length
 
   useEffect(() => {
@@ -324,15 +344,23 @@ export function ReviewBoard() {
 
       if (!useBlit) lineCache.current = takeLineCache(lineCache.current?.canvas ?? null, canvas, view, w, h, bw, bh, key)
 
-      for (const item of review) {
+      const scene = sceneRef.current
+      const chosen = new Set(scene.selectedIds)
+      for (const item of scene.review) {
         if (item.deleted || item.role === 'hole') continue
-        if (hideSkip && item.kind === 'skip') continue
-        drawBox(ctx, map, item.side, item, item.id === selected, vp)
-        drawBox(ctx, map, item.top, item, item.id === selected, vp)
+        if (scene.hideSkip && item.kind === 'skip') continue
+        const drawn = scene.live?.id === item.id ? scene.live : item
+        const on = chosen.has(item.id)
+        drawBox(ctx, map, drawn.side, drawn, on, vp)
+        drawBox(ctx, map, drawn.top, drawn, on, vp)
+        if (on && chosen.size === 1) {
+          drawHandles(ctx, map, drawn.side)
+          drawHandles(ctx, map, drawn.top)
+        }
       }
 
       ctx.fillStyle = '#0f6f86'
-      for (const hole of review) {
+      for (const hole of scene.review) {
         if (hole.role !== 'hole' || hole.deleted || !hole.side) continue
         const hx = (hole.side.x0 + hole.side.x1) / 2
         const hy = (hole.side.y0 + hole.side.y1) / 2
@@ -350,9 +378,9 @@ export function ReviewBoard() {
         const [ax, ay] = map(rubber.x, rubber.y)
         const [bx, by] = map(rubber.x2, rubber.y2)
         ctx.save()
-        ctx.strokeStyle = '#9b2c1a'
+        ctx.strokeStyle = rubber.mode === 'window' ? '#0f6f86' : '#9b2c1a'
         ctx.lineWidth = 1.5
-        ctx.setLineDash([4, 3])
+        ctx.setLineDash(rubber.mode === 'window' ? [] : [4, 3])
         ctx.strokeRect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay))
         ctx.restore()
       }
@@ -373,7 +401,7 @@ export function ReviewBoard() {
       observer.disconnect()
       if (drawRef.current === draw) drawRef.current = () => {}
     }
-  }, [model, review, selected, hideSkip])
+  }, [model, review, selectedIds, hideSkip])
 
   function toDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current
@@ -401,6 +429,7 @@ export function ReviewBoard() {
       lastMiddle.current = now
       stopZoomRef.current()
       drag.current = null
+      handleDrag.current = null
       panRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY }
       canvas.classList.add('is-panning')
       canvas.setPointerCapture(event.pointerId)
@@ -418,17 +447,39 @@ export function ReviewBoard() {
       }
       return
     }
-    const hit = hitTest(point.x, point.y, review, hideSkip)
-    if (hit) {
-      setSelected(hit)
-      drag.current = null
+    const grip = gripAt(point.px, point.py)
+    if (grip) {
+      const item = review.find((entry) => entry.id === grip.id)
+      const box = grip.which === 'side' ? item?.side : item?.top
+      if (item && box) {
+        handleDrag.current = { id: item.id, which: grip.which, handle: grip.handle, start: { ...box }, pushed: false }
+        drag.current = null
+        canvas.setPointerCapture(event.pointerId)
+      }
       return
     }
-    drag.current = { x: point.x, y: point.y, x2: point.x, y2: point.y, drawing: false }
+    const extend = event.ctrlKey || event.metaKey || event.shiftKey
+    const hit = hitTest(point.x, point.y, review, hideSkip)
+    if (hit && !windowMode) {
+      setSelectedIds((current) => toggleMember(current, hit, extend))
+      setLive(null)
+      return
+    }
+    drag.current = {
+      x: point.x,
+      y: point.y,
+      x2: point.x,
+      y2: point.y,
+      drawing: false,
+      mode: windowMode || event.shiftKey ? 'window' : 'region',
+      additive: event.ctrlKey || event.metaKey,
+      hit,
+    }
     canvas.setPointerCapture(event.pointerId)
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const canvas = event.currentTarget
     const pan = panRef.current
     if (pan && pan.id === event.pointerId) {
       const dx = event.clientX - pan.x
@@ -442,8 +493,28 @@ export function ReviewBoard() {
       }
       return
     }
-    const start = drag.current
+    const grip = handleDrag.current
     const point = toDrawing(event)
+    if (grip && point) {
+      const item = useApp.getState().review.find((entry) => entry.id === grip.id)
+      if (!item) return
+      if (!grip.pushed) {
+        undoStack.current.push([snapshotElement(item)])
+        if (undoStack.current.length > 40) undoStack.current.shift()
+        grip.pushed = true
+      }
+      const nextBox = resizeBox(grip.start, grip.handle, point.x, point.y)
+      const next = reshapeElement(item, grip.which, nextBox)
+      sceneRef.current.live = next
+      setLive(next)
+      requestRef.current()
+      return
+    }
+    if (point && !drag.current && selectedIds.length === 1) {
+      const hover = gripAt(point.px, point.py)
+      canvas.style.cursor = hover ? cursorFor(hover.handle) : ''
+    }
+    const start = drag.current
     if (!start || !point) return
     start.x2 = point.x
     start.y2 = point.y
@@ -459,22 +530,65 @@ export function ReviewBoard() {
       event.currentTarget.classList.remove('is-panning')
       return
     }
+    const grip = handleDrag.current
+    if (grip) {
+      handleDrag.current = null
+      const done = sceneRef.current.live
+      sceneRef.current.live = null
+      setLive(null)
+      if (grip.pushed && done) commitElement(done)
+      else if (!grip.pushed) requestRef.current()
+      return
+    }
     const start = drag.current
     drag.current = null
     if (start?.drawing) requestRef.current()
     const point = toDrawing(event)
-    if (!start || !point || !model || !start.drawing) return
+    if (!start || !model) return
+    if (!start.drawing) {
+      if (start.mode === 'window' && start.hit) setSelectedIds((current) => toggleMember(current, start.hit as string, start.additive))
+      return
+    }
+    if (!point) return
     const box = {
       x0: Math.min(start.x, point.x),
       y0: Math.min(start.y, point.y),
       x1: Math.max(start.x, point.x),
       y1: Math.max(start.y, point.y),
     }
+    if (start.mode === 'window') {
+      const hits = idsInWindow(useApp.getState().review, box, hideSkip)
+      setSelectedIds((current) => applyWindowSelection(current, hits, start.additive))
+      return
+    }
     if (box.x1 - box.x0 < 30 && box.y1 - box.y0 < 30) return
     const view = viewOf((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2, model)
     addReviewBox(box, view)
     const added = useApp.getState().review.at(-1)
-    if (added) setSelected(added.id)
+    if (added) setSelectedIds([added.id])
+  }
+
+  function gripAt(px: number, py: number): { id: string; which: BoxSide; handle: HandleId } | null {
+    if (selectedIds.length !== 1) return null
+    const item = review.find((entry) => entry.id === selectedIds[0] && !entry.deleted)
+    const canvas = canvasRef.current
+    const view = viewRef.current
+    if (!item || !canvas || !view) return null
+    const rect = canvas.getBoundingClientRect()
+    const map = (wx: number, wy: number) => worldToScreen(view, rect.width, rect.height, wx, wy)
+    const faces: BoxSide[] = ['side', 'top']
+    let best: { id: string; which: BoxSide; handle: HandleId; d: number } | null = null
+    for (const which of faces) {
+      const box = item[which]
+      if (!box) continue
+      const handle = hitHandle(px, py, box, map)
+      if (!handle) continue
+      const anchor = handleAnchor(box, handle)
+      const [sx, sy] = map(anchor.x, anchor.y)
+      const d = Math.hypot(sx - px, sy - py)
+      if (!best || d < best.d) best = { id: item.id, which, handle, d }
+    }
+    return best ? { id: best.id, which: best.which, handle: best.handle } : null
   }
 
   if (!model) return null
@@ -485,8 +599,9 @@ export function ReviewBoard() {
         <div className="pane-title">
           <strong>Kontrola detekce</strong>
           <span>
-            {doubtful ? `${doubtful} nejistých` : 'vše s vyšší jistotou'} · tažením přidáte oblast · kolečko přibližuje, prostřední tlačítko posouvá
+            {doubtful ? `${doubtful} nejistých` : 'vše s vyšší jistotou'} · tažením přidáte oblast · Shift+tažení vybírá okno · úchyty mění obrys
             {pick ? ' · klikněte na entity' : ''}
+            {windowMode ? ' · tažení vybírá prvky' : ''}
           </span>
         </div>
         <canvas
@@ -504,12 +619,35 @@ export function ReviewBoard() {
         ) : null}
         <div className="review-actions">
           <Button variant="rust" onClick={confirmReview}>
-            Vygenerovat 3D
+            Vygenerovat vše
+          </Button>
+          <Button variant="outline" size="sm" disabled={!selectedIds.length} onClick={() => includeInScene(selectedIds)}>
+            Přidat do 3D
+          </Button>
+          <Button variant="outline" size="sm" disabled={!selectedMany.some((item) => item.in3d)} onClick={() => excludeFromScene(selectedIds)}>
+            Odebrat z 3D
           </Button>
           <Button variant="outline" size="sm" title="Celý výkres (F)" onClick={() => fitRef.current()}>
             Přizpůsobit
           </Button>
-          <Button variant={pick ? 'rust' : 'outline'} size="sm" onClick={() => setPick((value) => !value)}>
+          <Button
+            variant={windowMode ? 'rust' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setWindowMode((value) => !value)
+              setPick(false)
+            }}
+          >
+            Výběr oknem
+          </Button>
+          <Button
+            variant={pick ? 'rust' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setPick((value) => !value)
+              setWindowMode(false)
+            }}
+          >
             Vybrat entity
           </Button>
           <Button
@@ -517,6 +655,8 @@ export function ReviewBoard() {
             size="sm"
             onClick={() => {
               undoStack.current = []
+              setSelectedIds([])
+              setLive(null)
               resetReview()
             }}
           >
@@ -536,7 +676,15 @@ export function ReviewBoard() {
         <ul className="review-list">
           {visible.map((item) => (
             <li key={item.id}>
-              <button type="button" className={item.id === selected ? 'review-item on' : 'review-item'} onClick={() => setSelected(item.id)}>
+              <button
+                type="button"
+                className={selectedIds.includes(item.id) ? 'review-item on' : 'review-item'}
+                onClick={(event) => {
+                  const extend = event.ctrlKey || event.metaKey || event.shiftKey
+                  setSelectedIds((current) => toggleMember(current, item.id, extend))
+                  setLive(null)
+                }}
+              >
                 <span className={item.confidence < 0.6 ? 'conf low' : item.confidence < 0.8 ? 'conf mid' : 'conf high'}>
                   {Math.round(item.confidence * 100)} %
                 </span>
@@ -544,23 +692,70 @@ export function ReviewBoard() {
                   <strong>{item.title}</strong>
                   <small>
                     {ROLE_CS[item.role]} · {item.source === 'measured' ? 'z výkresu' : item.source === 'user' ? 'upraveno' : 'odhad'}
+                    {item.in3d ? <span className="in-scene"> · ve 3D</span> : null}
                   </small>
                 </span>
               </button>
             </li>
           ))}
         </ul>
-        {current ? (
+        {shown ? (
           <ElementForm
-            element={current}
-            onField={(key, value) => setReviewField(current.id, key, value)}
+            element={shown}
+            onField={(key, value) => setReviewField(shown.id, key, value)}
+            onDelete={() => deleteRef.current()}
+          />
+        ) : selectedMany.length > 1 ? (
+          <MultiForm
+            items={selectedMany}
+            onKind={(value) => {
+              for (const item of selectedMany) {
+                if (item.fields.some((field) => field.key === 'kind')) setReviewField(item.id, 'kind', value)
+              }
+            }}
             onDelete={() => deleteRef.current()}
           />
         ) : (
-          <p className="status">Vyberte prvek v seznamu nebo ve výkresu. Nejisté detekce jsou označené.</p>
+          <p className="status">Vyberte prvek v seznamu nebo ve výkresu. Ctrl nebo Shift přidá do výběru. Nejisté detekce jsou označené.</p>
         )}
       </aside>
     </section>
+  )
+}
+
+function MultiForm({
+  items,
+  onKind,
+  onDelete,
+}: {
+  items: ReviewElement[]
+  onKind: (value: string) => void
+  onDelete: () => void
+}) {
+  const kinds = items.filter((item) => item.fields.some((field) => field.key === 'kind'))
+  const shared = kinds.length ? String(kinds[0].kind ?? 'case') : 'case'
+  const same = kinds.every((item) => (item.kind ?? 'case') === shared)
+  return (
+    <div className="review-form">
+      <h2>Vybráno {items.length} prvků</h2>
+      <p className="status">Smazání, typ a 3D platí pro celý výběr. Rám smazat nelze.</p>
+      {kinds.length ? (
+        <label className="field">
+          <span>Typ u vybraných</span>
+          <select className="text-input" value={same ? shared : ''} onChange={(event) => onKind(event.target.value)}>
+            {same ? null : <option value="">různé</option>}
+            {(Object.keys(EQUIP_LABELS) as EquipKind[]).map((value) => (
+              <option key={value} value={value}>
+                {EQUIP_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <Button variant="outline" size="sm" onClick={onDelete}>
+        Smazat výběr
+      </Button>
+    </div>
   )
 }
 
@@ -577,6 +772,7 @@ function ElementForm({
     <div className="review-form">
       <h2>{element.title}</h2>
       <p className="status">{element.evidence}</p>
+      {element.side || element.top ? <p className="status">Úchyty v rozích a na hranách mění obrys. Úprava je ruční a vrátí ji Ctrl+Z.</p> : null}
       <p className={element.confidence < 0.6 ? 'status warn' : 'status'}>
         Jistota {Math.round(element.confidence * 100)} % ·{' '}
         {element.source === 'measured' ? 'naměřeno ve výkresu' : element.source === 'user' ? 'upraveno ručně' : 'odhad, ve výkresu údaj chybí'}
@@ -620,6 +816,29 @@ function ElementForm({
       ) : null}
     </div>
   )
+}
+
+function drawHandles(ctx: CanvasRenderingContext2D, map: (x: number, y: number) => readonly [number, number], box: BBox | null) {
+  if (!box) return
+  const size = 7
+  ctx.save()
+  for (const id of ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as HandleId[]) {
+    const anchor = handleAnchor(box, id)
+    const [x, y] = map(anchor.x, anchor.y)
+    ctx.fillStyle = '#fff'
+    ctx.strokeStyle = '#9b2c1a'
+    ctx.lineWidth = 1.5
+    ctx.fillRect(x - size / 2, y - size / 2, size, size)
+    ctx.strokeRect(x - size / 2, y - size / 2, size, size)
+  }
+  ctx.restore()
+}
+
+function cursorFor(handle: HandleId) {
+  if (handle === 'n' || handle === 's') return 'ns-resize'
+  if (handle === 'e' || handle === 'w') return 'ew-resize'
+  if (handle === 'ne' || handle === 'sw') return 'nesw-resize'
+  return 'nwse-resize'
 }
 
 function drawBox(

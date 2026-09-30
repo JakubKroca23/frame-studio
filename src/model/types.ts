@@ -135,6 +135,12 @@ export interface ChassisModel {
   skipMudguards?: number[]
   /** Set when the model was rebuilt from the detection review. Suppresses guessed extra parts. */
   reviewApplied?: boolean
+  /** Keep the rails for placement, but do not draw them. */
+  omitFrame?: boolean
+  /** Drawing X of the scene origin. Stable while parts are added one by one. */
+  anchorX?: number
+  /** Road height in drawing Z. Stable while parts are added one by one. */
+  groundZ?: number
   /** Flat x1,y1,x2,y2 arrays keyed by drawing role, for the 2D check view. */
   preview: {
     segments: Record<string, number[]>
