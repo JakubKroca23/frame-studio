@@ -93,6 +93,8 @@ function railZ(world: World, drawingX: number, side: -1 | 1): number | null {
 }
 
 export function axleIsDriven(axles: Axle[], index: number): boolean {
+  const explicit = axles[index]?.driven
+  if (explicit !== undefined) return explicit
   if (axles[index]?.dual) return true
   const anyDual = axles.some((axle) => axle.dual)
   return !anyDual && index === axles.length - 1
@@ -169,7 +171,7 @@ export function addAxleAssembly(parent: THREE.Group, axle: Axle, index: number, 
     if (params.show.suspension) addSuspension(parent, world, x, z, zFrame, side, kind, axle.x)
   }
 
-  if (!axle.dual) addSteering(parent, world, x, z, track, index === 0)
+  if (axle.steered ?? !axle.dual) addSteering(parent, world, x, z, track, index === 0)
   if (!world.model.skipMudguards?.includes(axle.index)) {
     const profile = world.model.mudProfiles?.find((item) => item.axle === axle.index)?.points
     if (profile && profile.length >= 3) addProfileMudguards(parent, profile, track, dual ? width * 2 + 90 : width + 80, world)
@@ -1011,6 +1013,12 @@ function addDefaultExhaust(parent: THREE.Group, world: World) {
 }
 
 function addRearBar(parent: THREE.Group, world: World, hasShields: boolean) {
+  if (world.model.rearBar !== false) addRearUnderrun(parent, world)
+  if (hasShields || world.model.sideBars === false) return
+  addSideBars(parent, world)
+}
+
+function addRearUnderrun(parent: THREE.Group, world: World) {
   const rear = world.frame.left[world.frame.left.length - 1].x - world.originX
   const half = world.frame.outerWidthStraight / 2 + 30
   const low = 460
@@ -1018,7 +1026,9 @@ function addRearBar(parent: THREE.Group, world: World, hasShields: boolean) {
   const zHang = world.frame.bottomZ - world.ground
   parent.add(solid([36, Math.max(40, zHang - low), 46], paintDark, [rear - 30, (low + zHang) / 2, -half + 70]))
   parent.add(solid([36, Math.max(40, zHang - low), 46], paintDark, [rear - 30, (low + zHang) / 2, half - 70]))
-  if (hasShields) return
+}
+
+function addSideBars(parent: THREE.Group, world: World) {
   const a0 = axleX(world, 0)
   const rearAxle = axleX(world, world.model.axles.length - 1)
   if (rearAxle - a0 > 1800) {
@@ -1066,6 +1076,8 @@ function addSolidDetails(g: THREE.Group, body: CabSolid, world: World) {
   const height = size.y
   const len = size.x
   const volvo = world.model.profileId.includes('volvo')
+  const cab = world.model.cab
+  const stepX = cab?.stepX !== undefined ? cab.stepX - world.originX : box.min.x + len * 0.22
   const grille = body.parts.find((part) => part.part === 'grille')
   if (grille && volvo) {
     // The diagonal Volvo slash across the grille.
@@ -1078,9 +1090,9 @@ function addSolidDetails(g: THREE.Group, body: CabSolid, world: World) {
   }
   for (const sz of [-1, 1] as const) {
     const edge = sz < 0 ? box.min.z : box.max.z
-    const step = Math.max(180, box.min.y * 0.35 + 30)
-    g.add(solidBox([200, 24, 220], plastic, [box.min.x + len * 0.22, step, edge - sz * 110]))
-    g.add(solidBox([170, 22, 190], plastic, [box.min.x + len * 0.2, step + 180, edge - sz * 95]))
+    const step = cab?.stepZ ?? Math.max(180, box.min.y * 0.35 + 30)
+    g.add(solidBox([200, 24, 220], plastic, [stepX, step, edge - sz * 110]))
+    g.add(solidBox([170, 22, 190], plastic, [stepX - len * 0.02, step + 180, edge - sz * 95]))
     const arm = edge + sz * 150
     g.add(tube(16, 260, 'z', paintDark, [box.min.x + len * 0.2, box.min.y + height * 0.66, edge + sz * 60], 10))
     g.add(solidBox([160, 300, 36], plastic, [box.min.x + len * 0.2, box.min.y + height * 0.6, arm]))
@@ -1098,10 +1110,11 @@ function solidBox(size: [number, number, number], mat: THREE.Material, at: [numb
 export function buildCab(cab: CabModel, world: World): THREE.Group {
   let traced: CabSolid | null = null
   try {
-    traced = tracedCab(cab, world, cabFeatures(world.model.profileId))
+    traced = tracedCab(cab, world, cab.features ?? cabFeatures(world.model.profileId))
   } catch {
     traced = null
   }
+  if (traced && cab.color !== undefined) traced.mesh.material = tintedCabPaint(cab.color)
   if (traced) {
     const g = new THREE.Group()
     g.name = 'cab'
@@ -1188,6 +1201,18 @@ export function buildCab(cab: CabModel, world: World): THREE.Group {
   }
   g.add(solid([len * 0.55, 16, width * 0.72], cabRoof, [xA + len * 0.58, z0 + height - 8, 0]))
   return g
+}
+
+const tinted = new Map<number, THREE.Material>()
+function tintedCabPaint(color: number): THREE.Material {
+  let mat = tinted.get(color)
+  if (!mat) {
+    const base = cabPaint as THREE.MeshStandardMaterial
+    mat = base.clone()
+    ;(mat as THREE.MeshStandardMaterial).color.setHex(color)
+    tinted.set(color, mat)
+  }
+  return mat
 }
 
 const cabCache = new Map<string, THREE.ExtrudeGeometry>()

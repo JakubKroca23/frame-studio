@@ -39,6 +39,10 @@ export interface Axle {
   tireSource?: 'measured' | 'estimated'
   tireConfidence?: number
   dualSource?: 'measured' | 'estimated'
+  /** Explicit roles, set by the configurator. Absent means infer from the tyres (drawing flow). */
+  driven?: boolean
+  steered?: boolean
+  lift?: boolean
 }
 
 export interface Crossmember {
@@ -113,6 +117,24 @@ export interface CabModel {
   confidence?: number
   source?: 'measured' | 'estimated'
   evidence?: string
+  /** Surface features (glass, grille…) that replace the per-profile defaults. */
+  features?: CabFeatureSpec[]
+  /** Body colour (0xRRGGBB) instead of the default cab paint. */
+  color?: number
+  /** Drawing X of the entry steps, when known. */
+  stepX?: number
+  /** Height of the lowest entry step above the road, when known. */
+  stepZ?: number
+}
+
+/** Mirrors mesh/silhouette CabFeature, kept here so the model stays free of mesh imports. */
+export interface CabFeatureSpec {
+  part: 'glass' | 'grille' | 'lamp' | 'bumper' | 'trim' | 'seam'
+  face: 'front' | 'side'
+  thickness: number
+  y: [number, number]
+  z: [number, number]
+  x?: [number, number]
 }
 
 export interface ChassisHeader {
@@ -155,6 +177,10 @@ export interface ChassisModel {
   anchorX?: number
   /** Road height in drawing Z. Stable while parts are added one by one. */
   groundZ?: number
+  /** Rear underrun bar (default drawn). */
+  rearBar?: boolean
+  /** Generic side bars when no side shields exist (default drawn). */
+  sideBars?: boolean
   /** Side-view mudguard rings keyed by the axle index used in the review. */
   mudProfiles?: { axle: number; points: Pt[] }[]
   /** Flat x1,y1,x2,y2 arrays keyed by drawing role, for the 2D check view. */

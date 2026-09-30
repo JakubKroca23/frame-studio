@@ -12,10 +12,13 @@ export function Viewport({
   model,
   params,
   groupRef,
+  fit = 1,
 }: {
   model: ChassisModel | null
   params: ChassisParams
   groupRef: RefObject<THREE.Group | null>
+  /** Initial camera distance factor (1 = default framing). */
+  fit?: number
 }) {
   const setView = useRef<(view: string) => void>(() => {})
   const wheelFocus = useRef({ x: 4800, z: 1100 })
@@ -54,7 +57,7 @@ export function Viewport({
           <planeGeometry args={[36000, 14000]} />
           <meshStandardMaterial color="#5c656c" roughness={0.92} metalness={0.04} />
         </mesh>
-        {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} /> : null}
+        {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} fit={fit} /> : null}
         <Grid
           args={[40000, 40000]}
           position={[3000, 0, 0]}
@@ -110,11 +113,13 @@ function Chassis({
   params,
   groupRef,
   wheelFocus,
+  fit,
 }: {
   model: ChassisModel
   params: ChassisParams
   groupRef: RefObject<THREE.Group | null>
   wheelFocus: RefObject<{ x: number; z: number }>
+  fit: number
 }) {
   const group = useMemo(() => {
     const holes = params.show.holes ? params.holes : 'off'
@@ -140,12 +145,12 @@ function Chassis({
   return (
     <>
       <primitive object={group} />
-      <FrameCamera model={model} wheelFocus={wheelFocus} />
+      <FrameCamera model={model} wheelFocus={wheelFocus} fit={fit} />
     </>
   )
 }
 
-function FrameCamera({ model, wheelFocus }: { model: ChassisModel; wheelFocus: RefObject<{ x: number; z: number }> }) {
+function FrameCamera({ model, wheelFocus, fit }: { model: ChassisModel; wheelFocus: RefObject<{ x: number; z: number }>; fit: number }) {
   const camera = useThree((s) => s.camera)
   const controls = useThree((s) => s.controls) as OrbitLike | null
   const token = `${model.profileId}|${model.header.orderNo ?? ''}|${model.header.icdNo ?? ''}|${model.stats.parseMs}`
@@ -159,9 +164,16 @@ function FrameCamera({ model, wheelFocus }: { model: ChassisModel; wheelFocus: R
       const length = model.frame.left[model.frame.left.length - 1].x - model.frame.left[0].x
       const origin = model.anchorX ?? model.axles[0]?.x ?? model.frame.left[0].x
       const centerX = length / 2 - (origin - model.frame.left[0].x)
-      const dist = Math.max(length, 8000) * 0.92
-      camera.position.set(centerX + dist * 0.42, 1600 + dist * 0.32, dist * 0.72)
-      controls.target.set(centerX, 900, 0)
+      const dist = Math.max(length, 8000) * 0.92 * fit
+      if (fit > 1) {
+        // Configurator: frame the whole vehicle (cab included) from the front three-quarter.
+        const midX = (model.extents.x0 + model.extents.x1) / 2 - origin
+        camera.position.set(midX - dist * 0.42, 1300 + dist * 0.2, dist * 0.86)
+        controls.target.set(midX - 600, 1300, 0)
+      } else {
+        camera.position.set(centerX + dist * 0.42, 1600 + dist * 0.32, dist * 0.72)
+        controls.target.set(centerX, 900, 0)
+      }
     }
     const axle = model.axles[Math.min(1, Math.max(0, model.axles.length - 1))]
     if (axle) {
@@ -178,7 +190,7 @@ function FrameCamera({ model, wheelFocus }: { model: ChassisModel; wheelFocus: R
       save()
       controls.removeEventListener('change', save)
     }
-  }, [token, camera, controls, model, wheelFocus])
+  }, [token, camera, controls, model, wheelFocus, fit])
   return null
 }
 
@@ -230,6 +242,7 @@ function CameraBridge({
     // Dev-only hook so headless screenshots can frame the model precisely.
     const hook = {
       scene,
+      pose: () => ({ position: camera.position.toArray(), target: controls.target.toArray() }),
       look(position: [number, number, number], target: [number, number, number]) {
         controls.target.set(target[0], target[1], target[2])
         camera.position.set(position[0], position[1], position[2])

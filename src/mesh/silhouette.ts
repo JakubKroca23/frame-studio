@@ -174,7 +174,16 @@ export function cabSolid(views: CabViews, features: readonly CabFeature[]): CabS
     }
     // Long sliver triangles smear the interpolated normals into streaks; even them out.
     const display = keep(body.refineToLength(90))
-    return { body: toGeometry(display.status() === 'NoError' ? display : body, origin), parts }
+    let geometry = toGeometry(display.status() === 'NoError' ? display : body, origin)
+    if (geometry !== null && display.status() === 'NoError') {
+      // Refinement can leave near-coincident vertices that weld into a pinched edge; keep the exact body then.
+      const check = solidReport(geometry)
+      if (check.boundary || check.nonManifold || check.misoriented) {
+        geometry.dispose()
+        geometry = toGeometry(body, origin)
+      }
+    }
+    return { body: geometry, parts }
   } catch {
     return null
   } finally {
