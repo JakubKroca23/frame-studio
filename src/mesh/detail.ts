@@ -10,6 +10,7 @@ import {
   cabRoof,
   cabTrim,
   castIron,
+  cranePaint,
   exhaust,
   gasket,
   glass,
@@ -560,8 +561,8 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   const measured = world.model.components
     .filter((part) => part.side && part.top)
     .map((part) => measure(part, world))
-    .filter((item): item is Placed => item !== null && (item.part.source === 'user' || !inCabVolume(item, world)))
-    .filter((item) => item.part.source === 'user' || !(cabOverlap(item, world) > 0.45 && Math.abs(item.y) < outer * 0.7))
+    .filter((item): item is Placed => item !== null && (item.part.kind === 'crane' || item.part.source === 'user' || !inCabVolume(item, world)))
+    .filter((item) => item.part.kind === 'crane' || item.part.source === 'user' || !(cabOverlap(item, world) > 0.45 && Math.abs(item.y) < outer * 0.7))
   const placed = [
     ...dedupe(measured.filter((item) => item.part.source !== 'user')),
     ...measured.filter((item) => item.part.source === 'user'),
@@ -607,6 +608,8 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
       addPlate(equipment, item, paintDark)
     } else if (kind === 'steps') {
       addSteps(equipment, item)
+    } else if (kind === 'crane') {
+      addCrane(equipment, item)
     } else if (Math.abs(item.y) > world.frame.outerWidthStraight * 0.28) {
       addTankBody(equipment, fitBeside(item, world, 700), false)
     } else {
@@ -625,6 +628,27 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   }
   addRearBar(equipment, world, shields > 0)
   return { equipment, brackets }
+}
+
+function addCrane(parent: THREE.Group, item: Placed) {
+  const g = new THREE.Group()
+  g.name = item.part.partNumber
+  const height = clamp(item.height, 700, 4200)
+  const len = clamp(item.len, 360, 5200)
+  const width = clamp(item.width, 260, 1400)
+  const base = item.z - item.height / 2
+  const colD = clamp(len * 0.22, 160, 380)
+  const colW = clamp(width * 0.42, 180, 460)
+  const colH = height * 0.76
+  const colX = item.x - len * 0.28
+  g.add(solid([colD * 1.4, height * 0.1, width * 0.9], cranePaint, [colX, base + height * 0.05, item.y]))
+  g.add(solid([colD, colH, colW], cranePaint, [colX, base + height * 0.1 + colH / 2, item.y]))
+  g.add(solid([colW * 0.72, colW * 0.5, colW * 0.72], steel, [colX, base + height * 0.1 + colH, item.y]))
+  const boomLen = Math.max(len * 0.82, colD * 2.2)
+  const boomH = clamp(height * 0.08, 64, 150)
+  const boomZ = base + height * 0.1 + colH - boomH * 0.2
+  g.add(solid([boomLen, boomH, colW * 0.7], cranePaint, [colX + boomLen / 2 - colD * 0.2, boomZ, item.y]))
+  parent.add(g)
 }
 
 function addSteps(parent: THREE.Group, item: Placed) {

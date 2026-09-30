@@ -13,6 +13,7 @@ function std(color: number, metalness: number, roughness: number, extras: Partia
 }
 
 /** Painted chassis steel, near-black so the frame reads against the cab. */
+export const cranePaint = std(0xc4891a, 0.42, 0.55)
 export const paint = std(0x16191d, 0.48, 0.52)
 export const paintDark = std(0x0e1013, 0.4, 0.62)
 export const castIron = std(0x2a2e33, 0.78, 0.38)

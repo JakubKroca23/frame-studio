@@ -22,6 +22,7 @@ import { scaniaIcdProfile } from '../profile/scania-icd'
 import type { BlockViewName, Profile } from '../profile/types'
 import { dimensionMap, pairDimensions } from './dimensions'
 import { extractFrame } from './frame'
+import { extractRaisedBodies } from './raised'
 import { extractSection } from './section'
 
 const DEFAULT_PART = /^(?<pn>\d{7})(?:_\d+)?$/
@@ -52,6 +53,7 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
     geometryIgnoreLayers: named([...profile.views.dimensions, ...profile.views.info]),
     holeFix: holeFixFrom(db, profile),
     curveTolerance: profile.curveTolerance,
+    minSegment: profile.minSegment,
   })
 
   const on = (patterns: string[]) => (layer: string) => layerMatches(layer, patterns)
@@ -72,6 +74,7 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
     outerWidth: sem.frameOuterWidth ? dmap.get(sem.frameOuterWidth) : undefined,
     flange: sem.flangeWidth ? dmap.get(sem.flangeWidth) : undefined,
     height: sem.frameHeight ? dmap.get(sem.frameHeight) : undefined,
+    preferLongest: profile.preferLongRails,
   })
   if (frame) {
     frame.section = profile.sectionLayer ? extractSection(db, profile.sectionLayer) : null
@@ -85,11 +88,23 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
   } else warnings.push('Podélníky se nepodařilo spolehlivě najít.')
 
   const splitY = frame ? (frame.topZ + frame.centerY) / 2 : estimateSplitY(flat.segments)
-  const holes = dedupeHoles(extractHoles(flat.circles, profile, frame))
+  let holes = dedupeHoles(extractHoles(flat.circles, profile, frame))
+  if (profile.mirrorHoles && holes.length) {
+    holes = collapseHoles(holes)
+    holes = dedupeHoles(holes.flatMap((hole) => [hole, { ...hole, side: hole.side === 'left' ? 'right' : 'left' }]))
+    warnings.push('Otvory jsou jen v bokorysu. Stejná poloha je zrcadlená na oba podélníky.')
+    if (holes.length > 800) warnings.push('Otvory ve 3D jsou značky, ne výřezy. Je jich příliš mnoho na vyřezání stojiny.')
+  }
   const axles = profile.axleInserts
     ? axlesFromInserts(flat.inserts, flat.texts, profile, dmap)
     : extractAxles(flat.circles, flat.arcs, profile, dmap, frame)
   if (axles.length === 0) warnings.push('Nápravy se nepodařilo najít.')
+  if (profile.wheelCircleAsTire && axles.some((axle) => axle.tireDiameter < 800)) {
+    warnings.push('Výkres nemá text rozměru pneumatiky. Průměr je největší kružnice kola a je menší než běžná pneumatika nákladního vozu.')
+  }
+  if (profile.wheelCircleAsTire && axles.length === 2) {
+    warnings.push('Dvojmontáž zadní nápravy je odhad. Výkres má dvě nápravy a žádný text dvojmontáže.')
+  }
   if (frame && profile.innerLiner && axles[profile.innerLiner.axle]) {
     const liner = linerFromText(flat.texts, profile, axles[profile.innerLiner.axle].x)
     if (liner) frame.liner = liner
@@ -103,9 +118,18 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
     }
   }
   const crossmembers = frame ? extractCrossmembers(crossSegs.length ? crossSegs : frameTop, frame) : []
-  const cab = extractCab(flat.segments, profile, splitY, classify, frame?.centerY ?? null)
+  const sideRole = flat.segments.filter((seg) => inRole(seg, 'side', windows, classify, profile))
+  const topRole = flat.segments.filter((seg) => inRole(seg, 'top', windows, classify, profile))
+  const raised = profile.raisedSplit && frame ? extractRaisedBodies(sideRole.length ? sideRole : frameSide, topRole.length ? topRole : frameTop, frame) : null
+  const cab = raised ? raised.cab : extractCab(flat.segments, profile, splitY, classify, frame?.centerY ?? null)
   if (!cab) warnings.push('Kabina se nepodařela ohraničit.')
-  const components = extractComponents(flat.segments, profile, splitY, frame, axles, cab, classify, flat.loops)
+  if (raised?.crane) {
+    warnings.push('Hydraulická ruka je odvozená z vysokého sloupu za kabinou. Ve výkrese není text HIAB, šířku a rameno lze upravit v kontrole.')
+  }
+  const components = [
+    ...(raised?.crane ? [raised.crane] : []),
+    ...extractComponents(flat.segments, profile, splitY, frame, axles, cab, classify, flat.loops),
+  ]
   annotateParts(components, flat.texts, frame, axles, cab)
 
   verify(dims, frame, axles, profile)
@@ -245,6 +269,25 @@ function inRole(
     }
   }
   return best === role
+}
+
+function collapseHoles(holes: Hole[]): Hole[] {
+  const groups = new Map<string, Hole[]>()
+  for (const hole of holes) {
+    const key = `${Math.round(hole.x / 4)}:${Math.round(hole.z / 4)}`
+    const list = groups.get(key)
+    if (list) list.push(hole)
+    else groups.set(key, [hole])
+  }
+  const out: Hole[] = []
+  for (const group of groups.values()) {
+    const diameters = group.map((hole) => hole.d).sort((a, b) => a - b)
+    const d = diameters[Math.floor(diameters.length / 2)]
+    const x = group.reduce((sum, hole) => sum + hole.x, 0) / group.length
+    const z = group.reduce((sum, hole) => sum + hole.z, 0) / group.length
+    out.push({ x, z, d, side: group[0].side })
+  }
+  return out
 }
 
 function dedupeHoles(holes: Hole[]): Hole[] {
@@ -390,7 +433,21 @@ function extractAxles(
     }
     const counted = mode(diams)
     const fromLabel = diameters[index] ?? null
-    const tireDiameter = counted ?? fromLabel ?? 1076
+    let drawnWheel: number | null = null
+    if (profile.wheelCircleAsTire && counted == null && fromLabel == null) {
+      let best = 0
+      for (const src of [...circles, ...arcs]) {
+        const d = src.r * 2
+        if (d < 500 || d >= 850) continue
+        if (!sideOk(src.layer)) continue
+        const cx = 'cx' in src ? src.cx : src.x
+        const cy = 'cy' in src ? src.cy : src.y
+        if (Math.abs(cx - c.x) > 80 || Math.abs(cy - c.y) > 80) continue
+        if (d > best) best = d
+      }
+      if (best) drawnWheel = Math.round(best)
+    }
+    const tireDiameter = counted ?? fromLabel ?? drawnWheel ?? 1076
     const dual = clusters.length >= 3 ? index === 1 : index === clusters.length - 1 && clusters.length > 1
     return {
       index,
@@ -399,8 +456,8 @@ function extractAxles(
       tireDiameter,
       track: tracks[index] ?? null,
       dual,
-      tireSource: counted != null || fromLabel != null ? 'measured' : 'estimated',
-      tireConfidence: counted != null ? 0.88 : fromLabel != null ? 0.8 : 0.34,
+      tireSource: counted != null || fromLabel != null || drawnWheel != null ? 'measured' : 'estimated',
+      tireConfidence: counted != null ? 0.88 : fromLabel != null ? 0.8 : drawnWheel != null ? 0.5 : 0.34,
       dualSource: 'estimated',
     }
   })
@@ -786,6 +843,7 @@ function readHeader(texts: Txt[], inserts: string[], profile: Profile): ChassisM
     const raw = t.text.trim()
     if (!header.title && /SCANIA ICD/i.test(raw)) header.title = raw
     if (!header.title && /Volvo Order Information/i.test(raw)) header.title = 'Volvo Order Information'
+    if (!header.title && /contsystem/i.test(raw)) header.title = 'Contsystem'
     if (!header.chassisType && /^G\s+\d/i.test(raw)) header.chassisType = raw
     if (!header.icdNo && /^\d{13}$/.test(raw)) header.icdNo = raw
     const order = raw.match(/FO Number \/ OM Number:\s*(\S+)/i)
@@ -795,6 +853,7 @@ function readHeader(texts: Txt[], inserts: string[], profile: Profile): ChassisM
   const cab = inserts.map((name) => name.match(/^B_CAB[STF]C\d+_C\d+_(?:TYPE_)?([A-Z]{2})_/)).find(Boolean)
   if (cab) header.cabType = cab[1]
   if (profile.manufacturer === 'Volvo' && header.cabType && !header.chassisType) header.chassisType = `Volvo ${header.cabType}`
+  if (profile.manufacturer === 'DAF' && !header.chassisType) header.chassisType = 'DAF'
   weights.sort((a, b) => b.y - a.y)
   if (weights[0]) header.totalWeight = weights[0].text
   if (weights[1]) header.frontWeight = weights[1].text

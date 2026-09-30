@@ -14,6 +14,7 @@ export type EquipKind =
   | 'steps'
   | 'case'
   | 'bracket'
+  | 'crane'
   | 'skip'
 
 export const EQUIP_LABELS: Record<EquipKind, string> = {
@@ -29,6 +30,7 @@ export const EQUIP_LABELS: Record<EquipKind, string> = {
   steps: 'Schůdky',
   case: 'Skříň',
   bracket: 'Držák',
+  crane: 'Hydraulická ruka',
   skip: 'Vynechat',
 }
 
@@ -73,6 +75,14 @@ export interface KindDecision {
  * Block names are measured; bare shape rules are estimates.
  */
 export function classifyKind(input: KindInput): KindDecision {
+  if (/^HIAB$/i.test(input.partNumber)) {
+    return {
+      kind: 'crane',
+      confidence: 0.66,
+      source: 'estimated',
+      evidence: 'Vysoký sloup za kabinou. Typ je odhad, obrys je z výkresu.',
+    }
+  }
   const outer = input.outer
   if (input.width > outer * 1.7 && input.len < 1600) {
     return { kind: 'skip', confidence: 0.7, source: 'measured', evidence: 'Příliš široké na příčku nebo nápravu.' }
@@ -131,6 +141,7 @@ export function classifyKind(input: KindInput): KindDecision {
 }
 
 const TEXT_KINDS: [RegExp, EquipKind][] = [
+  [/hydraulick|\bhiab\b|jeřáb|jerab/i, 'crane'],
   [/\bad[\s-]?blue\b|\bdef\b|močovin/i, 'adblue'],
   [/air\s*tank|vzduchojem|brake\s*reservoir/i, 'air'],
   [/\bfuel\b|naftov|diesel|\bnádrž\b|\bnadrz\b/i, 'fuel'],

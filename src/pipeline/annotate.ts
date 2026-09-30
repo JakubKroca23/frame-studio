@@ -22,6 +22,7 @@ export function annotateParts(
     const side = part.side
     const top = part.top
     if (!side || !top) continue
+    if (part.kind === 'crane') continue
     const x0 = Math.max(side.x0, top.x0)
     const x1 = Math.min(side.x1, top.x1)
     const len = x1 - x0

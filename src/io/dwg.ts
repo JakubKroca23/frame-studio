@@ -17,6 +17,13 @@ const VERSION_NAME: Record<string, string> = {
 const CRITICAL = 128 | 256 | 512 | 1024 | 2048 | 4096 | 8192
 
 /**
+ * LibreDWG 0.13.3 reports a clean read on some large R2004/R2018 drawings and
+ * still drops whole stretches of geometry (section-map bug). Those files go
+ * through the bundled 0.13.4 reader first.
+ */
+const LARGE_DWG = 4 * 1024 * 1024
+
+/**
  * Read a DWG in the browser via LibreDWG (WASM) and hand the existing DXF pipeline a text file.
  * The shipped WASM reads AutoCAD 2000–2018 (AC1015–AC1032). R13/R14 are attempted.
  * Writing DWG is not part of this build; test files are produced with the LibreDWG dxf2dwg CLI (R2000).
@@ -28,6 +35,10 @@ export async function dwgBytesToDxf(bytes: Uint8Array): Promise<string> {
   }
   if (!isAttemptable(header)) {
     throw new Error(versionError(header))
+  }
+  if (bytes.byteLength > LARGE_DWG) {
+    const rich = await tryFiltered(bytes)
+    if (rich) return rich
   }
   const lib = await openLibre()
   const api = lib as unknown as WasmDwg
@@ -47,16 +58,31 @@ export async function dwgBytesToDxf(bytes: Uint8Array): Promise<string> {
     }
   }
   if (!data || error & CRITICAL || error & 2) {
-    throw new Error(versionError(header))
+    if (data) lib.dwg_free(data)
+    return filteredOrThrow(bytes, header)
   }
   try {
     const db = lib.convert(data)
     const text = databaseToDxf(db, header)
-    if (!text.includes('ENTITIES')) throw new Error(versionError(header))
+    if (!text.includes('ENTITIES')) return filteredOrThrow(bytes, header)
     return text
+  } catch {
+    return filteredOrThrow(bytes, header)
   } finally {
     lib.dwg_free(data)
   }
+}
+
+async function tryFiltered(bytes: Uint8Array): Promise<string | null> {
+  const { filteredDwgToDxf } = await import('./dwgFilter')
+  const text = await filteredDwgToDxf(bytes)
+  return text?.includes('ENTITIES') ? text : null
+}
+
+async function filteredOrThrow(bytes: Uint8Array, header: string): Promise<string> {
+  const text = await tryFiltered(bytes)
+  if (text) return text
+  throw new Error(versionError(header))
 }
 
 function isAttemptable(header: string) {
@@ -121,6 +147,7 @@ export function databaseToDxf(db: DwgDatabase, fallbackVersion: string): string 
     const prev = blocks.get(name)
     if (!prev || (block.entities?.length ?? 0) > (prev.entities?.length ?? 0)) blocks.set(name, block)
   }
+  const minLine = entityCount(db) > 100000 ? 8 : 0
   for (const block of blocks.values()) {
     const name = block.name || ''
     push(0, 'BLOCK')
@@ -131,13 +158,13 @@ export function databaseToDxf(db: DwgDatabase, fallbackVersion: string): string 
     push(20, block.basePoint?.y ?? 0)
     push(30, block.basePoint?.z ?? 0)
     push(3, name)
-    for (const entity of block.entities ?? []) emitEntity(push, entity as unknown as Ent)
+    for (const entity of block.entities ?? []) emitEntity(push, entity as unknown as Ent, minLine)
     push(0, 'ENDBLK')
   }
   push(0, 'ENDSEC')
   push(0, 'SECTION')
   push(2, 'ENTITIES')
-  for (const entity of db.entities ?? []) emitEntity(push, entity as unknown as Ent)
+  for (const entity of db.entities ?? []) emitEntity(push, entity as unknown as Ent, minLine)
   push(0, 'ENDSEC')
   push(0, 'EOF')
   return lines.join('\n')
@@ -148,13 +175,20 @@ function isSpace(name: string) {
   return upper === '*MODEL_SPACE' || upper === '*PAPER_SPACE' || upper.startsWith('*PAPER_SPACE')
 }
 
-function emitEntity(push: (code: number, value: string | number) => void, entity: Ent) {
+function entityCount(db: DwgDatabase) {
+  let count = db.entities?.length ?? 0
+  for (const block of db.tables?.BLOCK_RECORD?.entries ?? []) count += block.entities?.length ?? 0
+  return count
+}
+
+function emitEntity(push: (code: number, value: string | number) => void, entity: Ent, minLine = 0) {
   if (!entity?.type || entity.isInPaperSpace) return
   const layer = entity.layer || '0'
   switch (entity.type) {
     case 'LINE': {
       const start = pt(entity.startPoint)
       const end = pt(entity.endPoint)
+      if (minLine > 0 && Math.hypot(end.x - start.x, end.y - start.y) < minLine) break
       push(0, 'LINE')
       push(8, layer)
       push(10, start.x)

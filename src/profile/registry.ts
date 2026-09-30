@@ -1,9 +1,10 @@
 import type { DxfDb } from '../dxf/types'
+import { dafContsystemProfile } from './daf-contsystem'
 import { scaniaIcdProfile } from './scania-icd'
 import { volvoBepProfile } from './volvo-bep'
 import type { Profile, ProfileMatch } from './types'
 
-export const builtinProfiles: Profile[] = [scaniaIcdProfile, volvoBepProfile]
+export const builtinProfiles: Profile[] = [scaniaIcdProfile, volvoBepProfile, dafContsystemProfile]
 
 export function detectProfile(db: DxfDb, profiles: Profile[] = builtinProfiles): ProfileMatch | null {
   let best: ProfileMatch | null = null

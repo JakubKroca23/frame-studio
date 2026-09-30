@@ -95,6 +95,9 @@ export interface CabModel {
   side: BBox
   top: BBox
   samples: Slice[]
+  confidence?: number
+  source?: 'measured' | 'estimated'
+  evidence?: string
 }
 
 export interface ChassisHeader {

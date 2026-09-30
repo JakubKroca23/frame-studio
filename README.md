@@ -6,6 +6,7 @@ Hotové profily:
 
 - **Scania ICD** (Individual Chassis Drawing) — pohledy podle vrstev `201`–`218`.
 - **Volvo** (Order Information / BEP) — pohledy podle přípony bloku (`SV`, `FV`, `R`, kabina `B_CAB{S|T|F}C`), včetně čelního pohledu.
+- **DAF** (nástavbářský výkres Contsystem) — bokorys a půdorys jsou bloky `daf_side` a `daf_top` na vrstvě `OBRYS`. Kabina a hydraulická ruka se berou z obrysu nad rámem, ne z názvu bloku.
 
 Zpracování běží v prohlížeči (Web Worker). Funkce `analyzeDxf` je čisté rozhraní a může se později přesunout na server.
 
@@ -23,7 +24,7 @@ Vývojový server poslouchá na portu **47231**.
 
 Nahrát lze `.dxf`, `.dwg`, `.dxf.gz`, `.tgz` / `.tar.gz` a `.zip`. Archiv se rozbalí v prohlížeči (fflate). Texty se čtou jako Windows-1252.
 
-DWG čte v prohlížeči knihovna [LibreDWG](https://www.gnu.org/software/libredwg/) (`@mlightcad/libredwg-web`, licence GPL-3.0) přes WebAssembly. Podporované čtení je AutoCAD 2000 až 2018 (hlavičky AC1015, AC1018, AC1021, AC1024, AC1027, AC1032). Starší soubor, třeba R12 (AC1009), skončí českou hláškou a model se nesloží. DWG se uvnitř převede na DXF a dál jde stejnou detekcí jako nahraný DXF. Po `npm install` se na čtečku aplikuje malá oprava řetězu entit bloku (`scripts/patch-libredwg.mjs`), protože některé soubory mají řetěz entit delší než vlastní blok.
+DWG čte v prohlížeči knihovna [LibreDWG](https://www.gnu.org/software/libredwg/) (licence GPL-3.0) přes WebAssembly. Běžné soubory jdou přes `@mlightcad/libredwg-web` (LibreDWG 0.13.3). Soubory nad 4 MB, a výkresy u kterých 0.13.3 spadne na mapě sekcí (chyba 0x940) nebo hlásí úspěch a přesto zahodí část geometrie, čte vlastní modul `src/wasm/dwgfilter.wasm` sestavený z LibreDWG 0.13.4. Převod běží ve Web Workeru a zahazuje úsečky kratší než 8 mm, kružnice nechává. Starší soubor, třeba R12 (AC1009), skončí českou hláškou a model se nesloží. DWG se uvnitř převede na DXF a dál jde stejnou detekcí jako nahraný DXF. Po `npm install` se na publikovanou čtečku aplikuje malá oprava řetězu entit bloku (`scripts/patch-libredwg.mjs`).
 
 Po načtení výkresu je krok **Kontrola detekce**. V bokorysu a půdorysu jsou popsané podélníky, profil C, otvory, výztuha, příčky, nápravy, kola (průměr, jedno/dvojmontáž, rozchod), blatníky, obrys kabiny a výbava kolem rámu (nádrž, AdBlue, vzduchojem, akumulátor, výfuk, schránka, schůdky, bočnice a další) s délkou, výškou a staničením. Prvek lze vybrat, opravit číslem, změnit mu typ, smazat ho, nebo doplnit tažením oblasti či výběrem entit. Kolečko myši plynule přibližuje na kurzor, prostřední tlačítko posouvá, trackpad umí sevření a posun dvěma prsty. Celý výkres vrátí dvojklik prostředním tlačítkem, klávesa F nebo tlačítko Přizpůsobit. Delete smaže vybraný prvek a Ctrl+Z ho vrátí. Nízká jistota je oranžově. 3D se generuje až po potvrzení a používá tyto opravy. Zůstanou v projektu, i když se vrátíte z 3D zpět ke kontrole.
 

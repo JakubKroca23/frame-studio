@@ -12,16 +12,16 @@ interface Cluster {
 export function extractFrame(
   topSegs: Seg[],
   sideSegs: Seg[],
-  hints: { outerWidth?: number; flange?: number; height?: number },
+  hints: { outerWidth?: number; flange?: number; height?: number; preferLongest?: boolean },
 ): FrameModel | null {
   const sideClusters = horizontalClusters(sideSegs, 400, 3)
-  const sidePair = pickPair(sideClusters, 180, 450, hints.height)
+  const sidePair = pickPair(sideClusters, 180, 450, hints.height, hints.preferLongest)
   if (!sidePair) return null
   const topZ = Math.max(sidePair.a.y, sidePair.b.y)
   const bottomZ = Math.min(sidePair.a.y, sidePair.b.y)
 
   const topClusters = horizontalClusters(topSegs, 800, 3)
-  const railPair = pickPair(topClusters, 550, 1300, hints.outerWidth)
+  const railPair = pickPair(topClusters, 550, 1300, hints.outerWidth, hints.preferLongest)
   if (!railPair) return null
   const leftY = Math.min(railPair.a.y, railPair.b.y)
   const rightY = Math.max(railPair.a.y, railPair.b.y)
@@ -86,6 +86,7 @@ function pickPair(
   minSep: number,
   maxSep: number,
   hint?: number,
+  preferLongest?: boolean,
 ): { a: Cluster; b: Cluster; sep: number } | null {
   const pairs: { a: Cluster; b: Cluster; sep: number; len: number }[] = []
   for (let i = 0; i < clusters.length; i++) {
@@ -102,6 +103,8 @@ function pickPair(
     const near = strong.filter((p) => Math.abs(p.sep - hint) <= Math.max(15, hint * 0.08))
     if (near.length) strong = near
     strong.sort((a, b) => Math.abs(a.sep - hint) - Math.abs(b.sep - hint) || b.len - a.len)
+  } else if (preferLongest) {
+    strong.sort((a, b) => b.len - a.len || b.sep - a.sep)
   } else {
     strong.sort((a, b) => b.sep - a.sep || b.len - a.len)
   }

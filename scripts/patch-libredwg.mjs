@@ -8,7 +8,21 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const target = new URL('../node_modules/@mlightcad/libredwg-web/dist/libredwg-web.js', import.meta.url)
-const source = readFileSync(target, 'utf8')
+let source = readFileSync(target, 'utf8')
+const idNullFrom = `const idToString = (id) => {
+  if (typeof id === "string") return id.toUpperCase();
+  return id.toString(16).toUpperCase();
+};`
+const idNullTo = `const idToString = (id) => {
+  if (id == null) return "";
+  if (typeof id === "string") return id.toUpperCase();
+  return id.toString(16).toUpperCase();
+};`
+if (source.includes(idNullFrom)) {
+  source = source.replace(idNullFrom, idNullTo)
+  writeFileSync(target, source)
+  console.log('patched idToString null guard')
+}
 if (source.includes('ownedHere')) {
   console.log('libredwg-web already patched')
   process.exit(0)
@@ -18,6 +32,7 @@ const idFrom = `const idToString = (id) => {
   return id.toString(16).toUpperCase();
 };`
 const idTo = `const idToString = (id) => {
+  if (id == null) return "";
   if (typeof id === "string") return id.toUpperCase();
   return id.toString(16).toUpperCase();
 };`

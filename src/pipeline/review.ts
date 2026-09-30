@@ -194,9 +194,9 @@ export function buildReview(model: ChassisModel): ReviewElement[] {
       id: 'cab',
       role: 'cab',
       title: 'Kabina',
-      confidence: 0.8,
-      source: 'measured',
-      evidence: 'Obrys kabiny je z vrstev kabiny v bokorysu a půdorysu. Detaily čela jsou typické pro výrobce.',
+      confidence: model.cab.confidence ?? 0.8,
+      source: model.cab.source ?? 'measured',
+      evidence: model.cab.evidence ?? 'Obrys kabiny je z vrstev kabiny v bokorysu a půdorysu. Detaily čela jsou typické pro výrobce.',
       side: { ...model.cab.side },
       top: { ...model.cab.top },
       fields: [
@@ -399,7 +399,8 @@ export function syncEquipment(el: ReviewElement) {
   el.top = { x0: station - length / 2, y0: yCenter - width / 2, x1: station + length / 2, y1: yCenter + width / 2 }
   el.kind = str(el, 'kind', el.kind ?? 'case')
   const label = EQUIP_LABELS[el.kind as EquipKind] ?? 'Díl'
-  const pn = el.title.split(' ').slice(1).join(' ')
+  const prefixed = el.title.startsWith(`${label} `) ? el.title.slice(label.length).trim() : ''
+  const pn = prefixed || (el.title.startsWith(label) ? '' : el.title.split(' ').slice(1).join(' '))
   el.title = pn ? `${label} ${pn}` : label
 }
 

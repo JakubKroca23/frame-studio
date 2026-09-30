@@ -26,6 +26,8 @@ export interface FlattenOptions {
   holeFix?: HoleFrameFix
   /** World-millimetre chord tolerance. Insert scale is divided out. */
   curveTolerance?: number
+  /** Skip line segments shorter than this. Circles and texts stay. */
+  minSegment?: number
 }
 
 /**
@@ -40,6 +42,7 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
   const geometryIgnore = new Set(options.geometryIgnoreLayers ?? [])
   const holeFix = options.holeFix
   const worldTol = options.curveTolerance ?? TOL
+  const minSegment = options.minSegment ?? 0
   const flat: FlatDrawing = {
     version: db.version,
     units: db.units,
@@ -56,7 +59,8 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
 
   const emitSeg = (layer: string, x1: number, y1: number, x2: number, y2: number, block: string) => {
     if (ignoreLayers.has(layer)) return
-    if (Math.hypot(x2 - x1, y2 - y1) < 0.05) return
+    const len = Math.hypot(x2 - x1, y2 - y1)
+    if (len < 0.05 || (minSegment > 0 && len < minSegment)) return
     flat.segments.push({ layer, x1, y1, x2, y2, block })
     flat.layers.set(layer, (flat.layers.get(layer) ?? 0) + 1)
   }

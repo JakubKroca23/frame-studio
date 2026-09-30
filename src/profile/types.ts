@@ -76,6 +76,16 @@ export interface Profile {
   }
   /** Chord tolerance in world millimetres. Larger values keep big drawings responsive. */
   curveTolerance?: number
+  /** Drop line segments shorter than this. Circles stay. Used for exploded facets. */
+  minSegment?: number
+  /** Side-view holes are mirrored onto both rails. */
+  mirrorHoles?: boolean
+  /** When no tyre-sized circle exists, the largest drawn wheel circle is the diameter. */
+  wheelCircleAsTire?: boolean
+  /** Cab and crane are split from the side-view mass above the frame, not from a cab layer. */
+  raisedSplit?: boolean
+  /** When several rail pairs are long enough, keep the longest rather than the widest. */
+  preferLongRails?: boolean
   dimensionLabels: {
     pattern: string
     maxGap: number

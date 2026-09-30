@@ -127,6 +127,7 @@ export const useApp = create<AppState>((set, get) => ({
           flangeThickness: section?.flangeThickness ?? defaultParams.flangeThickness,
           cornerRadius: section?.outerRadius ?? defaultParams.cornerRadius,
           tireSpec: tireSpec ?? defaultParams.tireSpec,
+          holes: model.holes.length > 800 ? 'markers' : get().params.holes,
         },
       })
     } catch (error) {
@@ -143,7 +144,33 @@ export const useApp = create<AppState>((set, get) => ({
     set({ status: 'loading', message: dwg ? 'Čtu DWG…' : 'Rozbaluji soubor…', error: null, fileName: file.name })
     try {
       const bytes = new Uint8Array(await file.arrayBuffer())
-      const text = dwg ? await dwgBytesToDxf(bytes) : decodeDrawing(file.name, bytes)
+      if (dwg) {
+        const model = await parseDrawing('', (message) => set({ message }), bytes)
+        const tracks = model.axles.map((axle) => axle.track ?? 0)
+        const section = model.frame?.section
+        const tireSpec = model.axles.find((axle) => axle.tireSpec)?.tireSpec
+        set({
+          status: 'ready',
+          phase: 'review',
+          source: model,
+          model: null,
+          review: buildReview(model),
+          message: '',
+          params: {
+            ...get().params,
+            tracks: tracks.length ? tracks : get().params.tracks,
+            useDrawingTires: true,
+            loadState: 'laden',
+            webThickness: section?.webThickness ?? defaultParams.webThickness,
+            flangeThickness: section?.flangeThickness ?? defaultParams.flangeThickness,
+            cornerRadius: section?.outerRadius ?? defaultParams.cornerRadius,
+          tireSpec: tireSpec ?? defaultParams.tireSpec,
+          holes: model.holes.length > 800 ? 'markers' : get().params.holes,
+        },
+      })
+      return
+    }
+      const text = decodeDrawing(file.name, bytes)
       await get().loadText(file.name, text)
     } catch (error) {
       set({
@@ -181,12 +208,18 @@ export const useApp = create<AppState>((set, get) => ({
   },
 }))
 
-function parseDrawing(text: string, onProgress?: (message: string) => void): Promise<ChassisModel> {
+function parseDrawing(text: string, onProgress?: (message: string) => void, dwg?: Uint8Array): Promise<ChassisModel> {
   return new Promise((resolve, reject) => {
     let worker: Worker
     try {
       worker = new Worker(new URL('./worker/parseWorker.ts', import.meta.url), { type: 'module' })
     } catch {
+      if (dwg) {
+        void dwgBytesToDxf(dwg)
+          .then((dxf) => resolve(analyzeDxf(dxf)))
+          .catch(reject)
+        return
+      }
       try {
         resolve(analyzeDxf(text))
       } catch (fallback) {
@@ -197,7 +230,7 @@ function parseDrawing(text: string, onProgress?: (message: string) => void): Pro
     const timer = window.setTimeout(() => {
       worker.terminate()
       reject(new Error('Zpracování výkresu trvalo příliš dlouho.'))
-    }, 120000)
+    }, dwg ? 180000 : 120000)
     worker.onmessage = (event: MessageEvent<{ ok?: boolean; model?: ChassisModel; error?: string; progress?: string }>) => {
       if (event.data.progress) {
         onProgress?.(event.data.progress)
@@ -211,12 +244,17 @@ function parseDrawing(text: string, onProgress?: (message: string) => void): Pro
     worker.onerror = () => {
       window.clearTimeout(timer)
       worker.terminate()
+      if (dwg) {
+        reject(new Error('Zpracování ve workeru selhalo.'))
+        return
+      }
       try {
         resolve(analyzeDxf(text))
       } catch (error) {
         reject(error instanceof Error ? error : new Error('Zpracování ve workeru selhalo.'))
       }
     }
-    worker.postMessage({ text })
+    if (dwg) worker.postMessage({ dwg: dwg.buffer }, [dwg.buffer])
+    else worker.postMessage({ text })
   })
 }
