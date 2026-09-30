@@ -23,7 +23,7 @@ import { dimensionMap, pairDimensions } from './dimensions'
 import { extractFrame } from './frame'
 import { extractRaisedBodies } from './raised'
 import { extractSection } from './section'
-import { envelope } from '../mesh/silhouette'
+import { envelope, outerOutline } from './cabOutline'
 
 const DEFAULT_PART = /^(?<pn>\d{7})(?:_\d+)?$/
 
@@ -512,6 +512,7 @@ function extractCab(
   )
   let top = bboxOf(topPts)
   if (!top || boxWidth(top) < 300) return null
+  const topBox = top
   const frontPts = pointsOf(cabSegs, (y, layer, block) => pointRole(block, layer, y, profile, splitY, classify) === 'front')
   const front = bboxOf(robustPoints(frontPts))
   if (front && centerY !== null) {
@@ -526,11 +527,35 @@ function extractCab(
     side,
     top,
     samples,
-    silhouettes: {
-      side: envelope(sidePts, 56) ?? undefined,
-      top: envelope(topPts, 56) ?? undefined,
-      front: envelope(frontPts, 40) ?? undefined,
-    },
+    silhouettes: cabSilhouettes(cabSegs, (s) => pointRole(s.block, s.layer, (s.y1 + s.y2) / 2, profile, splitY, classify), {
+      side,
+      top: topBox,
+      front,
+      sidePts,
+      topPts,
+      frontPts,
+    }),
+  }
+}
+
+/**
+ * Outer outlines of the three cab views. Line work is filled so windows and seams vanish, and
+ * mirrors, antennas and lamps are trimmed off. Falls back to the binned envelope of the points.
+ */
+function cabSilhouettes(
+  cabSegs: Seg[],
+  roleOf: (seg: Seg) => BlockViewName | null,
+  views: { side: BBox; top: BBox; front: BBox | null; sidePts: Pt[]; topPts: Pt[]; frontPts: Pt[] },
+): NonNullable<CabModel['silhouettes']> {
+  const byRole = (role: BlockViewName) => cabSegs.filter((seg) => roleOf(seg) === role)
+  const side = outerOutline(byRole('side'), { crop: views.side }) ?? envelope(views.sidePts, 56)
+  const top = outerOutline(byRole('top'), { crop: views.top, clamp: 'y' }) ?? envelope(views.topPts, 56)
+  const front = views.front ? (outerOutline(byRole('front'), { crop: views.front, clamp: 'x' }) ?? envelope(views.frontPts, 40)) : null
+  return {
+    side: side ?? undefined,
+    top: top ?? undefined,
+    front: front ?? undefined,
+    frame: { side: { ...views.side }, top: { ...views.top }, front: views.front ? { ...views.front } : undefined },
   }
 }
 

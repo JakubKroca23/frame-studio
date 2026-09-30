@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { clamp, type Pt } from '../lib/geom'
+import { clamp } from '../lib/geom'
 import type { EquipKind } from '../pipeline/kinds'
 import type { Axle, CabModel, ChassisModel, ChassisParams, FrameModel, PartModel } from '../model/types'
 import {
@@ -15,6 +15,7 @@ import {
   gasket,
   glass,
   lamp,
+  lampLens,
   lampRed,
   paint,
   paintDark,
@@ -26,7 +27,7 @@ import {
   toolbox,
 } from './materials'
 import { extrudePlan, extrudeProfile, profileShape, revolveProfile } from './profile'
-import { tracedCab, type CabSolid } from './silhouette'
+import { cabFeatures, tracedCab, type CabPartGeometry, type CabSolid } from './silhouette'
 
 export interface World {
   model: ChassisModel
@@ -1039,50 +1040,22 @@ function defaultBattery(world: World): Placed {
   return fake(axleX(world, 0) + 900, y, z, 720, 460, 400, 'battery')
 }
 
-function drawingAt(solid: CabSolid, x: number, y: number) {
-  return new THREE.Vector3(x - solid.originX, y - solid.ground + solid.liftY, 0)
-}
-
-function leadingX(ring: readonly Pt[], y: number): number | null {
-  let best: number | null = null
-  for (let index = 0; index < ring.length; index++) {
-    const a = ring[index]
-    const b = ring[(index + 1) % ring.length]
-    const minY = Math.min(a.y, b.y)
-    const maxY = Math.max(a.y, b.y)
-    if (y < minY - 1e-6 || y > maxY + 1e-6) continue
-    let x: number
-    if (Math.abs(a.y - b.y) < 1e-6) x = Math.min(a.x, b.x)
-    else {
-      const t = (y - a.y) / (b.y - a.y)
-      if (t < -1e-4 || t > 1 + 1e-4) continue
-      x = a.x + t * (b.x - a.x)
-    }
-    if (best === null || x < best) best = x
-  }
-  return best
-}
-
-function lateralAt(ring: readonly Pt[], x: number): { min: number; max: number } | null {
-  const hits: number[] = []
-  for (let index = 0; index < ring.length; index++) {
-    const a = ring[index]
-    const b = ring[(index + 1) % ring.length]
-    const minX = Math.min(a.x, b.x)
-    const maxX = Math.max(a.x, b.x)
-    if (x < minX - 1e-6 || x > maxX + 1e-6) continue
-    if (Math.abs(a.x - b.x) < 1e-6) hits.push(a.y, b.y)
-    else {
-      const t = (x - a.x) / (b.x - a.x)
-      if (t < -1e-4 || t > 1 + 1e-4) continue
-      hits.push(a.y + t * (b.y - a.y))
-    }
-  }
-  if (hits.length < 2) return null
-  return { min: Math.min(...hits), max: Math.max(...hits) }
+const PART_MATERIAL: Record<CabPartGeometry['part'], THREE.Material> = {
+  glass,
+  grille: paintDark,
+  lamp: lampLens,
+  bumper: plastic,
+  trim: paintDark,
+  seam: paintDark,
 }
 
 function addSolidDetails(g: THREE.Group, body: CabSolid, world: World) {
+  for (const part of body.parts) {
+    const mesh = new THREE.Mesh(part.geometry, PART_MATERIAL[part.part])
+    mesh.name = `cab-${part.part}`
+    mesh.userData.part = part.part
+    g.add(mesh)
+  }
   const geometry = body.mesh.geometry
   if (!geometry.boundingBox) geometry.computeBoundingBox()
   const box = geometry.boundingBox
@@ -1092,97 +1065,30 @@ function addSolidDetails(g: THREE.Group, body: CabSolid, world: World) {
   const width = size.z
   const height = size.y
   const len = size.x
-  let sideY0 = Infinity
-  let sideY1 = -Infinity
-  for (const point of body.side) {
-    if (point.y < sideY0) sideY0 = point.y
-    if (point.y > sideY1) sideY1 = point.y
+  const volvo = world.model.profileId.includes('volvo')
+  const grille = body.parts.find((part) => part.part === 'grille')
+  if (grille && volvo) {
+    // The diagonal Volvo slash across the grille.
+    grille.geometry.computeBoundingBox()
+    const gb = grille.geometry.boundingBox as THREE.Box3
+    const slash = solidBox([10, height * 0.1, 14], cabTrim, [gb.min.x - 4, box.min.y + height * 0.5, cz])
+    slash.rotation.x = 0.9
+    slash.userData.part = 'grille'
+    g.add(slash)
   }
-  const at = (fraction: number) => {
-    const y = sideY0 + (sideY1 - sideY0) * fraction
-    const x = leadingX(body.side, y) ?? body.side[0].x
-    const point = drawingAt(body, x, y)
-    point.z = cz
-    return point
-  }
-  const outward = (a: THREE.Vector3, b: THREE.Vector3) => {
-    const dir = b.clone().sub(a)
-    const length = dir.length() || 1
-    dir.multiplyScalar(1 / length)
-    let nx = -dir.y
-    let ny = dir.x
-    if (nx > 0) {
-      nx = -nx
-      ny = -ny
-    }
-    return { dir, length, nx, ny }
-  }
-  const panel = (t0: number, t1: number, thick: number, breadth: number, mat: THREE.Material, part: string) => {
-    const a = at(t0)
-    const b = at(t1)
-    const face = outward(a, b)
-    if (face.length < 40) return
-    const mid = a.clone().lerp(b, 0.5)
-    mid.x += face.nx * (thick * 0.65 + 8)
-    mid.y += face.ny * (thick * 0.65 + 8)
-    const mesh = solidBox([thick, face.length * 0.92, breadth], mat, [mid.x, mid.y, mid.z])
-    mesh.rotation.z = Math.atan2(face.dir.y, face.dir.x) - Math.PI / 2
-    mesh.userData.part = part
-    g.add(mesh)
-    return mesh
-  }
-  panel(0.34, 0.8, 16, width * 0.74, glass, 'glass')
-  panel(0.8, 0.9, 20, width * 0.82, paintDark, 'trim')
-  const grille = panel(0.07, 0.26, 26, width * 0.5, paintDark, 'grille')
-  if (grille) {
-    const volvo = world.model.profileId.includes('volvo')
-    if (volvo) {
-      const slash = solidBox([12, height * 0.12, 14], cabTrim, [grille.position.x, grille.position.y, cz])
-      slash.rotation.z = grille.rotation.z + 0.7
-      slash.userData.part = 'grille'
-      g.add(slash)
-    } else {
-      for (let bar = 0; bar < 4; bar++) {
-        const y = grille.position.y - height * 0.06 + bar * height * 0.032
-        const slat = solidBox([10, 8, width * 0.42], cabTrim, [grille.position.x - 4, y, cz])
-        slat.userData.part = 'grille'
-        g.add(slat)
-      }
-    }
-  }
-  const nose = at(0.16)
-  for (const sz of [-1, 1]) {
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(40, 18, 12), lamp)
-    bulb.position.set(nose.x - 28, nose.y, cz + sz * width * 0.36)
-    bulb.userData.part = 'lamp'
-    g.add(bulb)
-    const small = new THREE.Mesh(new THREE.SphereGeometry(16, 12, 8), lamp)
-    small.position.set(nose.x - 22, at(0.1).y, cz + sz * width * 0.45)
-    small.userData.part = 'lamp'
-    g.add(small)
-    g.add(solidBox([12, 22, 48], lampRed, [nose.x - 8, at(0.05).y, cz + sz * width * 0.28]))
-  }
-  const doorX = box.min.x + len * 0.55
-  const doorDrawX = doorX + body.originX
-  const sideLat = lateralAt(body.top, doorDrawX)
   for (const sz of [-1, 1] as const) {
-    const lat = sideLat ? (sz < 0 ? sideLat.min : sideLat.max) : body.centerY + sz * (width / 2)
-    const face = lat - body.centerY + sz * 10
-    const win = solidBox([len * 0.32, height * 0.26, 12], glass, [box.min.x + len * 0.52, box.min.y + height * 0.58, face])
-    win.userData.part = 'glass'
-    g.add(win)
-    g.add(solidBox([len * 0.46, height * 0.08, 14], paintDark, [box.min.x + len * 0.5, box.min.y + height * 0.08, face]))
+    const edge = sz < 0 ? box.min.z : box.max.z
     const step = Math.max(180, box.min.y * 0.35 + 30)
-    g.add(solidBox([200, 24, 220], plastic, [box.min.x + len * 0.22, step, cz + sz * (width / 2 - 40)]))
-    g.add(solidBox([170, 22, 190], plastic, [box.min.x + len * 0.2, step + 180, cz + sz * (width / 2 - 20)]))
-    const arm = cz + sz * (width / 2 + 140)
-    g.add(tube(16, 260, 'z', paintDark, [box.min.x + len * 0.28, box.min.y + height * 0.55, cz + sz * (width / 2 + 60)], 10))
-    g.add(solidBox([180, 240, 30], plastic, [box.min.x + len * 0.26, box.min.y + height * 0.52, arm]))
-    const mirror = solidBox([130, 170, 8], glass, [box.min.x + len * 0.26, box.min.y + height * 0.52, arm + sz * 18])
+    g.add(solidBox([200, 24, 220], plastic, [box.min.x + len * 0.22, step, edge - sz * 110]))
+    g.add(solidBox([170, 22, 190], plastic, [box.min.x + len * 0.2, step + 180, edge - sz * 95]))
+    const arm = edge + sz * 150
+    g.add(tube(16, 260, 'z', paintDark, [box.min.x + len * 0.2, box.min.y + height * 0.66, edge + sz * 60], 10))
+    g.add(solidBox([160, 300, 36], plastic, [box.min.x + len * 0.2, box.min.y + height * 0.6, arm]))
+    const mirror = solidBox([10, 250, 120], glass, [box.min.x + len * 0.2 + 84, box.min.y + height * 0.6, arm])
     mirror.userData.part = 'glass'
     g.add(mirror)
+    g.add(solidBox([14, 26, 50], lampRed, [box.min.x + 2, box.min.y + height * 0.05, cz + sz * width * 0.3]))
   }
-  g.add(solidBox([len * 0.5, 14, width * 0.7], cabRoof, [box.min.x + len * 0.58, box.max.y + 6, cz]))
 }
 
 function solidBox(size: [number, number, number], mat: THREE.Material, at: [number, number, number]) {
@@ -1190,7 +1096,12 @@ function solidBox(size: [number, number, number], mat: THREE.Material, at: [numb
 }
 
 export function buildCab(cab: CabModel, world: World): THREE.Group {
-  const traced = tracedCab(cab, world)
+  let traced: CabSolid | null = null
+  try {
+    traced = tracedCab(cab, world, cabFeatures(world.model.profileId))
+  } catch {
+    traced = null
+  }
   if (traced) {
     const g = new THREE.Group()
     g.name = 'cab'

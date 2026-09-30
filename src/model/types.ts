@@ -101,7 +101,13 @@ export interface CabModel {
   top: BBox
   samples: Slice[]
   /** Outer envelopes of the cab blocks: side and top in drawing coordinates, front in its own view. */
-  silhouettes?: { side?: Pt[]; top?: Pt[]; front?: Pt[] }
+  silhouettes?: {
+    side?: Pt[]
+    top?: Pt[]
+    front?: Pt[]
+    /** Detected view boxes at the time the outlines were traced; review edits map from these. */
+    frame?: { side: BBox; top: BBox; front?: BBox }
+  }
   /** Closed side-view ring. The shell is extruded from this instead of a generic cab. */
   profile?: Pt[]
   confidence?: number

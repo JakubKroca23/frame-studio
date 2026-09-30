@@ -93,6 +93,9 @@ export function Viewport({
           <Button variant="view" size="sm" onClick={() => setView.current('wheel')}>
             Kolo
           </Button>
+          <Button variant="view" size="sm" onClick={() => setView.current('cab')}>
+            Kabina
+          </Button>
         </div>
       ) : (
         <EmptyHint />
@@ -221,11 +224,39 @@ function CameraBridge({
 }) {
   const camera = useThree((s) => s.camera)
   const controls = useThree((s) => s.controls) as { target: THREE.Vector3; update: () => void } | null
+  const scene = useThree((s) => s.scene)
+  useEffect(() => {
+    if (!import.meta.env.DEV || !controls) return
+    // Dev-only hook so headless screenshots can frame the model precisely.
+    const hook = {
+      scene,
+      look(position: [number, number, number], target: [number, number, number]) {
+        controls.target.set(target[0], target[1], target[2])
+        camera.position.set(position[0], position[1], position[2])
+        camera.lookAt(controls.target)
+        controls.update()
+      },
+    }
+    ;(window as unknown as { __frameStudio?: typeof hook }).__frameStudio = hook
+  }, [camera, controls, scene])
   useEffect(() => {
     setView.current = (view) => {
       if (!controls) return
       const target = controls.target.clone()
       const dist = 8600
+      if (view === 'cab') {
+        const cab = scene.getObjectByName('cab-shell') ?? scene.getObjectByName('cab')
+        if (!cab) return
+        const box = new THREE.Box3().setFromObject(cab)
+        const center = box.getCenter(new THREE.Vector3())
+        const size = box.getSize(new THREE.Vector3())
+        const reach = Math.max(size.x, size.y, size.z) * 2.2
+        controls.target.copy(center)
+        camera.position.set(center.x - reach * 0.62, center.y + reach * 0.32, center.z + reach * 0.62)
+        camera.lookAt(controls.target)
+        controls.update()
+        return
+      }
       if (view === 'side') camera.position.set(target.x, target.y + 1400, target.z + dist)
       else if (view === 'top') camera.position.set(target.x, dist, target.z + 120)
       else if (view === 'front') camera.position.set(target.x - dist, target.y + 2600, target.z + 600)
@@ -240,6 +271,6 @@ function CameraBridge({
       camera.lookAt(controls.target)
       controls.update()
     }
-  }, [camera, controls, setView, wheelFocus])
+  }, [camera, controls, scene, setView, wheelFocus])
   return null
 }

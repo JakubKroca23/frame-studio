@@ -26,6 +26,8 @@ export const cabPaint = std(0x155a9e, 0.22, 0.38)
 export const cabRoof = std(0x1d6ec0, 0.2, 0.36)
 export const cabTrim = std(0xd7dbe0, 0.55, 0.32)
 export const lamp = std(0xfff6e4, 0.1, 0.2, { emissive: 0xffe7b0, emissiveIntensity: 0.85 })
+/** Headlamp lens on the cab front: bright but not a blown-out white block. */
+export const lampLens = std(0xaeb8bf, 0.6, 0.14, { emissive: 0x5d666d, emissiveIntensity: 0.3 })
 export const lampRed = std(0x8c1c16, 0.2, 0.35, { emissive: 0x5a100c, emissiveIntensity: 0.4 })
 export const tank = std(0xb9c3cb, 0.82, 0.28)
 export const tankStrap = std(0x2c3238, 0.55, 0.45)

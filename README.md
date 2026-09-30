@@ -40,7 +40,8 @@ npm run build     # kontrola typů a produkční build
 - Skupiny otvorů Volvo v rámečku 1:10 u počátku se posunou podle insertu `B_CABSC0_`.
 - Podélníky jako C profil tažený po půdorysné trase, včetně rozšíření nebo zúžení vepředu. U Volva se tloušťka a poloměry vezmou z řezu ve výkresu (300×90×8, R13/R5), ne z výchozích hodnot.
 - Nápravy a kola z výkresu. Scania má tři nápravy, Volvo čtyři; zadní nápravy Volva jsou dvojmontáž. Průměr pneu z oblouků, z textu (`385/65R22.5`, `315/80R22.5`) nebo ze zadaného rozměru.
-- Kabina a díly jako přibližné siluety. Čelní pohled, pokud ve výkresu je, může zúžit šířku. Scania čelní pohled nemá.
+- Kabina je uzavřené těleso: vnější obrys bokorysu, půdorysu a čelního pohledu (okna, švy dveří, zrcátka a anténa se odfiltrují) se vytáhne podél os pohledů a průnik spočítá manifold-3d (WASM). Sklo, maska a světla jsou tenké slupky na jeho povrchu. Když průnik selže, kreslí se jednoduchá kabina podle rozměrů. Scania čelní pohled nemá, rohy střechy se proto jen zaoblí. Tlačítko Kabina v 3D ji přiblíží, obrys se ukazuje i v Kontrole detekce.
+- Díly jako přibližné siluety.
 - Živá změna tlouštěk, poloměru, zatížení, pneumatik, odpružení (listy, vzduch, smíšené), detailu a viditelnosti skupin. Odpružení a hnací ústrojí jsou ve výchozím stavu skryté.
 - Podvozek má tvar skutečného rámu: tmavý C profil, příčky s výztuhami a šrouby, výztuha, ocelová kola s plnou pneumatikou a blatníky. Poloha rámu, otvorů a náprav zůstává z výkresu. Nádrže, akumulátor, vzduchojemy, výfuk, schránky a boční kryty se kreslí ve velikosti a poloze dílu z výkresu; chybí-li díl, použije se typická poloha vedle rámu.
 - Panel detekce s kótami a kontrolou proti geometrii. Hodnoty z kót, textů, názvů bloků a uzavřených obrysů jsou označené jako naměřené. Tvar, který z výkresu neplyne (typická nádrž, odhad dvojmontáže Scania), je odhad a v kontrole má nižší jistotu.

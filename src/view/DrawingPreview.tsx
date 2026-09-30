@@ -5,12 +5,17 @@ import type { ChassisModel } from '../model/types'
 type ViewKind = 'side' | 'front' | 'top'
 
 export function DrawingPreview({ model }: { model: ChassisModel | null }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(() => readOpen())
+  const toggle = () =>
+    setOpen((value) => {
+      writeOpen(!value)
+      return !value
+    })
   return (
     <section className={open ? 'preview-pane' : 'preview-pane is-collapsed'}>
       <header className="pane-title">
         <span>Kontrola detekce</span>
-        <button type="button" className="pane-toggle" onClick={() => setOpen((value) => !value)}>
+        <button type="button" className="pane-toggle" onClick={toggle}>
           {open ? 'Skrýt' : 'Zobrazit výkres'}
         </button>
       </header>
@@ -90,6 +95,22 @@ function PreviewView({ model, kind, title }: { model: ChassisModel | null; kind:
       stroke('component', '#8a5a2a', 1)
       stroke('axle', '#b42318', 1.3)
       stroke('frame', '#c24e28', 2.2)
+      const outline = model.cab?.silhouettes?.[kind]
+      if (outline && outline.length > 2) {
+        // The traced outer outline the 3D cab is built from.
+        ctx.beginPath()
+        outline.forEach((point, index) => {
+          const [x, y] = map(point.x, point.y)
+          if (index === 0) ctx.moveTo(x, y)
+          else ctx.lineTo(x, y)
+        })
+        ctx.closePath()
+        ctx.setLineDash([5, 3])
+        ctx.strokeStyle = '#d98a00'
+        ctx.lineWidth = 1.6
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
       const holes = model.preview.circles.holes ?? []
       ctx.fillStyle = '#0f6f86'
       for (let i = 0; i < holes.length; i += 3) {
@@ -110,6 +131,24 @@ function PreviewView({ model, kind, title }: { model: ChassisModel | null; kind:
       <canvas ref={ref} className="preview-canvas" />
     </figure>
   )
+}
+
+const OPEN_KEY = 'frame-studio.preview-open'
+
+function readOpen(): boolean {
+  try {
+    return window.localStorage.getItem(OPEN_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+
+function writeOpen(open: boolean) {
+  try {
+    window.localStorage.setItem(OPEN_KEY, open ? '1' : '0')
+  } catch {
+    /* storage may be blocked */
+  }
 }
 
 function near(x: number, y: number, bounds: BBox): boolean {
