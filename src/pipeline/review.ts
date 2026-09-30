@@ -1,5 +1,6 @@
-import type { BBox } from '../lib/geom'
+import type { BBox, Pt } from '../lib/geom'
 import type { ChassisModel, ChassisParams, PartModel } from '../model/types'
+import { normalizeRing, polygonBounds, scalePoints } from '../view/outline'
 import { EQUIP_LABELS, type EquipKind } from './kinds'
 
 export type ReviewRole = 'frame' | 'hole' | 'liner' | 'crossmember' | 'axle' | 'mudguard' | 'cab' | 'equipment'
@@ -27,6 +28,8 @@ export interface ReviewElement {
   in3d?: boolean
   side: BBox | null
   top: BBox | null
+  /** Real outline in one view. The box stays the bounds used by the fields. */
+  outline?: { view: 'side' | 'top'; points: Pt[] } | null
   fields: ReviewField[]
 }
 
@@ -302,8 +305,12 @@ export function applyReview(model: ChassisModel, elements: ReviewElement[]): Cha
     const y1 = num(cabEl, 'y1', next.cab.top.y1)
     next.cab.side = { x0: Math.min(x0, x1), y0: Math.min(z0, z1), x1: Math.max(x0, x1), y1: Math.max(z0, z1) }
     next.cab.top = { x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) }
+    next.cab.profile = cabEl.outline?.view === 'side' && cabEl.outline.points.length >= 3 ? cabEl.outline.points.map((point) => ({ ...point })) : undefined
   }
   next.skipMudguards = elements.filter((item) => item.role === 'mudguard' && item.deleted).map((item) => Math.max(0, num(item, 'axle', 1) - 1))
+  next.mudProfiles = live
+    .filter((item) => item.role === 'mudguard' && item.outline?.view === 'side' && item.outline.points.length >= 3)
+    .map((item) => ({ axle: Math.max(0, num(item, 'axle', 1) - 1), points: item.outline!.points.map((point) => ({ ...point })) }))
   next.components = live.filter((item) => item.role === 'equipment').map((item, index) => equipmentPart(item, index))
   next.stats = { ...next.stats, holeCount: next.holes.length }
   return next
@@ -385,6 +392,8 @@ function equipmentPart(el: ReviewElement, index: number): PartModel {
     evidence: el.evidence,
     side,
     top,
+    profile: el.outline?.view === 'side' && el.outline.points.length >= 3 ? el.outline.points.map((point) => ({ ...point })) : undefined,
+    plan: el.outline?.view === 'top' && el.outline.points.length >= 3 ? el.outline.points.map((point) => ({ ...point })) : undefined,
     samples: [
       { x: side.x0, z0: side.y0, z1: side.y1, y0: top.y0, y1: top.y1 },
       { x: side.x1, z0: side.y0, z1: side.y1, y0: top.y0, y1: top.y1 },
@@ -397,6 +406,7 @@ function cloneElement(el: ReviewElement): ReviewElement {
     ...el,
     side: el.side ? { ...el.side } : null,
     top: el.top ? { ...el.top } : null,
+    outline: el.outline ? { view: el.outline.view, points: el.outline.points.map((point) => ({ ...point })) } : el.outline,
     fields: el.fields.map((field) => ({ ...field, options: field.options?.map((option) => ({ ...option })) })),
   }
 }
@@ -412,12 +422,42 @@ function setNum(el: ReviewElement, key: string, value: number) {
 export function reshapeElement(el: ReviewElement, which: BoxFace, box: BBox): ReviewElement {
   const next = cloneElement(el)
   const span = normalizeBox(box)
+  const prev = which === 'side' ? el.side : el.top
+  if (next.outline?.view === which && prev && next.outline.points.length >= 3) {
+    next.outline = { view: which, points: scalePoints(next.outline.points, prev, span) }
+  }
   if (which === 'side') next.side = span
   else next.top = span
   next.source = 'user'
   next.confidence = 1
   syncShapeFields(next, which)
   return next
+}
+
+/** Replace the box with the real outline. Fields follow the new bounds. */
+export function applyOutline(el: ReviewElement, view: 'side' | 'top', points: Pt[]): ReviewElement {
+  const ring = normalizeRing(points)
+  const next = cloneElement(el)
+  const box = polygonBounds(ring)
+  next.outline = { view, points: ring }
+  if (view === 'side') next.side = box
+  else next.top = box
+  next.source = 'user'
+  next.confidence = 1
+  next.evidence = view === 'side' ? 'Obrys je z entit bokorysu, ne z opsaného obdélníku.' : 'Obrys je z entit půdorysu, ne z opsaného obdélníku.'
+  syncShapeFields(next, view)
+  return next
+}
+
+export function newEquipmentFromOutline(points: Pt[], view: 'side' | 'top', frame: ChassisModel['frame']): ReviewElement {
+  const box = polygonBounds(normalizeRing(points))
+  const element = applyOutline(newEquipment(box, view, frame), view, points)
+  element.title = 'Nový obrys'
+  return element
+}
+
+function sameBox(a: BBox, b: BBox) {
+  return Math.abs(a.x0 - b.x0) < 0.6 && Math.abs(a.y0 - b.y0) < 0.6 && Math.abs(a.x1 - b.x1) < 0.6 && Math.abs(a.y1 - b.y1) < 0.6
 }
 
 function normalizeBox(box: BBox): BBox {
@@ -553,8 +593,24 @@ export function syncEquipment(el: ReviewElement) {
   const station = num(el, 'station')
   const z0 = num(el, 'z0')
   const yCenter = num(el, 'yCenter')
-  el.side = { x0: station - length / 2, y0: z0, x1: station + length / 2, y1: z0 + height }
-  el.top = { x0: station - length / 2, y0: yCenter - width / 2, x1: station + length / 2, y1: yCenter + width / 2 }
+  const side = { x0: station - length / 2, y0: z0, x1: station + length / 2, y1: z0 + height }
+  const top = { x0: station - length / 2, y0: yCenter - width / 2, x1: station + length / 2, y1: yCenter + width / 2 }
+  if (el.outline && el.outline.points.length >= 3) {
+    const bounds = polygonBounds(el.outline.points)
+    const target = el.outline.view === 'side' ? side : top
+    if (!sameBox(bounds, target)) el.outline = { view: el.outline.view, points: scalePoints(el.outline.points, bounds, target) }
+    const fitted = polygonBounds(el.outline.points)
+    if (el.outline.view === 'side') {
+      el.side = fitted
+      el.top = { ...top, x0: fitted.x0, x1: fitted.x1 }
+    } else {
+      el.top = fitted
+      el.side = { ...side, x0: fitted.x0, x1: fitted.x1 }
+    }
+  } else {
+    el.side = side
+    el.top = top
+  }
   el.kind = str(el, 'kind', el.kind ?? 'case')
   const label = EQUIP_LABELS[el.kind as EquipKind] ?? 'Díl'
   const prefixed = el.title.startsWith(`${label} `) ? el.title.slice(label.length).trim() : ''

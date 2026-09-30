@@ -25,6 +25,7 @@ import {
   tankStrap,
   toolbox,
 } from './materials'
+import { extrudePlan, extrudeProfile, profileShape, revolveProfile } from './profile'
 
 export interface World {
   model: ChassisModel
@@ -184,7 +185,11 @@ export function addAxleAssembly(parent: THREE.Group, axle: Axle, index: number, 
   }
 
   if (!axle.dual) addSteering(parent, world, x, z, track, index === 0)
-  if (!world.model.skipMudguards?.includes(axle.index)) addMudguards(parent, x, z, radius, width, track, dual)
+  if (!world.model.skipMudguards?.includes(axle.index)) {
+    const profile = world.model.mudProfiles?.find((item) => item.axle === axle.index)?.points
+    if (profile && profile.length >= 3) addProfileMudguards(parent, profile, track, dual ? width * 2 + 90 : width + 80, world)
+    else addMudguards(parent, x, z, radius, width, track, dual)
+  }
 }
 
 function addSuspension(
@@ -262,6 +267,18 @@ function addSteering(parent: THREE.Group, world: World, x: number, z: number, tr
   const rail = railZ(world, world.originX + x, -1) ?? -world.frame.outerWidthStraight / 2
   parent.add(solid([180, 140, 120], castIron, [x - 520, z + 40, rail + 40]))
   parent.add(rod([x - 480, z + 10, rail + 20], [x - 30, z - 50, -y], 18, steel))
+}
+
+function addProfileMudguards(parent: THREE.Group, points: { x: number; y: number }[], track: number, guardW: number, world: World) {
+  const lift = world.lift(points.reduce((sum, point) => sum + point.x, 0) / points.length)
+  for (const side of [-1, 1] as const) {
+    const center = world.centerY + side * (track / 2)
+    const mesh = extrudeProfile(points, world.originX, world.ground, center - guardW / 2, center + guardW / 2, world.centerY, plastic)
+    if (!mesh) continue
+    mesh.position.y += lift
+    mesh.userData.profile = 'extrude'
+    parent.add(mesh)
+  }
 }
 
 function addMudguards(parent: THREE.Group, x: number, z: number, radius: number, width: number, track: number, dual: boolean) {
@@ -577,11 +594,16 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   for (const item of placed) {
     const kind = classify(item, world)
     if (kind === 'skip') continue
-    const before = equipment.children.length
     if (kind === 'bracket') {
-      addPlate(brackets, item, steel)
+      if (!addPrecise(brackets, item, world, kind)) addPlate(brackets, item, steel)
       continue
     }
+    if (addPrecise(equipment, item, world, kind)) {
+      const tagged = equipment.children[equipment.children.length - 1]
+      if (tagged) tagged.userData.kind = kind
+      continue
+    }
+    const before = equipment.children.length
     if (kind === 'fuel') {
       addTankBody(equipment, fitBeside(item, world, 780), false)
       fuel++
@@ -628,6 +650,32 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   }
   addRearBar(equipment, world, shields > 0)
   return { equipment, brackets }
+}
+
+function addPrecise(parent: THREE.Group, item: Placed, world: World, kind: EquipKind): boolean {
+  const use = profileShape(kind)
+  if (use === 'typed') return false
+  const mat = kind === 'adblue' ? adblue : kind === 'battery' ? battery : kind === 'toolbox' ? toolbox : kind === 'fuel' || kind === 'air' || kind === 'exhaust' ? tank : paintDark
+  const profile = item.part.profile
+  const plan = item.part.plan
+  let mesh: THREE.Mesh | null = null
+  if (use === 'revolve' && profile && profile.length >= 3) {
+    mesh = revolveProfile(profile, world.originX, world.ground, item.y, clamp(item.width / Math.max(item.height, 1), 0.45, 1.8), mat)
+  } else if (use === 'extrude' && profile && profile.length >= 3) {
+    const half = Math.max(item.width, 20) / 2
+    mesh = extrudeProfile(profile, world.originX, world.ground, world.centerY + item.y - half, world.centerY + item.y + half, world.centerY, mat)
+  } else if (use === 'extrude' && plan && plan.length >= 3) {
+    mesh = extrudePlan(plan, world.originX, world.centerY, item.z - item.height / 2 + world.ground, Math.max(item.height, 20), world.ground, mat)
+  }
+  if (!mesh) return false
+  const xs = (profile ?? plan ?? []).map((point) => point.x)
+  mesh.position.y += world.lift((Math.min(...xs) + Math.max(...xs)) / 2)
+  const group = new THREE.Group()
+  group.name = item.part.partNumber
+  group.userData.profile = mesh.userData.profile
+  group.add(mesh)
+  parent.add(group)
+  return true
 }
 
 function addCrane(parent: THREE.Group, item: Placed) {
@@ -958,9 +1006,15 @@ export function buildCab(cab: CabModel, world: World): THREE.Group {
   const z0 = side.y0 - world.ground + lift
   const xA = x0 - world.originX
   const len = Math.max(1400, x1 - x0)
-  const shell = new THREE.Mesh(cabShell(len, height, width), cabPaint)
-  shell.position.set(xA, z0, 0)
-  g.add(shell)
+  const precise = cab.profile && cab.profile.length >= 3 ? extrudeProfile(cab.profile, world.originX, world.ground, top.y0, top.y1, world.centerY, cabPaint) : null
+  if (precise) {
+    precise.position.y += lift
+    g.add(precise)
+  } else {
+    const shell = new THREE.Mesh(cabShell(len, height, width), cabPaint)
+    shell.position.set(xA, z0, 0)
+    g.add(shell)
+  }
 
   const sx0 = len * 0.01
   const sy0 = height * 0.3

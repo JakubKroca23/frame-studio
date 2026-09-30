@@ -82,6 +82,10 @@ export interface PartModel {
   side: BBox | null
   top: BBox | null
   samples: Slice[]
+  /** Closed side-view ring (drawing X, Z) used instead of the box. */
+  profile?: Pt[]
+  /** Closed plan ring (drawing X, Y) used instead of the box. */
+  plan?: Pt[]
   warning?: string
   /** Visual class used by the review step and the 3D builder. */
   kind?: string
@@ -96,6 +100,8 @@ export interface CabModel {
   side: BBox
   top: BBox
   samples: Slice[]
+  /** Closed side-view ring. The shell is extruded from this instead of a generic cab. */
+  profile?: Pt[]
   confidence?: number
   source?: 'measured' | 'estimated'
   evidence?: string
@@ -141,6 +147,8 @@ export interface ChassisModel {
   anchorX?: number
   /** Road height in drawing Z. Stable while parts are added one by one. */
   groundZ?: number
+  /** Side-view mudguard rings keyed by the axle index used in the review. */
+  mudProfiles?: { axle: number; points: Pt[] }[]
   /** Flat x1,y1,x2,y2 arrays keyed by drawing role, for the 2D check view. */
   preview: {
     segments: Record<string, number[]>

@@ -1,14 +1,36 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Button } from '../components/ui/button'
-import type { BBox } from '../lib/geom'
+import type { BBox, Pt } from '../lib/geom'
 import type { ChassisModel } from '../model/types'
 import { EQUIP_LABELS, type EquipKind } from '../pipeline/kinds'
-import { reshapeElement, type ReviewElement } from '../pipeline/review'
+import { applyOutline, newEquipmentFromOutline, reshapeElement, type ReviewElement } from '../pipeline/review'
 import { useApp } from '../state'
 import { easeScale, fitView, nextTargetScale, panBy, screenToWorld, viewAbout, wheelIntent, wheelZoomFactor, worldToScreen, zoomLimits, type ReviewView } from './reviewCamera'
 import { handleAnchor, hitHandle, resizeBox, type BoxSide, type HandleId } from './reviewHandles'
 import { isTextEditing, reviewCommand } from './reviewKeys'
+import {
+  buildEntityIndex,
+  chainContour,
+  dropLastPoint,
+  entitiesFromPreview,
+  hitEdgeScreen,
+  hitEntity,
+  hitVertexScreen,
+  insertVertex,
+  moveVertex,
+  outlineFromEntities,
+  pointInPolygon,
+  polygonBounds,
+  removeVertex,
+  shouldClose,
+  signedArea,
+  snapPoint,
+  type EntityIndex,
+  type SnapHit,
+} from './outline'
 import { applyWindowSelection, idsInWindow, toggleMember } from './reviewSelect'
+
+type ReviewTool = 'polygon' | 'entity' | 'contour' | null
 
 interface ZoomAnim {
   running: boolean
@@ -53,11 +75,14 @@ export function ReviewBoard() {
   const includeInScene = useApp((s) => s.includeInScene)
   const excludeFromScene = useApp((s) => s.excludeFromScene)
   const addReviewBox = useApp((s) => s.addReviewBox)
+  const appendReview = useApp((s) => s.appendReview)
   const resetReview = useApp((s) => s.resetReview)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [pick, setPick] = useState(false)
   const [windowMode, setWindowMode] = useState(false)
+  const [tool, setTool] = useState<ReviewTool>(null)
+  const [poly, setPoly] = useState<Pt[]>([])
+  const [entityIds, setEntityIds] = useState<number[]>([])
   const [hideSkip, setHideSkip] = useState(true)
   const [query, setQuery] = useState('')
   const [toast, setToast] = useState<string | null>(null)
@@ -73,6 +98,7 @@ export function ReviewBoard() {
     hit: string | null
   } | null>(null)
   const handleDrag = useRef<{ id: string; which: BoxSide; handle: HandleId; start: BBox; pushed: boolean } | null>(null)
+  const vertexDrag = useRef<{ id: string; index: number; pushed: boolean } | null>(null)
   const panRef = useRef<{ id: number; x: number; y: number } | null>(null)
   const lastMiddle = useRef(0)
   const viewRef = useRef<ReviewView | null>(null)
@@ -91,10 +117,19 @@ export function ReviewBoard() {
   const zoomRef = useRef<ZoomAnim | null>(null)
   const lineCache = useRef<LineCache | null>(null)
   const fileSeen = useRef('')
-  const sceneRef = useRef({ model, review, selectedIds, hideSkip, live, windowMode })
+  const sceneRef = useRef({ model, review, selectedIds, hideSkip, live, windowMode, tool, poly, entityIds, snap: null as SnapHit | null })
+  const indexRef = useRef<EntityIndex | null>(null)
+  const toolRef = useRef<ReviewTool>(null)
+  const polyRef = useRef<Pt[]>([])
+  const snapRef = useRef<SnapHit | null>(null)
+  const finishPolyRef = useRef<() => void>(() => {})
+  const cancelDraftRef = useRef<() => void>(() => {})
+  const applyEntityRef = useRef<() => void>(() => {})
 
   useEffect(() => {
-    sceneRef.current = { model, review, selectedIds, hideSkip, live, windowMode }
+    sceneRef.current = { model, review, selectedIds, hideSkip, live, windowMode, tool, poly, entityIds, snap: snapRef.current }
+    toolRef.current = tool
+    polyRef.current = poly
     requestRef.current = () => {
       if (rafRef.current) return
       rafRef.current = requestAnimationFrame(() => {
@@ -143,6 +178,10 @@ export function ReviewBoard() {
     fileSeen.current = nextKey
   })
 
+  useEffect(() => {
+    indexRef.current = model ? buildEntityIndex(entitiesFromPreview(model.preview)) : null
+  }, [model])
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return review.filter((item) => {
@@ -162,6 +201,37 @@ export function ReviewBoard() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (isTextEditing(event.target)) return
+      if (toolRef.current === 'polygon') {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          cancelDraftRef.current()
+          return
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          finishPolyRef.current()
+          return
+        }
+        if (event.key === 'Backspace' && polyRef.current.length) {
+          event.preventDefault()
+          const next = dropLastPoint(polyRef.current)
+          polyRef.current = next
+          setPoly(next)
+          sceneRef.current = { ...sceneRef.current, poly: next }
+          requestRef.current()
+          return
+        }
+      }
+      if (event.key === 'Escape' && toolRef.current) {
+        event.preventDefault()
+        cancelDraftRef.current()
+        return
+      }
+      if (event.key === 'Enter' && toolRef.current === 'entity') {
+        event.preventDefault()
+        applyEntityRef.current()
+        return
+      }
       const command = reviewCommand(event)
       if (!command) return
       event.preventDefault()
@@ -351,13 +421,20 @@ export function ReviewBoard() {
         if (scene.hideSkip && item.kind === 'skip') continue
         const drawn = scene.live?.id === item.id ? scene.live : item
         const on = chosen.has(item.id)
-        drawBox(ctx, map, drawn.side, drawn, on, vp)
-        drawBox(ctx, map, drawn.top, drawn, on, vp)
+        if (drawn.outline?.view === 'side') drawOutline(ctx, map, drawn.outline.points, drawn, on, vp)
+        else drawBox(ctx, map, drawn.side, drawn, on, vp)
+        if (drawn.outline?.view === 'top') drawOutline(ctx, map, drawn.outline.points, drawn, on, vp)
+        else drawBox(ctx, map, drawn.top, drawn, on, vp)
         if (on && chosen.size === 1) {
           drawHandles(ctx, map, drawn.side)
           drawHandles(ctx, map, drawn.top)
+          if (drawn.outline) drawVertices(ctx, map, drawn.outline.points)
         }
       }
+
+      const draft = scene.poly
+      if (draft.length) drawDraft(ctx, map, draft, scene.snap)
+      if (scene.entityIds.length && indexRef.current) drawPicked(ctx, map, indexRef.current, scene.entityIds, scene.snap)
 
       ctx.fillStyle = '#0f6f86'
       for (const hole of scene.review) {
@@ -438,13 +515,76 @@ export function ReviewBoard() {
     if (event.button !== 0) return
     const point = toDrawing(event)
     if (!point || !model) return
-    if (pick) {
-      const box = clusterAt(model, point.x, point.y)
-      if (box) {
-        const view = viewOf(point.x, point.y, model)
-        addReviewBox(box, view)
-        setPick(false)
+    if (toolRef.current === 'polygon') {
+      const current = polyRef.current
+      const view = viewRef.current
+      if (current.length >= 3 && view) {
+        const rect = canvas.getBoundingClientRect()
+        const [sx, sy] = worldToScreen(view, rect.width, rect.height, current[0].x, current[0].y)
+        if (Math.hypot(sx - point.px, sy - point.py) <= 12 || shouldClose(current, point.x, point.y, snapTol())) {
+          finishPolyRef.current()
+          return
+        }
       }
+      const snapped = indexRef.current ? snapPoint(indexRef.current, point.x, point.y, snapTol()) : { x: point.x, y: point.y, kind: 'free' as const }
+      const next = [...current, { x: snapped.x, y: snapped.y }]
+      polyRef.current = next
+      setPoly(next)
+      sceneRef.current = { ...sceneRef.current, poly: next }
+      requestRef.current()
+      return
+    }
+    if (toolRef.current === 'entity' || toolRef.current === 'contour') {
+      const index = indexRef.current
+      const view = viewRef.current
+      if (!index || !view) return
+      const hit = hitEntity(index, point.x, point.y, 8 / view.scale)
+      if (toolRef.current === 'contour') {
+        if (!hit) {
+          setToast('Pod kurzorem není čára')
+          window.clearTimeout(toastTimer.current)
+          toastTimer.current = window.setTimeout(() => setToast(null), 2800)
+          return
+        }
+        const chain = chainContour(index.entities, hit.id, 4)
+        if (!chain?.closed || chain.points.length < 3) {
+          setToast('Obrys pod kurzorem není uzavřený')
+          window.clearTimeout(toastTimer.current)
+          toastTimer.current = window.setTimeout(() => setToast(null), 2800)
+          return
+        }
+        commitOutline(chain.points, false)
+        requestRef.current()
+        return
+      }
+      const extend = event.ctrlKey || event.metaKey || event.shiftKey
+      if (!hit) {
+        if (!extend) {
+          setEntityIds([])
+          sceneRef.current = { ...sceneRef.current, entityIds: [] }
+          requestRef.current()
+        }
+        return
+      }
+      setEntityIds((current) => {
+        const next = extend ? (current.includes(hit.id) ? current.filter((id) => id !== hit.id) : [...current, hit.id]) : [hit.id]
+        sceneRef.current = { ...sceneRef.current, entityIds: next }
+        return next
+      })
+      requestRef.current()
+      return
+    }
+    const edited = event.detail >= 2 ? outlineEditAt(point.px, point.py) : null
+    if (edited) {
+      applyVertexEdit(edited)
+      return
+    }
+    const vertex = vertexAt(point.px, point.py)
+    if (vertex) {
+      vertexDrag.current = { id: vertex.id, index: vertex.index, pushed: false }
+      drag.current = null
+      handleDrag.current = null
+      canvas.setPointerCapture(event.pointerId)
       return
     }
     const grip = gripAt(point.px, point.py)
@@ -493,8 +633,32 @@ export function ReviewBoard() {
       }
       return
     }
-    const grip = handleDrag.current
     const point = toDrawing(event)
+    if (toolRef.current === 'polygon' && point && indexRef.current) {
+      const snap = snapPoint(indexRef.current, point.x, point.y, snapTol())
+      snapRef.current = snap
+      sceneRef.current = { ...sceneRef.current, snap }
+      canvas.style.cursor = snap.kind === 'free' ? 'crosshair' : 'copy'
+      requestRef.current()
+      return
+    }
+    const vertex = vertexDrag.current
+    if (vertex && point) {
+      const item = useApp.getState().review.find((entry) => entry.id === vertex.id)
+      if (item?.outline) {
+        if (!vertex.pushed) {
+          undoStack.current.push([snapshotElement(item)])
+          if (undoStack.current.length > 40) undoStack.current.shift()
+          vertex.pushed = true
+        }
+        const next = applyOutline(item, item.outline.view, moveVertex(item.outline.points, vertex.index, point))
+        sceneRef.current.live = next
+        setLive(next)
+        requestRef.current()
+      }
+      return
+    }
+    const grip = handleDrag.current
     if (grip && point) {
       const item = useApp.getState().review.find((entry) => entry.id === grip.id)
       if (!item) return
@@ -510,9 +674,10 @@ export function ReviewBoard() {
       requestRef.current()
       return
     }
-    if (point && !drag.current && selectedIds.length === 1) {
-      const hover = gripAt(point.px, point.py)
-      canvas.style.cursor = hover ? cursorFor(hover.handle) : ''
+    if (point && !drag.current && selectedIds.length === 1 && !toolRef.current) {
+      const hoverVertex = vertexAt(point.px, point.py)
+      const hover = hoverVertex ? null : gripAt(point.px, point.py)
+      canvas.style.cursor = hoverVertex ? 'grab' : hover ? cursorFor(hover.handle) : ''
     }
     const start = drag.current
     if (!start || !point) return
@@ -528,6 +693,16 @@ export function ReviewBoard() {
     if (panRef.current?.id === event.pointerId) {
       panRef.current = null
       event.currentTarget.classList.remove('is-panning')
+      return
+    }
+    const vertex = vertexDrag.current
+    if (vertex) {
+      vertexDrag.current = null
+      const done = sceneRef.current.live
+      sceneRef.current.live = null
+      setLive(null)
+      if (vertex.pushed && done) commitElement(done)
+      else requestRef.current()
       return
     }
     const grip = handleDrag.current
@@ -591,6 +766,146 @@ export function ReviewBoard() {
     return best ? { id: best.id, which: best.which, handle: best.handle } : null
   }
 
+  function snapTol() {
+    const scale = viewRef.current?.scale || 1
+    return Math.max(1.5, Math.min(40, 10 / scale))
+  }
+
+  function screenMap() {
+    const canvas = canvasRef.current
+    const view = viewRef.current
+    if (!canvas || !view) return null
+    const rect = canvas.getBoundingClientRect()
+    return (x: number, y: number) => worldToScreen(view, rect.width, rect.height, x, y)
+  }
+
+  function activeOutline() {
+    if (selectedIds.length !== 1) return null
+    const item = review.find((entry) => entry.id === selectedIds[0] && !entry.deleted)
+    if (!item?.outline || item.outline.points.length < 3) return null
+    return item
+  }
+
+  function vertexAt(px: number, py: number) {
+    const item = activeOutline()
+    const map = screenMap()
+    if (!item?.outline || !map) return null
+    const index = hitVertexScreen(px, py, item.outline.points, map)
+    return index == null ? null : { id: item.id, index }
+  }
+
+  function outlineEditAt(px: number, py: number) {
+    const item = activeOutline()
+    const map = screenMap()
+    if (!item?.outline || !map) return null
+    const vertex = hitVertexScreen(px, py, item.outline.points, map)
+    if (vertex != null) return { id: item.id, op: 'remove' as const, index: vertex }
+    const edge = hitEdgeScreen(px, py, item.outline.points, map)
+    if (!edge) return null
+    return { id: item.id, op: 'insert' as const, edge: edge.edge, x: edge.x, y: edge.y }
+  }
+
+  function applyVertexEdit(edit: { id: string; op: 'remove'; index: number } | { id: string; op: 'insert'; edge: number; x: number; y: number }) {
+    const item = useApp.getState().review.find((entry) => entry.id === edit.id && !entry.deleted)
+    if (!item?.outline) return
+    const points = edit.op === 'remove' ? removeVertex(item.outline.points, edit.index) : insertVertex(item.outline.points, edit.edge, { x: edit.x, y: edit.y })
+    if (!points || points.length < 3) return
+    undoStack.current.push([snapshotElement(item)])
+    if (undoStack.current.length > 40) undoStack.current.shift()
+    commitElement(applyOutline(item, item.outline.view, points))
+    setLive(null)
+    requestRef.current()
+  }
+
+  function commitOutline(points: Pt[], assign: boolean) {
+    const source = sceneRef.current.model
+    if (!source || points.length < 3 || Math.abs(signedArea(points)) < 40) {
+      setToast('Obrys je příliš malý')
+      window.clearTimeout(toastTimer.current)
+      toastTimer.current = window.setTimeout(() => setToast(null), 2800)
+      return
+    }
+    const cx = points.reduce((sum, point) => sum + point.x, 0) / points.length
+    const cy = points.reduce((sum, point) => sum + point.y, 0) / points.length
+    const view = viewOf(cx, cy, source)
+    const selected = sceneRef.current.selectedIds
+    if (assign && selected.length === 1) {
+      const item = useApp.getState().review.find((entry) => entry.id === selected[0] && !entry.deleted)
+      if (item) {
+        undoStack.current.push([snapshotElement(item)])
+        if (undoStack.current.length > 40) undoStack.current.shift()
+        commitElement(applyOutline(item, view, points))
+        setLive(null)
+        setToast('Obrys uložen – Ctrl+Z vrátí')
+        window.clearTimeout(toastTimer.current)
+        toastTimer.current = window.setTimeout(() => setToast(null), 2800)
+        return
+      }
+    }
+    const created = newEquipmentFromOutline(points, view, source.frame)
+    const ghost = snapshotElement(created)
+    ghost.deleted = true
+    undoStack.current.push([ghost])
+    if (undoStack.current.length > 40) undoStack.current.shift()
+    appendReview(created)
+    setSelectedIds([created.id])
+    setLive(null)
+    setToast('Obrys uložen – Ctrl+Z vrátí')
+    window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 2800)
+  }
+
+  function armTool(next: ReviewTool) {
+    const value = toolRef.current === next ? null : next
+    toolRef.current = value
+    polyRef.current = []
+    snapRef.current = null
+    setTool(value)
+    setPoly([])
+    setWindowMode(false)
+    if (value !== 'entity') setEntityIds([])
+    sceneRef.current = { ...sceneRef.current, tool: value, poly: [], entityIds: value === 'entity' ? sceneRef.current.entityIds : [], snap: null }
+    requestRef.current()
+  }
+
+  useEffect(() => {
+    finishPolyRef.current = () => {
+      const points = polyRef.current
+      polyRef.current = []
+      setPoly([])
+      sceneRef.current = { ...sceneRef.current, poly: [] }
+      if (points.length >= 3) commitOutline(points, false)
+      else if (points.length) setToast('Obrys potřebuje aspoň tři body')
+      requestRef.current()
+    }
+    cancelDraftRef.current = () => {
+      toolRef.current = null
+      polyRef.current = []
+      snapRef.current = null
+      setTool(null)
+      setPoly([])
+      setEntityIds([])
+      sceneRef.current = { ...sceneRef.current, tool: null, poly: [], entityIds: [], snap: null }
+      requestRef.current()
+    }
+    applyEntityRef.current = () => {
+      const index = indexRef.current
+      const ids = sceneRef.current.entityIds
+      if (!index || !ids.length) return
+      const chain = outlineFromEntities(index.entities, ids, 4)
+      if (!chain || chain.points.length < 3) {
+        setToast('Vybrané entity netvoří obrys')
+        window.clearTimeout(toastTimer.current)
+        toastTimer.current = window.setTimeout(() => setToast(null), 2800)
+        return
+      }
+      commitOutline(chain.points, sceneRef.current.selectedIds.length === 1)
+      setEntityIds([])
+      sceneRef.current = { ...sceneRef.current, entityIds: [] }
+      requestRef.current()
+    }
+  })
+
   if (!model) return null
 
   return (
@@ -599,8 +914,10 @@ export function ReviewBoard() {
         <div className="pane-title">
           <strong>Kontrola detekce</strong>
           <span>
-            {doubtful ? `${doubtful} nejistých` : 'vše s vyšší jistotou'} · tažením přidáte oblast · Shift+tažení vybírá okno · úchyty mění obrys
-            {pick ? ' · klikněte na entity' : ''}
+            {doubtful ? `${doubtful} nejistých` : 'vše s vyšší jistotou'} · tažením přidáte oblast · Shift+tažení vybírá okno · úchyty a vrcholy mění obrys
+            {tool === 'polygon' ? ' · mnohoúhelník: klik, Enter uzavře, Esc zruší, Backspace maže bod, úchop na konce a průsečíky' : ''}
+            {tool === 'entity' ? ' · klik na čáru, oblouk, kružnici nebo blok; Ctrl přidá' : ''}
+            {tool === 'contour' ? ' · klik spojí uzavřený obrys pod kurzorem' : ''}
             {windowMode ? ' · tažení vybírá prvky' : ''}
           </span>
         </div>
@@ -634,21 +951,30 @@ export function ReviewBoard() {
             variant={windowMode ? 'rust' : 'outline'}
             size="sm"
             onClick={() => {
-              setWindowMode((value) => !value)
-              setPick(false)
+              const next = !windowMode
+              setWindowMode(next)
+              if (next) {
+                toolRef.current = null
+                polyRef.current = []
+                setTool(null)
+                setPoly([])
+                setEntityIds([])
+              }
             }}
           >
             Výběr oknem
           </Button>
-          <Button
-            variant={pick ? 'rust' : 'outline'}
-            size="sm"
-            onClick={() => {
-              setPick((value) => !value)
-              setWindowMode(false)
-            }}
-          >
+          <Button variant={tool === 'polygon' ? 'rust' : 'outline'} size="sm" title="Klikáním bodů, Enter uzavře" onClick={() => armTool('polygon')}>
+            Mnohoúhelník
+          </Button>
+          <Button variant={tool === 'entity' ? 'rust' : 'outline'} size="sm" title="Čára, oblouk, kružnice nebo blok" onClick={() => armTool('entity')}>
             Vybrat entity
+          </Button>
+          <Button variant={tool === 'contour' ? 'rust' : 'outline'} size="sm" title="Řetěz navazujících entit" onClick={() => armTool('contour')}>
+            Uzavřený obrys
+          </Button>
+          <Button variant="outline" size="sm" disabled={tool !== 'entity' || !entityIds.length} onClick={() => applyEntityRef.current()}>
+            Použít obrys
           </Button>
           <Button
             variant="outline"
@@ -772,7 +1098,13 @@ function ElementForm({
     <div className="review-form">
       <h2>{element.title}</h2>
       <p className="status">{element.evidence}</p>
-      {element.side || element.top ? <p className="status">Úchyty v rozích a na hranách mění obrys. Úprava je ruční a vrátí ji Ctrl+Z.</p> : null}
+      {element.outline ? (
+        <p className="status">
+          Obrys má {element.outline.points.length} {element.outline.points.length < 5 ? 'vrcholy' : 'vrcholů'}. Tažením je měníte, dvojklik na hranu přidá vrchol a dvojklik na vrchol ho odebere. Ctrl+Z vrátí úpravu.
+        </p>
+      ) : element.side || element.top ? (
+        <p className="status">Úchyty v rozích a na hranách mění obrys. Úprava je ruční a vrátí ji Ctrl+Z.</p>
+      ) : null}
       <p className={element.confidence < 0.6 ? 'status warn' : 'status'}>
         Jistota {Math.round(element.confidence * 100)} % ·{' '}
         {element.source === 'measured' ? 'naměřeno ve výkresu' : element.source === 'user' ? 'upraveno ručně' : 'odhad, ve výkresu údaj chybí'}
@@ -816,6 +1148,115 @@ function ElementForm({
       ) : null}
     </div>
   )
+}
+
+function drawOutline(
+  ctx: CanvasRenderingContext2D,
+  map: (x: number, y: number) => readonly [number, number],
+  points: Pt[],
+  item: ReviewElement,
+  on: boolean,
+  vp: BBox,
+) {
+  const bounds = polygonBounds(points)
+  if (bounds.x1 < vp.x0 || bounds.x0 > vp.x1 || bounds.y1 < vp.y0 || bounds.y0 > vp.y1) return
+  ctx.save()
+  ctx.beginPath()
+  points.forEach((point, index) => {
+    const [x, y] = map(point.x, point.y)
+    if (index === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  })
+  ctx.closePath()
+  const color = item.confidence < 0.55 ? '#c2410c' : item.confidence < 0.8 ? '#b45309' : '#1f7a4d'
+  ctx.strokeStyle = on ? '#9b2c1a' : color
+  ctx.fillStyle = on ? 'rgba(194, 78, 40, 0.18)' : 'rgba(31, 122, 77, 0.1)'
+  ctx.lineWidth = on ? 2.4 : 1.6
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = '#1c1915'
+  ctx.font = '11px "Segoe UI", sans-serif'
+  const [ax, ay] = map(bounds.x0, bounds.y1)
+  if (item.title && bounds.x1 - bounds.x0 > 36) ctx.fillText(item.title, ax + 3, ay + 12)
+  ctx.restore()
+}
+
+function drawVertices(ctx: CanvasRenderingContext2D, map: (x: number, y: number) => readonly [number, number], points: Pt[]) {
+  ctx.save()
+  points.forEach((point) => {
+    const [x, y] = map(point.x, point.y)
+    ctx.beginPath()
+    ctx.arc(x, y, 4.5, 0, Math.PI * 2)
+    ctx.fillStyle = '#fff'
+    ctx.fill()
+    ctx.lineWidth = 1.6
+    ctx.strokeStyle = '#9b2c1a'
+    ctx.stroke()
+  })
+  ctx.restore()
+}
+
+function drawDraft(ctx: CanvasRenderingContext2D, map: (x: number, y: number) => readonly [number, number], points: Pt[], snap: SnapHit | null) {
+  ctx.save()
+  ctx.beginPath()
+  points.forEach((point, index) => {
+    const [x, y] = map(point.x, point.y)
+    if (index === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  })
+  if (snap) {
+    const [x, y] = map(snap.x, snap.y)
+    ctx.lineTo(x, y)
+  }
+  ctx.strokeStyle = '#9b2c1a'
+  ctx.lineWidth = 1.6
+  ctx.setLineDash([5, 4])
+  ctx.stroke()
+  ctx.setLineDash([])
+  points.forEach((point, index) => {
+    const [x, y] = map(point.x, point.y)
+    ctx.beginPath()
+    ctx.arc(x, y, index === 0 ? 6 : 3.5, 0, Math.PI * 2)
+    ctx.fillStyle = index === 0 ? '#9b2c1a' : '#fff'
+    ctx.fill()
+    ctx.strokeStyle = '#9b2c1a'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+  })
+  if (snap && snap.kind !== 'free') {
+    const [x, y] = map(snap.x, snap.y)
+    ctx.strokeStyle = snap.kind === 'intersection' ? '#0f6f86' : '#9b2c1a'
+    ctx.strokeRect(x - 5, y - 5, 10, 10)
+  }
+  ctx.restore()
+}
+
+function drawPicked(ctx: CanvasRenderingContext2D, map: (x: number, y: number) => readonly [number, number], index: EntityIndex, ids: number[], snap: SnapHit | null) {
+  ctx.save()
+  ctx.beginPath()
+  for (const id of ids) {
+    const entity = index.entities[id]
+    if (!entity) continue
+    if (entity.kind === 'circle') {
+      const [cx, cy] = map(entity.cx, entity.cy)
+      const [ex, ey] = map(entity.cx + entity.r, entity.cy)
+      ctx.moveTo(ex, ey)
+      ctx.arc(cx, cy, Math.max(2, Math.hypot(ex - cx, ey - cy)), 0, Math.PI * 2)
+      continue
+    }
+    const [ax, ay] = map(entity.x1, entity.y1)
+    const [bx, by] = map(entity.x2, entity.y2)
+    ctx.moveTo(ax, ay)
+    ctx.lineTo(bx, by)
+  }
+  ctx.strokeStyle = '#9b2c1a'
+  ctx.lineWidth = 2.6
+  ctx.stroke()
+  if (snap && snap.kind !== 'free') {
+    const [x, y] = map(snap.x, snap.y)
+    ctx.strokeRect(x - 5, y - 5, 10, 10)
+  }
+  ctx.restore()
 }
 
 function drawHandles(ctx: CanvasRenderingContext2D, map: (x: number, y: number) => readonly [number, number], box: BBox | null) {
@@ -936,6 +1377,7 @@ function snapshotElement(item: ReviewElement): ReviewElement {
     ...item,
     side: item.side ? { ...item.side } : null,
     top: item.top ? { ...item.top } : null,
+    outline: item.outline ? { view: item.outline.view, points: item.outline.points.map((point) => ({ ...point })) } : item.outline,
     fields: item.fields.map((field) => ({ ...field, options: field.options?.map((option) => ({ ...option })) })),
   }
 }
@@ -963,8 +1405,13 @@ function hitTest(x: number, y: number, review: ReviewElement[], hideSkip: boolea
   for (const item of review) {
     if (item.deleted) continue
     if (hideSkip && item.kind === 'skip' && item.role === 'equipment') continue
-    for (const box of [item.side, item.top]) {
+    const faces = [
+      ['side', item.side],
+      ['top', item.top],
+    ] as const
+    for (const [face, box] of faces) {
       if (!box || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1) continue
+      if (item.outline?.view === face && item.outline.points.length >= 3 && !pointInPolygon(x, y, item.outline.points)) continue
       const area = (box.x1 - box.x0) * (box.y1 - box.y0)
       if (!best || area < best.area) best = { id: item.id, area }
     }
@@ -980,28 +1427,4 @@ function viewOf(x: number, y: number, model: NonNullable<ReturnType<typeof useAp
   if (inBox(top) && !inBox(side)) return 'top' as const
   if (side && top) return Math.abs(y - (side.y0 + side.y1) / 2) < Math.abs(y - (top.y0 + top.y1) / 2) ? 'side' : 'top'
   return side ? 'side' : 'top'
-}
-
-function clusterAt(model: NonNullable<ReturnType<typeof useApp.getState>['source']>, x: number, y: number): BBox | null {
-  const pool = [...(model.preview.segments.component ?? []), ...(model.preview.segments.chassis ?? []), ...(model.preview.segments.frame ?? [])]
-  const near: number[] = []
-  for (let i = 0; i < pool.length; i += 4) {
-    const mx = (pool[i] + pool[i + 2]) / 2
-    const my = (pool[i + 1] + pool[i + 3]) / 2
-    if (Math.hypot(mx - x, my - y) < 80) near.push(i)
-    if (near.length > 800) break
-  }
-  if (!near.length) return null
-  let x0 = Infinity
-  let y0 = Infinity
-  let x1 = -Infinity
-  let y1 = -Infinity
-  for (const i of near) {
-    x0 = Math.min(x0, pool[i], pool[i + 2])
-    y0 = Math.min(y0, pool[i + 1], pool[i + 3])
-    x1 = Math.max(x1, pool[i], pool[i + 2])
-    y1 = Math.max(y1, pool[i + 1], pool[i + 3])
-  }
-  if (x1 - x0 < 20 || y1 - y0 < 20) return null
-  return { x0, y0, x1, y1 }
 }

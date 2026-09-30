@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { buildChassisGroup } from '../mesh/build'
 import { defaultParams } from '../model/types'
 import { analyzeDxf } from './analyze'
-import { applyReview, buildReview, reshapeElement, sceneModel } from './review'
+import { applyOutline, applyReview, buildReview, newEquipmentFromOutline, reshapeElement, sceneModel } from './review'
 
 describe('detection review', () => {
   const model = analyzeDxf(readFileSync('fixtures/mini-chassis.dxf', 'utf8'))
@@ -91,4 +91,113 @@ describe('detection review', () => {
     expect(withPart.anchorX).toBe(onlyFrame.anchorX)
     expect(withPart.groundZ).toBe(onlyFrame.groundZ)
   })
+
+  it('keeps a drawn outline and revolves or extrudes it in 3D', () => {
+    const review = buildReview(model)
+    const part = review.find((item) => item.role === 'equipment' && item.side && item.kind !== 'skip')
+    const mud = review.find((item) => item.id === 'mud-0' && item.side)
+    const axle = review.find((item) => item.id === 'axle-0')
+    expect(part?.side && mud?.side && axle).toBeTruthy()
+    if (!part?.side || !mud?.side || !axle) return
+    const x = part.side.x0
+    const z = part.side.y0
+    const ring = [
+      { x, y: z },
+      { x: x + 100, y: z },
+      { x: x + 100, y: z + 40 },
+      { x: x + 50, y: z + 80 },
+      { x, y: z + 40 },
+    ]
+    const shaped = applyOutline(part, 'side', ring)
+    shaped.kind = 'fuel'
+    const kind = shaped.fields.find((field) => field.key === 'kind')
+    if (kind) kind.value = 'fuel'
+    expect(shaped.confidence).toBe(1)
+    expect(shaped.source).toBe('user')
+    expect(shaped.outline?.points.length).toBe(5)
+    const arch = [
+      { x: mud.side.x0, y: mud.side.y0 },
+      { x: mud.side.x1, y: mud.side.y0 },
+      { x: mud.side.x1, y: mud.side.y1 },
+      { x: mud.side.x0, y: mud.side.y1 },
+    ]
+    const mudOutline = applyOutline(mud, 'side', arch)
+    mudOutline.in3d = true
+    axle.in3d = true
+    shaped.in3d = true
+    const next = review.map((item) => (item.id === part.id ? shaped : item.id === mud.id ? mudOutline : item))
+    const applied = applyReview(model, next)
+    expect(applied.components.find((item) => item.kind === 'fuel')?.profile?.length).toBe(5)
+    expect(applied.mudProfiles?.[0]?.points).toHaveLength(4)
+    const group = buildChassisGroup(applied, {
+      ...defaultParams,
+      show: { ...defaultParams.show, equipment: true, axles: true, suspension: false, drivetrain: false },
+    })
+    let revolved = false
+    let extruded = false
+    group.traverse((child) => {
+      if (child.userData.profile === 'revolve') revolved = true
+      if (child.userData.profile === 'extrude') extruded = true
+    })
+    expect(revolved).toBe(true)
+    expect(extruded).toBe(true)
+    const withCab = structuredClone(model)
+    withCab.cab = {
+      side: { x0: x, y0: z, x1: x + 800, y1: z + 600 },
+      top: { x0: x, y0: -800, x1: x + 800, y1: 800 },
+      samples: [],
+      source: 'measured',
+    }
+    const cabReview = buildReview(withCab)
+    const cab = cabReview.find((item) => item.role === 'cab')
+    expect(cab).toBeTruthy()
+    if (!cab) return
+    const cabOutline = applyOutline(cab, 'side', [
+      { x, y: z },
+      { x: x + 200, y: z + 400 },
+      { x: x + 700, y: z + 500 },
+      { x: x + 800, y: z + 40 },
+      { x, y: z + 40 },
+    ])
+    const cabModel = applyReview(withCab, cabReview.map((item) => (item.id === cab.id ? cabOutline : item)))
+    expect(cabModel.cab?.profile?.length).toBeGreaterThanOrEqual(4)
+    const cabGroup = buildChassisGroup(cabModel, defaultParams)
+    let cabShell = false
+    cabGroup.getObjectByName('cab')?.traverse((child) => {
+      if (child.userData.profile === 'extrude') cabShell = true
+    })
+    expect(cabShell).toBe(true)
+    group.traverse((child) => {
+      const mesh = child as THREE.Mesh
+      if (mesh.geometry && !mesh.geometry.userData.shared) mesh.geometry.dispose()
+    })
+    cabGroup.traverse((child) => {
+      const mesh = child as THREE.Mesh
+      if (mesh.geometry && !mesh.geometry.userData.shared) mesh.geometry.dispose()
+    })
+  })
+
+  it('creates equipment from a polygon instead of a plain box', () => {
+    const element = newEquipmentFromOutline(
+      [
+        { x: 1000, y: 700 },
+        { x: 1600, y: 700 },
+        { x: 1600, y: 1100 },
+        { x: 1200, y: 1400 },
+      ],
+      'side',
+      model.frame,
+    )
+    expect(element.outline?.points).toHaveLength(4)
+    expect(element.side && element.side.x1 - element.side.x0).toBe(600)
+    expect(element.confidence).toBe(1)
+    const scaled = reshapeElement(element, 'side', { x0: 1000, y0: 700, x1: 2200, y1: 1700 })
+    expect(scaled.outline?.points).toHaveLength(4)
+    expect(polygonSpan(scaled.outline?.points ?? [])).toBeGreaterThan(1000)
+  })
 })
+
+function polygonSpan(points: { x: number; y: number }[]) {
+  const xs = points.map((point) => point.x)
+  return Math.max(...xs) - Math.min(...xs)
+}

@@ -29,6 +29,7 @@ interface AppState {
   deleteReview: (id: string) => void
   restoreReview: (element: ReviewElement) => void
   addReviewBox: (box: BBox, view: 'side' | 'top') => void
+  appendReview: (element: ReviewElement) => void
   resetReview: () => void
   confirmReview: () => void
   includeInScene: (ids: string[]) => void
@@ -115,6 +116,7 @@ export const useApp = create<AppState>((set, get) => {
     const element = newEquipment(box, view, get().source?.frame ?? null)
     set({ review: [...get().review, element] })
   },
+  appendReview: (element) => set({ review: [...get().review, element] }),
   resetReview: () => {
     const source = get().source
     if (source) set({ review: buildReview(source), model: null, phase: 'review' })
