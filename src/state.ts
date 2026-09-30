@@ -39,6 +39,8 @@ interface AppState {
   loadText: (name: string, text: string) => Promise<void>
   loadFile: (file: File) => Promise<void>
   loadSample: (which?: 'scania' | 'volvo') => Promise<void>
+  /** Show a ready model (from the configurator) in the drawing-flow editor. */
+  openModel: (model: ChassisModel, params: ChassisParams, name: string) => void
 }
 
 export const useApp = create<AppState>((set, get) => {
@@ -215,6 +217,18 @@ export const useApp = create<AppState>((set, get) => {
       })
     }
   },
+  openModel: (model, params, name) =>
+    set({
+      status: 'ready',
+      phase: 'scene',
+      message: '',
+      error: null,
+      fileName: name,
+      source: null,
+      model,
+      review: [],
+      params,
+    }),
   loadSample: async (which = 'scania') => {
     const volvo = which === 'volvo'
     const fileName = volvo ? 'volvo-vssb-25-277591.dxf.gz' : 'scania-icd-sample.dxf'

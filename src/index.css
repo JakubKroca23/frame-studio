@@ -541,3 +541,266 @@ button.switch-track[data-state='checked'] .switch-knob {
     min-height: 52vh;
   }
 }
+
+/* Start screen */
+.start {
+  display: grid;
+  grid-template-rows: 52px minmax(0, 1fr);
+  height: 100dvh;
+}
+
+.start .app-header {
+  grid-area: auto;
+}
+
+.start-main {
+  overflow: auto;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.start-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 460px));
+  gap: 24px;
+  margin-top: 12px;
+}
+
+.start-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 26px 24px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 1px 0 #fff inset, 0 10px 30px -18px rgba(28, 25, 21, 0.35);
+}
+
+.start-card.over,
+.start-card:hover {
+  border-color: var(--rust);
+}
+
+.start-card h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 650;
+}
+
+.start-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.start-num {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--line);
+}
+
+.start-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.start-preset {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.start-preset:hover {
+  border-color: var(--rust);
+}
+
+.start-preset span {
+  color: var(--muted);
+}
+
+.head-link {
+  color: var(--ink);
+  font-size: 12px;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: #fff;
+}
+
+.head-link:hover {
+  border-color: var(--rust);
+}
+
+/* Configurator */
+.app.config-page {
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  grid-template-rows: 52px minmax(0, 1fr);
+  grid-template-areas:
+    "head head"
+    "side view";
+}
+
+.cfg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.cfg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.cfg-field > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.cfg-field select,
+.cfg-field input[type="number"],
+.cfg-field input[type="text"] {
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.cfg-field input[type="color"] {
+  height: 30px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.cfg-field.wide {
+  grid-column: 1 / -1;
+}
+
+.approx {
+  color: #9a6a12;
+  font-size: 11px;
+  cursor: help;
+}
+
+.cfg-axles {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.cfg-axles th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 2px 3px;
+}
+
+.cfg-axles td {
+  padding: 2px 3px;
+  vertical-align: middle;
+}
+
+.cfg-axles input[type="number"],
+.cfg-axles input[type="text"] {
+  width: 100%;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.cfg-axles .flags {
+  display: flex;
+  gap: 3px;
+}
+
+.flag {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.flag.on {
+  background: var(--rust);
+  border-color: var(--rust);
+  color: #fff;
+}
+
+.sum-check {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.hints {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.hints li.warn {
+  color: #9b2c1a;
+}
+
+.hints li.info {
+  color: var(--muted);
+}
+
+.cfg-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.source-note {
+  font-size: 11px;
+  color: var(--muted);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.source-note a {
+  color: var(--rust);
+}
+
+.cfg-axles .cell {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}

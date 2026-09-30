@@ -80,7 +80,15 @@ export default function App() {
           <h1>Podvozek</h1>
           <span>z 2D výkresu do 3D rámu</span>
         </div>
-        <span className="muted">{fileName ?? 'žádný výkres'}</span>
+        <div className="row" style={{ alignItems: 'center' }}>
+          <span className="muted">{fileName ?? 'žádný výkres'}</span>
+          <a className="head-link" href="#">
+            Úvod
+          </a>
+          <a className="head-link" href="#novy">
+            Vytvořit nový
+          </a>
+        </div>
       </header>
 
       <aside className="app-side">
@@ -130,7 +138,7 @@ export default function App() {
               Vygenerovat vše
             </Button>
           </div>
-        ) : model ? (
+        ) : model && source ? (
           <div className="row" style={{ marginTop: 12 }}>
             <Button variant="outline" onClick={() => setPhase('review')}>
               Zpět ke kontrole
