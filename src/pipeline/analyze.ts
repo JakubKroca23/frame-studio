@@ -692,6 +692,10 @@ function keepPart(side: BBox, top: BBox, _frame: ChassisModel['frame'], axles: A
   const cx = (Math.max(side.x0, top.x0) + Math.min(side.x1, top.x1)) / 2
   if (sz > 850 && axles.some((a) => Math.abs(a.x - cx) < 500)) return false
   if (cab && contained(side, cab.side, 0.75) && contained(top, cab.top, 0.55) && sz > 500) return false
+  // Cab accessories drawn as blocks (front-view mirror, sun visor, roof lamps) float well above the
+  // frame at the cab; they are not chassis equipment. On the Scania ICD sample block 2488852 (layer
+  // 206_Cab_side_and_top_view) otherwise turns into a grey box in front of the windscreen.
+  if (cab && _frame && side.y0 > _frame.topZ + 700 && overlap1d(side.x0, side.x1, cab.side.x0 - 400, cab.side.x1 + 50) > sx * 0.5) return false
   if (_frame && betweenRails(top, _frame) && (sz < 240 || (sx < 520 && sz < 360))) return false
   return true
 }

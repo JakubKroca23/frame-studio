@@ -1,3 +1,4 @@
+import { CAB_DEFAULT_COLOR } from './cabLayout'
 import type { Approx, ChassisPresetInput } from './types'
 
 /**
@@ -18,7 +19,7 @@ const MAN_SHEET = (path: string) => `https://www.man-bodybuilder.co.uk/specs/pdf
 const DAF_SHEET = (code: string) => `https://www.daf.co.uk/api/feature/specsheet/open?filename=TSGBEN016${code}202545.pdf`
 const EU_LIMITS = 'https://eur-lex.europa.eu/eli/dir/1996/53/oj (Directive 96/53/EC, Annex I weights)'
 
-const COLOR = { volvo: 0x1d4f86, scania: 0xa3161f, man: 0xdadad6, daf: 0x2a3a55 }
+const COLOR = CAB_DEFAULT_COLOR
 
 export const PRESET_INPUTS: ChassisPresetInput[] = [
   // ───────────────────────────── VOLVO ─────────────────────────────

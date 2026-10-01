@@ -1,7 +1,8 @@
 /** Chassis configuration edited in the "Vytvořit nový" page. All lengths in mm, loads in kg. */
 
 export type Make = 'volvo' | 'scania' | 'man' | 'daf'
-export type CabStyle = Make
+/** Cab shape: one per make plus Mercedes-Benz, which has no chassis presets yet. */
+export type CabStyle = Make | 'mercedes'
 export type CabKind = 'day' | 'sleeper'
 export type RoofKind = 'low' | 'normal' | 'high' | 'xhigh'
 export type Side = 'left' | 'right'

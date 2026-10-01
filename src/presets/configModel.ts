@@ -11,6 +11,12 @@ export function tyreDiameter(spec: string): number {
   return tireDiameterMm(spec) ?? 1050
 }
 
+/** Section width of a tyre size such as 385/65R22.5. */
+function tyreWidth(spec: string): number {
+  const match = spec.match(/^(\d{3})\//)
+  return match ? Number(match[1]) : 315
+}
+
 const sideSign = (side: Side) => (side === 'left' ? -1 : 1)
 
 /** Everything the equipment packer needs about the chassis. */
@@ -91,10 +97,15 @@ export function configToModel(cfg: ChassisConfig, id = 'config'): ChassisModel {
 
   const shape = cabShape({
     cab: cfg.cab,
+    make: cfg.make,
+    series: cfg.series,
+    tractor: cfg.kind === 'tractor',
     frontOverhang: cfg.frontOverhang,
     frameTop: top,
     wheelRadius: layout.frontRadius,
     axleZ: axles[0].z,
+    frontTrack: cfg.axles[0]?.track,
+    tyreWidth: tyreWidth(cfg.axles[0]?.tyre ?? ''),
   })
   const cabSide = box(shape.box.x0, shape.box.z0, shape.box.x1, shape.box.z1)
   const cabTop = box(shape.box.x0, shape.box.y0, shape.box.x1, shape.box.y1)
@@ -157,7 +168,7 @@ export function configToModel(cfg: ChassisConfig, id = 'config'): ChassisModel {
       samples: [],
       silhouettes: { side: shape.side, top: shape.top, front: shape.front, frame: { side: cabSide, top: cabTop, front: frontBox } },
       source: 'estimated',
-      features: shape.features,
+      parametric: shape.spec,
       color: cfg.cab.color,
       stepX: shape.stepX,
       stepZ: shape.stepZ,

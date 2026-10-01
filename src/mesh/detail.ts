@@ -27,6 +27,7 @@ import {
   toolbox,
 } from './materials'
 import { extrudePlan, extrudeProfile, profileShape, revolveProfile } from './profile'
+import { parametricCabGroup } from './cabParametric'
 import { cabFeatures, tracedCab, type CabPartGeometry, type CabSolid } from './silhouette'
 
 export interface World {
@@ -1108,6 +1109,14 @@ function solidBox(size: [number, number, number], mat: THREE.Material, at: [numb
 }
 
 export function buildCab(cab: CabModel, world: World): THREE.Group {
+  if (cab.parametric) {
+    const liftY = world.lift((cab.side.x0 + cab.side.x1) / 2)
+    try {
+      return parametricCabGroup(cab.parametric, cab.color, new THREE.Vector3(-world.originX, -world.ground + liftY, -world.centerY))
+    } catch {
+      /* fall back to the traced silhouettes */
+    }
+  }
   let traced: CabSolid | null = null
   try {
     traced = tracedCab(cab, world, cab.features ?? cabFeatures(world.model.profileId))

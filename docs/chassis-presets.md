@@ -74,6 +74,8 @@ Manufacturers measure the wheelbase differently; each preset stores its conventi
 | Fifth-wheel height / lead | Typical 1150–1250 mm height; lead from DAF "KA" where listed, otherwise typical. |
 | Fuel / AdBlue volumes (Scania, some MAN/DAF) | Typical tank sizes when the sheet does not state the standard tank. |
 | Air tank count | Always estimated (not published). |
-| Cab shapes (`src/presets/cabShapes.ts`) | Parametric per-brand silhouettes: windscreen rake, roof radius, corner rounding, grille bands and roof deltas for low/normal/high roofs, ±490 mm day↔sleeper shift. These are visual approximations, not manufacturer geometry. |
+| Cab shapes (`src/presets/cabLayout.ts`, `src/presets/cabShapes.ts`, `src/mesh/cabParametric.ts`) | Configurator cabs are a smooth lofted body (stacked plan rings, watertight) plus separate brand details: grille, badges, headlamps, bumper, sun visor, roof deflector, mirrors, doors, steps, fenders, mud flaps. Series variants: Volvo FH/FM/FMX, Scania R/S/G/P, MAN TGX/TGS/TGM, DAF XF/XG/XD/CF; Mercedes-Benz Actros/Arocs is offered as a cab shape only (no chassis presets). Windscreen rake, nose lean, roof cap, corner rounding, tumblehome, grille/lamp shapes and the brand default colours are visual estimates (≈ odhad), not manufacturer geometry. |
+| Roof / sleeper deltas (`ROOF_DELTA`, `SLEEPER_DELTA` in `ConfiguratorPage.tsx`) | Volvo values come from the cited model-range sheets: FH fh42t3a (−285 mm low sleeper, +305 mm Globetrotter, +450 mm Globetrotter XL vs. sleeper); FM fm42r3a / FMX fmx84rt3a (−262 mm low day, +328 mm Globetrotter vs. day cab; sleeper +431 mm). Other brands: estimates (−260 / +300 / +450 mm roof, +490 mm sleeper). |
+| MAN lower cab parts colour | Bumper, wings and step area in factory grey per the MAN UK TGX/TGS cab specification ("Lower cab parts in standard factory grey"). |
 
 The UI also shows the per-preset count of estimated values next to the source link.

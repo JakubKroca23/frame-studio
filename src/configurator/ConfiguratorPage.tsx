@@ -4,13 +4,30 @@ import { Button } from '../components/ui/button'
 import { downloadBlob, exportGlb } from '../export/download'
 import { configToModel, paramsForConfig, tyreDiameter } from '../presets/configModel'
 import { MAKES, PRESETS, cloneConfig, presetById, presetsOf, seriesOf, wheelbase, withWheelbase } from '../presets'
-import type { AxleConfig, CabKind, ChassisConfig, ChassisPreset, Make, RoofKind, Side } from '../presets/types'
+import type { AxleConfig, CabKind, CabStyle, ChassisConfig, ChassisPreset, Make, RoofKind, Side } from '../presets/types'
+import { CAB_DEFAULT_COLOR } from '../presets/cabLayout'
 import { validateConfig } from '../presets/validate'
 import { useApp } from '../state'
 import { Viewport } from '../view/Viewport'
 
-const ROOF_DELTA: Record<RoofKind, number> = { low: -260, normal: 0, high: 300, xhigh: 450 }
-const SLEEPER_EXTRA = 490
+/** Cab shapes offered in the form: every make plus Mercedes-Benz (shape only, no chassis presets yet). */
+const CAB_STYLES: { id: CabStyle; name: string }[] = [...MAKES, { id: 'mercedes', name: 'Mercedes-Benz (jen tvar kabiny)' }]
+
+/**
+ * Height change between roof variants and the day→sleeper length change. Volvo values are read
+ * from the model-range sheets the presets cite: FH fh42t3a (cab height −285 mm low sleeper,
+ * +305 mm Globetrotter, +450 mm Globetrotter XL vs. the sleeper) and FM fm42r3a / FMX fmx84rt3a
+ * (−262 mm low day, +328 mm Globetrotter vs. the day cab; sleeper +431 mm front axle to back of
+ * cab). The others are estimates (≈ odhad).
+ */
+const ROOF_DELTA: Record<string, Record<RoofKind, number>> = {
+  'volvo:FH': { low: -285, normal: 0, high: 305, xhigh: 450 },
+  'volvo:FM': { low: -262, normal: 0, high: 328, xhigh: 328 },
+  'volvo:FMX': { low: -262, normal: 0, high: 328, xhigh: 328 },
+  default: { low: -260, normal: 0, high: 300, xhigh: 450 },
+}
+const SLEEPER_DELTA: Record<string, number> = { 'volvo:FM': 431, 'volvo:FMX': 431, default: 490 }
+const cabKey = (cfg: ChassisConfig) => `${cfg.cab.style}:${cfg.make === cfg.cab.style ? cfg.series : ''}`
 const ROOF_NAMES: Record<RoofKind, string> = { low: 'nízká', normal: 'normální', high: 'vysoká', xhigh: 'extra vysoká' }
 const WB_REF: Record<ChassisPreset['wheelbaseRef'], string> = {
   firstRear: 'od 1. nápravy k 1. zadní',
@@ -112,7 +129,8 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
     setCfg((prev) => {
       if (prev.cab.kind === kind) return prev
       const next = cloneConfig(prev)
-      const delta = kind === 'sleeper' ? SLEEPER_EXTRA : -SLEEPER_EXTRA
+      const extra = SLEEPER_DELTA[cabKey(prev)] ?? SLEEPER_DELTA.default
+      const delta = kind === 'sleeper' ? extra : -extra
       next.cab.kind = kind
       next.cab.backFromAxle += delta
       next.cab.length += delta
@@ -120,10 +138,21 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
     })
   }
 
+  function setCabStyle(style: CabStyle) {
+    setCfg((prev) => {
+      const next = cloneConfig(prev)
+      // Follow the brand colour unless the user picked their own.
+      if (prev.cab.color === CAB_DEFAULT_COLOR[prev.cab.style]) next.cab.color = CAB_DEFAULT_COLOR[style]
+      next.cab.style = style
+      return next
+    })
+  }
+
   function setRoof(roof: RoofKind) {
     setCfg((prev) => {
       const next = cloneConfig(prev)
-      next.cab.height = Math.round(prev.cab.height - ROOF_DELTA[prev.cab.roof] + ROOF_DELTA[roof])
+      const delta = ROOF_DELTA[cabKey(prev)] ?? ROOF_DELTA.default
+      next.cab.height = Math.round(prev.cab.height - delta[prev.cab.roof] + delta[roof])
       next.cab.roof = roof
       return next
     })
@@ -322,10 +351,10 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
           <h2>Kabina</h2>
           <div className="cfg-grid">
             <Field label="Tvar (značka)">
-              <select value={cfg.cab.style} onChange={(event) => set(['cab', 'style'], event.target.value)}>
-                {MAKES.map((make) => (
-                  <option key={make.id} value={make.id}>
-                    {make.name}
+              <select value={cfg.cab.style} onChange={(event) => setCabStyle(event.target.value as CabStyle)}>
+                {CAB_STYLES.map((style) => (
+                  <option key={style.id} value={style.id}>
+                    {style.name}
                   </option>
                 ))}
               </select>

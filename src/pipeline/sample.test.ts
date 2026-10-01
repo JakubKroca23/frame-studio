@@ -6,6 +6,7 @@ import { measureCab } from './cabCheck'
 import { defaultParams, type ChassisModel } from '../model/types'
 import { tireDiameterMm } from '../lib/geom'
 import { analyzeDxf } from './analyze'
+import { initManifold } from '../mesh/manifold'
 
 let model: ChassisModel
 
@@ -95,6 +96,27 @@ describe('Scania ICD sample', () => {
         expect(skin.boundary).toBe(0)
         expect(skin.misoriented).toBe(0)
       }
+    }
+  })
+
+  it('keeps cab accessories out of the chassis equipment', async () => {
+    // Block 2488852 sits on the cab layer at windscreen height; it used to become a grey box
+    // floating in front of the windscreen.
+    expect(model.components.some((part) => part.partNumber === '2488852')).toBe(false)
+    await initManifold()
+    const group = buildChassisGroup(model, { ...defaultParams, lod: 2 })
+    group.updateMatrixWorld(true)
+    const shell = group.getObjectByName('cab-shell')!
+    const cabBox = new THREE.Box3().setFromObject(shell)
+    const frameTop = model.frame!.topZ - (group.userData.ground as number)
+    expect(Number.isFinite(frameTop)).toBe(true)
+    for (const name of ['components', 'equipment']) {
+      group.getObjectByName(name)?.traverse((object) => {
+        if (!(object as THREE.Mesh).isMesh) return
+        const box = new THREE.Box3().setFromObject(object)
+        const atCab = box.max.x > cabBox.min.x - 400 && box.min.x < cabBox.max.x
+        expect(atCab && box.min.y > frameTop + 700, `${name}/${object.parent?.name}`).toBe(false)
+      })
     }
   })
 

@@ -125,6 +125,35 @@ export interface CabModel {
   stepX?: number
   /** Height of the lowest entry step above the road, when known. */
   stepZ?: number
+  /** Configurator cabs: brand-specific parametric body instead of the traced silhouettes. */
+  parametric?: ParametricCabSpec
+}
+
+export type CabBrand = 'volvo' | 'scania' | 'man' | 'daf' | 'mercedes'
+
+/**
+ * Inputs of the parametric configurator cab, in drawing millimetres (x rearward from the first
+ * axle, z up from the road, lateral centred on the frame).
+ */
+export interface ParametricCabSpec {
+  brand: CabBrand
+  /** Model series (FH, FM, FMX, R, S, G, P, TGX, TGS, TGM, XF, XG, XD, CF, Actros, Arocs). */
+  variant: string
+  kind: 'day' | 'sleeper'
+  roof: 'low' | 'normal' | 'high' | 'xhigh'
+  tractor: boolean
+  /** Front face of the bumper and rear wall of the cab. */
+  xFront: number
+  xRear: number
+  /** Overall height above the road and overall width. */
+  height: number
+  width: number
+  frameTop: number
+  /** First axle: centre height, tyre radius, track and tyre section width. */
+  axleZ: number
+  wheelRadius: number
+  frontTrack: number
+  tyreWidth: number
 }
 
 /** Mirrors mesh/silhouette CabFeature, kept here so the model stays free of mesh imports. */
