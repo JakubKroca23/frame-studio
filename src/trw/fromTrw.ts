@@ -33,6 +33,20 @@ export function reportLines(body: unknown): string[] {
   const b = obj(body)
   if (!b) return []
   const out: string[] = []
+  const r = obj(b.report)
+  if (r && (Array.isArray(r.mapped) || Array.isArray(r.unmapped))) {
+    const label = (i: Rec) => String(i.label ?? i.target ?? '?')
+    for (const it of (r.unmapped as unknown[]) ?? []) {
+      const i = obj(it)
+      if (i) out.push(`nepřevzato: ${label(i)}${i.reason ? ` (${i.reason})` : ''}`)
+    }
+    for (const it of (r.mapped as unknown[]) ?? []) {
+      const i = obj(it)
+      if (i && i.status === 'předpoklad') out.push(`předpoklad: ${label(i)}${i.value != null ? ` = ${typeof i.value === 'object' ? JSON.stringify(i.value) : i.value}` : ''}`)
+    }
+    for (const n of (r.notes as unknown[]) ?? []) { const t = itemText(n); if (t) out.push(`poznámka: ${t}`) }
+    return [...new Set(out)]
+  }
   const walk = (value: unknown, label: string, depth: number) => {
     if (value === null || value === undefined) return
     if (Array.isArray(value)) {
@@ -54,6 +68,7 @@ export function reportLines(body: unknown): string[] {
 }
 function labelOf(k: string) {
   if (/missing|not_?taken|skipped|ignored/i.test(k)) return 'nepřevzato'
+  if (/unmapped/i.test(k)) return 'nepřevzato'
   if (/taken|mapped|ok/i.test(k)) return 'převzato'
   return k
 }

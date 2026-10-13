@@ -54,3 +54,10 @@ describe('classifyFile / helpers', () => {
     expect(reportLines(null)).toEqual([])
   })
 })
+
+import { reportLines as rl2 } from './fromTrw'
+import { test as t2, expect as e2 } from 'vitest'
+t2('reads trw from-trw report shape', () => {
+  const lines = rl2({ config: {}, report: { mapped: [{ target: 'a', label: 'Rozvor', value: 3900, status: 'ověřeno' }, { target: 'b', label: 'Převis', value: 1200, status: 'předpoklad' }], unmapped: [{ target: 'c', label: 'Hydraulika', reason: 'neznámý blok' }], notes: ['test'] } })
+  e2(lines).toEqual(['nepřevzato: Hydraulika (neznámý blok)', 'předpoklad: Převis = 1200', 'poznámka: test'])
+})
