@@ -14,7 +14,9 @@ import { TrwMarkers } from '../trw/TrwMarkers'
 import type { TrwImport } from '../trw/trwConfig'
 import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
-import type { CsSimResult } from '../trw/csSimResult'
+import { parseCsSimResult, type CsSimResult } from '../trw/csSimResult'
+import { CS_SIM_ORIGIN, TRW_ORIGIN, csSimLink, csSimMessageData, fetchTrwUrl, stripLinkParams, trwFromCsSim, type LinkRequest } from '../trw/links'
+import { TrwAuthError } from '../trw/trwConfig'
 
 /** Cab shapes offered in the form: every make plus Mercedes-Benz (shape only, no chassis presets yet). */
 const CAB_STYLES: { id: CabStyle; name: string }[] = [...MAKES, { id: 'mercedes', name: 'Mercedes-Benz (jen tvar kabiny)' }]
@@ -57,7 +59,7 @@ function setAt<T>(obj: T, path: Path, value: unknown): T {
 
 const fmtT = (kg: number) => `${(kg / 1000).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} t`
 
-export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) {
+export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: string; link?: LinkRequest }) {
   const start = presetById(initialPreset ?? '') ?? PRESETS[0]
   const [preset, setPreset] = useState<ChassisPreset>(start)
   const [cfg, setCfg] = useState<ChassisConfig>(() => cloneConfig(start.config))
@@ -67,6 +69,12 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
   const [trw, setTrw] = useState<TrwImport | null>(null)
   const [sim, setSim] = useState<CsSimResult | null>(null)
   const [simError, setSimError] = useState<string | null>(null)
+  const [trwSource, setTrwSource] = useState<string | null>(link?.kind === 'trw' ? link.url : null)
+  const [linkStatus, setLinkStatus] = useState<{ text: string; level: 'ok' | 'error' | 'info'; login?: boolean } | null>(
+    link?.kind === 'invalid' ? { text: link.error, level: 'error' } : null,
+  )
+  const trwRef = useRef<TrwImport | null>(null)
+  trwRef.current = trw
   const groupRef = useRef<THREE.Group | null>(null)
   const openModel = useApp((s) => s.openModel)
 
@@ -88,6 +96,65 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
     setBuilt(fresh)
     window.history.replaceState(null, '', fromTrw ? '#novy' : `#novy/${next.id}`)
   }
+
+  // One-click links: ?trw=<url> (GET export from trw) and ?from=cssim (postMessage from CS Sim).
+  useEffect(() => {
+    if (!link) return
+    window.history.replaceState(null, '', stripLinkParams(window.location.href))
+    let cancelled = false
+    if (link.kind === 'trw') {
+      setLinkStatus({ text: 'Načítám konfiguraci z trw…', level: 'info' })
+      fetchTrwUrl(link.url)
+        .then((result) => {
+          if (cancelled) return
+          choosePreset(result.preset, result)
+          setTrwSource(link.url)
+          setLinkStatus({ text: 'Konfigurace načtena z trw.', level: 'ok' })
+        })
+        .catch((err) => {
+          if (cancelled) return
+          if (err instanceof TrwAuthError) setLinkStatus({ text: 'Nejste přihlášeni v trw.', level: 'error', login: true })
+          else setLinkStatus({ text: err instanceof Error ? err.message : String(err), level: 'error' })
+        })
+      return () => {
+        cancelled = true
+      }
+    }
+    if (link.kind !== 'cssim') return
+    setLinkStatus({ text: 'Čekám na data z CS Sim…', level: 'info' })
+    const onMessage = (event: MessageEvent) => {
+      const raw = csSimMessageData(event)
+      if (raw === null) return
+      window.clearTimeout(timer)
+      try {
+        const result = parseCsSimResult(raw)
+        if (!trwRef.current) {
+          try {
+            const built = trwFromCsSim(result, raw)
+            choosePreset(built.preset, built)
+          } catch (err) {
+            result.warnings.unshift(`Podvozek nelze sestavit ze vstupů CS Sim (${err instanceof Error ? err.message : err}) – použita výchozí předloha.`)
+          }
+        }
+        setSim(result)
+        setLinkStatus({ text: 'Výsledek načten z CS Sim.', level: 'ok' })
+      } catch (err) {
+        setLinkStatus({ text: err instanceof Error ? err.message : String(err), level: 'error' })
+      }
+    }
+    window.addEventListener('message', onMessage)
+    const timer = window.setTimeout(
+      () => setLinkStatus({ text: 'Z CS Sim nepřišla žádná data (10 s). Zkuste odeslání z CS Sim znovu nebo načtěte soubor JSON.', level: 'error' }),
+      10000,
+    )
+    if (window.opener) (window.opener as Window).postMessage({ type: 'ready' }, CS_SIM_ORIGIN)
+    else setLinkStatus({ text: 'Okno nebylo otevřeno z CS Sim – čekám na data…', level: 'info' })
+    return () => {
+      window.removeEventListener('message', onMessage)
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [link])
 
   const set = (path: Path, value: unknown) => setCfg((prev) => setAt(prev, path, value))
   const isApprox = (path: Path) => {
@@ -283,7 +350,28 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
             <br />
             Hodnoty označené <span className="approx">≈</span> jsou odhad ({preset.approx.length}×), ostatní z podkladu {trw ? 'trw' : 'výrobce'}.
           </p>
+          {linkStatus ? (
+            <p className={`status ${linkStatus.level === 'info' ? '' : linkStatus.level}`}>
+              {linkStatus.text}
+              {linkStatus.login ? (
+                <>
+                  {' '}
+                  <a href={TRW_ORIGIN} target="_blank" rel="noreferrer">
+                    Přihlásit se na trw.propoj.app
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : null}
           <TrwImportPanel onImport={(result) => choosePreset(result.preset, result)} />
+          <div className="row" style={{ marginTop: 4 }}>
+            <a className="head-link" href={TRW_ORIGIN} target="_blank" rel="noreferrer">
+              Otevřít v trw
+            </a>
+            <a className="head-link" href={csSimLink(trwSource)} target="_blank" rel="noreferrer">
+              Otevřít v CS Sim
+            </a>
+          </div>
           <div className="row" style={{ marginTop: 4 }}>
             <CsSimLoadButton
               onLoad={(result, error) => {
