@@ -1,0 +1,35 @@
+# Frame Studio — static SPA on server-main (personal stack)
+# Path on server: /home/ubuntu/personal/projects/frame-studio
+# Content: ./dist (bind mount, updated by scripts/deploy.sh)
+name: frame-studio
+
+services:
+  frame-studio:
+    image: nginx:alpine
+    container_name: frame-studio
+    restart: unless-stopped
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - personal
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=personal
+      - traefik.http.services.frame-studio.loadbalancer.server.port=80
+      - traefik.http.middlewares.frame-studio-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.frame-studio-https-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.frame-studio-http.rule=Host(`frame.propoj.app`)
+      - traefik.http.routers.frame-studio-http.entrypoints=web
+      - traefik.http.routers.frame-studio-http.middlewares=frame-studio-https-redirect
+      - traefik.http.routers.frame-studio-http.service=frame-studio
+      - traefik.http.routers.frame-studio.rule=Host(`frame.propoj.app`)
+      - traefik.http.routers.frame-studio.entrypoints=websecure
+      - traefik.http.routers.frame-studio.tls=true
+      - traefik.http.routers.frame-studio.tls.certresolver=letsencrypt
+      - traefik.http.routers.frame-studio.service=frame-studio
+
+networks:
+  personal:
+    external: true
+    name: personal

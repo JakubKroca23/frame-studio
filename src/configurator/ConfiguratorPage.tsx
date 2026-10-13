@@ -9,6 +9,9 @@ import { CAB_DEFAULT_COLOR } from '../presets/cabLayout'
 import { validateConfig } from '../presets/validate'
 import { useApp } from '../state'
 import { Viewport } from '../view/Viewport'
+import { TrwImportPanel } from '../trw/TrwImportPanel'
+import { TrwMarkers } from '../trw/TrwMarkers'
+import type { TrwImport } from '../trw/trwConfig'
 
 /** Cab shapes offered in the form: every make plus Mercedes-Benz (shape only, no chassis presets yet). */
 const CAB_STYLES: { id: CabStyle; name: string }[] = [...MAKES, { id: 'mercedes', name: 'Mercedes-Benz (jen tvar kabiny)' }]
@@ -58,6 +61,7 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
   const [built, setBuilt] = useState<ChassisConfig>(cfg)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [trw, setTrw] = useState<TrwImport | null>(null)
   const groupRef = useRef<THREE.Group | null>(null)
   const openModel = useApp((s) => s.openModel)
 
@@ -71,12 +75,13 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
   const params = useMemo(() => paramsForConfig(built), [built])
   const hints = useMemo(() => validateConfig(cfg), [cfg])
 
-  function choosePreset(next: ChassisPreset) {
+  function choosePreset(next: ChassisPreset, fromTrw: TrwImport | null = null) {
+    setTrw(fromTrw)
     setPreset(next)
     const fresh = cloneConfig(next.config)
     setCfg(fresh)
     setBuilt(fresh)
-    window.history.replaceState(null, '', `#novy/${next.id}`)
+    window.history.replaceState(null, '', fromTrw ? '#novy' : `#novy/${next.id}`)
   }
 
   const set = (path: Path, value: unknown) => setCfg((prev) => setAt(prev, path, value))
@@ -238,6 +243,7 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
                   if (next) choosePreset(next)
                 }}
               >
+                {trw ? <option value={preset.id}>{preset.label}</option> : null}
                 {configs.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
@@ -270,8 +276,24 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
             )}
             {preset.note ? <> · {preset.note}</> : null}
             <br />
-            Hodnoty označené <span className="approx">≈</span> jsou odhad ({preset.approx.length}×), ostatní z podkladu výrobce.
+            Hodnoty označené <span className="approx">≈</span> jsou odhad ({preset.approx.length}×), ostatní z podkladu {trw ? 'trw' : 'výrobce'}.
           </p>
+          <TrwImportPanel onImport={(result) => choosePreset(result.preset, result)} />
+          {trw ? (
+            <div className="source-note">
+              <strong>Import z trw</strong>
+              {trw.steel?.name ? <> · materiál rámu {trw.steel.name}{trw.steel.re_MPa ? ` (ReH ${trw.steel.re_MPa} MPa)` : ''}</> : null}
+              {trw.subframe?.profile?.name ? <> · mezirám {trw.subframe.profile.name}{trw.subframe.steel?.name ? `, ${trw.subframe.steel.name}` : ''}</> : null}
+              {trw.markers.crane ? <> · jeřáb {trw.markers.crane.name} na {Math.round(trw.markers.crane.x)} mm za 1. nápravou (žlutě), podpěry červeně</> : null}
+              <ul className="hints">
+                {trw.warnings.map((warning) => (
+                  <li key={warning} className="warn">
+                    {warning}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </section>
 
         <section className="block">
@@ -456,7 +478,7 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
             <Button variant="outline" onClick={openInEditor}>
               Otevřít v editoru parametrů
             </Button>
-            <Button variant="ghost" onClick={() => choosePreset(preset)}>
+            <Button variant="ghost" onClick={() => choosePreset(preset, trw)}>
               Obnovit předlohu
             </Button>
           </div>
@@ -465,7 +487,9 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
         </section>
       </aside>
 
-      <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} />
+      <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
+        {trw ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} /> : null}
+      </Viewport>
     </div>
   )
 }

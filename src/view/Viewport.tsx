@@ -1,6 +1,6 @@
 import { OrbitControls, GizmoHelper, GizmoViewport, Grid } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { ChassisModel, ChassisParams } from '../model/types'
@@ -13,12 +13,15 @@ export function Viewport({
   params,
   groupRef,
   fit = 1,
+  children,
 }: {
   model: ChassisModel | null
   params: ChassisParams
   groupRef: RefObject<THREE.Group | null>
   /** Initial camera distance factor (1 = default framing). */
   fit?: number
+  /** Extra scene content (e.g. markers) in viewport coordinates: X rearward from the first axle, Y up, Z lateral. */
+  children?: ReactNode
 }) {
   const setView = useRef<(view: string) => void>(() => {})
   const wheelFocus = useRef({ x: 4800, z: 1100 })
@@ -58,6 +61,7 @@ export function Viewport({
           <meshStandardMaterial color="#5c656c" roughness={0.92} metalness={0.04} />
         </mesh>
         {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} fit={fit} /> : null}
+        {children}
         <Grid
           args={[40000, 40000]}
           position={[3000, 0, 0]}

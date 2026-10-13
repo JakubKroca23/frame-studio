@@ -1,0 +1,125 @@
+{
+ "document": {
+  "name": "MAN TGX 26.480 + HIAB (příklad)",
+  "chassis_id": 97330,
+  "chassis": {
+   "manufacturer": "MAN",
+   "series": "TGX 26.480 6x2-2 BL 6x2 Drawbar  Euro 6",
+   "model": "-4200 XL Sleeper cab",
+   "cab": "TGX_XL_2015",
+   "cab_dir": "MAN",
+   "wb": 4200.0,
+   "L": [
+    4200.0,
+    1350.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "G": [
+    7500.0,
+    11500.0,
+    7500.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "P": [
+    5015.0,
+    3495.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "gvw": 26000.0,
+   "gcw": 0.0,
+   "foh": 1475.0,
+   "fohc": 1375.0,
+   "roh": 2150.0,
+   "hfra": 938.0,
+   "cab_rear": 805.0,
+   "hcab": 0.0,
+   "widc": 2400.0,
+   "tyre": "315/70R22.5",
+   "wr": "",
+   "n_front": null,
+   "note": ""
+  },
+  "body": {
+   "start_mm": 3200,
+   "length_mm": 4000,
+   "height_mm": 1600,
+   "mass_kg": 0,
+   "cog_x_mm": null
+  },
+  "payloads": [
+   {
+    "name": "Náklad",
+    "mass_kg": 6410,
+    "x_mm": 4300
+   }
+  ],
+  "crane": {
+   "enabled": true,
+   "name": "HIAB iX.138",
+   "manufacturer": "HIAB",
+   "mass_kg": 1370,
+   "x_mm": 2629,
+   "cog_offset_mm": -10,
+   "legs_mass_kg": 355,
+   "leg_dx_left_mm": -429,
+   "leg_dx_right_mm": -259,
+   "leg_half_span_mm": 2894,
+   "y_slew_mm": 225,
+   "hook_kg": 2000,
+   "radius_m": 8,
+   "boom_cog_m": 1.2,
+   "crane_id": 10157
+  },
+  "options": {
+   "front_min_pct": 20,
+   "dynamic": 1.3,
+   "required_n": 1.4
+  }
+ },
+ "meziram": {
+  "chassis_profile": {
+   "kind": "FRU",
+   "dims": [
+    220,
+    80,
+    85,
+    6,
+    6,
+    6
+   ],
+   "name": "M.A.N  Profil 1   220x80x85x6",
+   "source": "trailerwin:CHMAN.FRA#86"
+  },
+  "sub_profile": {
+   "kind": "FRU",
+   "dims": [
+    160,
+    60,
+    60,
+    6,
+    6,
+    6
+   ],
+   "name": "U 160x60x6",
+   "source": "trailerwin:SUBU.FRA#577"
+  },
+  "connected": true,
+  "steel_chassis": {
+   "name": "S 420",
+   "re_MPa": 420,
+   "source": "TrailerWIN MECPR.FRA (ReH)"
+  },
+  "steel_sub": {
+   "name": "Fe52",
+   "re_MPa": 355,
+   "source": "TrailerWIN MECPR.FRA (ReH)"
+  }
+ }
+}
