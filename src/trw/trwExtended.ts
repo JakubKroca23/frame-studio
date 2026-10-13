@@ -65,7 +65,10 @@ export interface ExtStability {
   pass: boolean | null
   /** Always false until verified against CraneWIN (export may set verified: true). */
   verified: boolean
+  /** stability.min_factor from trw (worst over all tipping lines) or min over angles as fallback. */
   minFactor: number | null
+  /** stability.required_n (required stability factor). */
+  requiredN: number | null
 }
 
 export interface TrwExtended {
@@ -74,6 +77,8 @@ export interface TrwExtended {
   stability?: ExtStability
   /** Reason why stability is missing (stability_fields.evidence when stability is null). */
   stabilityNote?: string
+  /** stability and stability_fields both null → vehicle has no crane. */
+  noCrane?: boolean
   /** Crane + its outriggers from accessories[] (not drawn here; used to place reactions). */
   craneAccessories?: ExtAccessory[]
 }
@@ -330,12 +335,14 @@ export function parseStability(v: unknown, x0: number, warnings: string[] = [], 
   }
   if (!Array.isArray(list)) {
     warnings.push('Stabilita: chybí seznam úhlů natočení (angles / by_angle).')
-    return { angles: [], pass: null, verified: false, minFactor: null }
+    return { angles: [], pass: null, verified: false, minFactor: pickNum(root, 'min_factor'), requiredN: pickNum(root, 'required_n') }
   }
   const angles: ExtStabilityAngle[] = []
   let dropped = 0
   // Angle-independent reactions (doc: stability.reactions[]); placed by crane outrigger x_left/x_right when x missing.
-  const legs = crane.filter((a) => a.isOutrigger || (a.kind ?? '').toLowerCase() === 'outrigger')
+  // Crane outrigger = the one with reach/x_left (y_mm = centreline offset); extra outriggers (MAXISTAB) have y/reach null.
+  const all = crane.filter((a) => a.isOutrigger || (a.kind ?? '').toLowerCase() === 'outrigger')
+  const legs = [...all.filter((a) => a.reachLeft != null || a.reachRight != null || a.xLeft != null || a.xRight != null), ...all]
   const rootReactions = (Array.isArray(root.reactions) ? root.reactions : []).map((r, i) => {
     const re = parseReaction(r, i, x0)
     if (re.x == null && re.side) {
@@ -345,7 +352,8 @@ export function parseStability(v: unknown, x0: number, warnings: string[] = [], 
     if (re.y == null && re.side) {
       const leg = legs[0]
       const reach = re.side === 'left' ? leg?.reachLeft : leg?.reachRight
-      if (reach != null) re.y = re.side === 'left' ? -Math.abs(reach) : Math.abs(reach)
+      const yc = leg?.y ?? 0
+      if (reach != null) re.y = re.side === 'left' ? yc - Math.abs(reach) : yc + Math.abs(reach)
     }
     return re
   })
@@ -372,12 +380,14 @@ export function parseStability(v: unknown, x0: number, warnings: string[] = [], 
   if (angles.length && angles.every((a) => !a.tippingLines.length)) warnings.push('Stabilita: klopné hrany chybí.')
   if (angles.length && angles.every((a) => !a.reactions.length)) warnings.push('Stabilita: reakce na podpěrách chybí.')
   const rootPass = pickBool(root, 'pass', 'ok', 'passed')
-  const pass = angles.some((a) => a.pass === false) || rootPass === false ? false : angles.length && angles.every((a) => a.pass === true) ? true : rootPass
+  const anglePass = angles.some((a) => a.pass === false) || rootPass === false ? false : angles.length && angles.every((a) => a.pass === true) ? true : rootPass
+  const pass = rootPass ?? anglePass
   const status = (pickStr(root, 'status') ?? '').toLowerCase()
   const verified = root.verified === true || root.verified_cranewin === true || (/^ověřeno/.test(status) && !/^neověř/.test(status))
   if (!verified) warnings.push('Stabilita z trw není ověřena proti CraneWIN.')
   const fs = angles.map((a) => a.factor).filter((f): f is number => f != null)
-  return { angles, pass, verified, minFactor: fs.length ? Math.min(...fs) : null }
+  const minFactor = pickNum(root, 'min_factor') ?? (fs.length ? Math.min(...fs) : null)
+  return { angles, pass, verified, minFactor, requiredN: pickNum(root, 'required_n', 'required_factor') }
 }
 
 /** Entry with the angle nearest to `deg` (circular distance). */
@@ -416,10 +426,22 @@ export function mapExtended(data: unknown, x0: number, warnings: string[] = []):
       const f = obj(t.stability_fields)
       const note = pickStr(f, 'evidence', 'note', 'reason') ?? pickStr(obj(t.stability), 'evidence')
       if (note) ext.stabilityNote = note
+      else if (t.stability === null && t.stability_fields === null) ext.noCrane = true
     }
   } catch {
     warnings.push('Blok stability nelze přečíst.')
   }
   if (unknown.length) warnings.push(`trw uvádí, že .trw neobsahuje: ${[...new Set(unknown)].join(', ')} – použity výchozí hodnoty.`)
-  return ext.body || ext.accessories || ext.stability || ext.stabilityNote ? ext : undefined
+  return ext.body || ext.accessories || ext.stability || ext.stabilityNote || ext.noCrane ? ext : undefined
+}
+
+const fmtK = (n: number) => n.toFixed(2).replace('.', ',')
+/** e.g. "k_min 1,32 / požadováno 1,25 – vyhovuje" (parts omitted when unknown). */
+export function stabilitySummary(st: ExtStability): string {
+  const parts: string[] = []
+  if (st.minFactor != null) parts.push(`k_min ${fmtK(st.minFactor)}`)
+  if (st.requiredN != null) parts.push(`požadováno ${fmtK(st.requiredN)}`)
+  let s = parts.join(' / ')
+  if (st.pass != null) s += `${s ? ' – ' : ''}${st.pass ? 'vyhovuje' : 'nevyhovuje'}`
+  return s
 }

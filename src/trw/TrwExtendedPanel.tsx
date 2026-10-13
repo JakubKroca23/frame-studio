@@ -1,4 +1,4 @@
-import { BODY_TYPE_LABEL, nearestAngle, type TrwExtended } from './trwExtended'
+import { BODY_TYPE_LABEL, nearestAngle, stabilitySummary, type TrwExtended } from './trwExtended'
 
 /** Panel summary of body / accessories / stability with the slew angle slider. */
 export function TrwExtendedPanel({ ext, slewDeg, onSlew }: { ext: TrwExtended; slewDeg: number; onSlew: (deg: number) => void }) {
@@ -24,7 +24,7 @@ export function TrwExtendedPanel({ ext, slewDeg, onSlew }: { ext: TrwExtended; s
         <div>
           <strong>Stabilita</strong>{' '}
           <span style={{ background: overall, color: '#fff', padding: '0 5px', borderRadius: 3 }}>{st.pass === true ? 'vyhovuje' : st.pass === false ? 'nevyhovuje' : 'neznámo'}</span>
-          {st.minFactor != null ? ` · min. k=${st.minFactor.toFixed(2)}` : ''}{' '}
+          {stabilitySummary(st) ? ` · ${stabilitySummary(st)}` : ''}{' '}
           {!st.verified ? <span style={{ background: '#f4c430', color: '#222', padding: '0 5px', borderRadius: 3 }}>neověřeno proti CraneWIN</span> : null}
           {st.angles.length ? (
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
@@ -39,6 +39,10 @@ export function TrwExtendedPanel({ ext, slewDeg, onSlew }: { ext: TrwExtended; s
       ) : ext.stabilityNote ? (
         <div>
           <strong>Stabilita:</strong> nespočtena – {ext.stabilityNote}
+        </div>
+      ) : ext.noCrane ? (
+        <div>
+          <strong>Stabilita:</strong> bez jeřábu
         </div>
       ) : null}
     </div>

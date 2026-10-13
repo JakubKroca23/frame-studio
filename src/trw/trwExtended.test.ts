@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import sample from './sample-export.json'
 import { mapTrwExport } from './trwConfig'
-import { mapExtended, nearestAngle, normalizeBodyType, parseAccessories, parseAccessory, parseBody, parseStability } from './trwExtended'
+import { mapExtended, nearestAngle, stabilitySummary, normalizeBodyType, parseAccessories, parseAccessory, parseBody, parseStability } from './trwExtended'
 
 const x0 = 1475
 
@@ -171,5 +171,32 @@ describe('trw extended: docs/trw-config-3d.md sample', () => {
     expect(ext.stability).toBeUndefined()
     expect(ext.stabilityNote).toBe('podpěry nejsou zvolené — stabilita nespočtena')
     expect(mapExtended({ stability: null, stability_fields: { evidence: 'x' } }, x0, [])?.stabilityNote).toBe('x')
+  })
+  it('stability + stability_fields both null → bez jeřábu, no warning', () => {
+    const w: string[] = []
+    const ext = mapExtended({ ...doc3d, stability: null, stability_fields: null }, x0, w)!
+    expect(ext.noCrane).toBe(true)
+    expect(ext.stabilityNote).toBeUndefined()
+    expect(w.some((s) => /stabilit/i.test(s))).toBe(false)
+    expect(mapExtended({ body: null }, x0, [])).toBeUndefined()
+  })
+  it('uses stability.min_factor / required_n / pass from trw', () => {
+    const st = mapExtended(doc3d, x0, [])!.stability!
+    expect(st).toMatchObject({ minFactor: 0.36, requiredN: 1.4, pass: false })
+    expect(stabilitySummary(st)).toBe('k_min 0,36 / požadováno 1,40 – nevyhovuje')
+    const s2 = parseStability({ min_factor: 1.32, required_n: 1.25, pass: true, angles: [{ angle_deg: 0, factor: 2, pass: true }, { angle_deg: 90, factor: 1.5, pass: false }] }, 0)!
+    expect(s2).toMatchObject({ minFactor: 1.32, requiredN: 1.25, pass: true })
+    expect(stabilitySummary(s2)).toBe('k_min 1,32 / požadováno 1,25 – vyhovuje')
+    expect(parseStability({ angles: [{ angle_deg: 0, factor: 2, pass: true }, { angle_deg: 90, factor: 1.5, pass: true }] }, 0)!.minFactor).toBe(1.5)
+  })
+  it('reactions placed by crane outrigger (reach ± y centreline), not MAXISTAB', () => {
+    const accessories = [
+      { kind: 'crane', name: 'jeřáb', x_mm: 3000, y_mm: null },
+      { kind: 'outrigger', name: 'MAXISTAB', x_mm: 8000, y_mm: null, reach_left_mm: null, reach_right_mm: null },
+      { kind: 'outrigger', name: 'podpěry jeřábu', x_left_mm: 3100, x_right_mm: 3200, y_mm: 100, reach_left_mm: 2500, reach_right_mm: 2600 },
+    ]
+    const st = mapExtended({ accessories, stability: { angles: [{ angle_deg: 0, factor: 2, pass: true }], reactions: [{ kind: 'outrigger', side: 'left', kN: 1 }, { kind: 'outrigger', side: 'right', kN: 2 }] } }, 0, [])!.stability!
+    expect(st.angles[0].reactions[0]).toMatchObject({ x: 3100, y: 100 - 2500 })
+    expect(st.angles[0].reactions[1]).toMatchObject({ x: 3200, y: 100 + 2600 })
   })
 })
