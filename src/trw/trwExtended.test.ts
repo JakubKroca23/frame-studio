@@ -136,3 +136,40 @@ describe('trw extended: integration', () => {
     expect(() => mapTrwExport({ ...sample, body: 7, accessories: 'x', stability: [null] })).not.toThrow()
   })
 })
+
+import doc3d from './sample-config-3d.json'
+
+describe('trw extended: docs/trw-config-3d.md sample', () => {
+  it('skips crane + crane outriggers, keeps other accessories, unwraps {value}', () => {
+    const w: string[] = []
+    const ext = mapExtended(doc3d, x0, w)!
+    expect(ext.accessories!.map((a) => a.name)).toEqual(['MAXISTAB  2 EHA', 'výfuk'])
+    expect(ext.craneAccessories!.map((a) => a.kind)).toEqual(['crane', 'outrigger'])
+    expect(ext.craneAccessories![1]).toMatchObject({ xLeft: 9064 - x0, xRight: 9222 - x0, reachLeft: 3401 })
+    expect(ext.accessories![1]).toMatchObject({ x: 4000 - x0, xTo: 4600 - x0 })
+    expect(ext.body).toMatchObject({ typeRaw: 'la', xFrom: 2360 - x0, length: 6600, width: null })
+  })
+  it('uses top-level reactions for all angles, placing missing x/y from crane outrigger', () => {
+    const ext = mapExtended(doc3d, x0, [])!
+    const st = ext.stability!
+    expect(st.angles).toHaveLength(2)
+    for (const a of st.angles) expect(a.reactions).toHaveLength(2)
+    expect(st.angles[1].reactions[0]).toMatchObject({ side: 'left', x: 9064 - x0, y: -3401, kN: 85.6 })
+    expect(st.angles[1].reactions[1]).toMatchObject({ side: 'right', x: 9222 - x0, y: 3401 })
+    expect(st).toMatchObject({ pass: false, verified: false, minFactor: 0.36 })
+  })
+  it('emits one summary warning for fields trw marks neznámé', () => {
+    const w: string[] = []
+    mapExtended(doc3d, x0, w)
+    expect(w.filter((s) => s.includes('.trw neobsahuje'))).toHaveLength(1)
+    expect(w.some((s) => s.startsWith('Šířka nástavby'))).toBe(false)
+    expect(w.some((s) => s.includes('vyložení na'))).toBe(false)
+    expect(w.some((s) => s.includes('reakce'))).toBe(false)
+  })
+  it('stability null → note from stability_fields.evidence', () => {
+    const ext = mapExtended({ ...doc3d, stability: null, stability_fields: { status: 'neznámé', evidence: 'podpěry nejsou zvolené — stabilita nespočtena' } }, x0, [])!
+    expect(ext.stability).toBeUndefined()
+    expect(ext.stabilityNote).toBe('podpěry nejsou zvolené — stabilita nespočtena')
+    expect(mapExtended({ stability: null, stability_fields: { evidence: 'x' } }, x0, [])?.stabilityNote).toBe('x')
+  })
+})

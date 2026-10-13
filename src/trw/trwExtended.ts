@@ -24,6 +24,9 @@ export interface ExtBody {
 
 export interface ExtAccessory {
   name: string
+  /** Crane outrigger beam positions (left/right leg x), configurator coords. */
+  xLeft?: number | null
+  xRight?: number | null
   kind: string | null
   isOutrigger: boolean
   x: number | null
@@ -69,16 +72,23 @@ export interface TrwExtended {
   body?: ExtBody
   accessories?: ExtAccessory[]
   stability?: ExtStability
+  /** Reason why stability is missing (stability_fields.evidence when stability is null). */
+  stabilityNote?: string
+  /** Crane + its outriggers from accessories[] (not drawn here; used to place reactions). */
+  craneAccessories?: ExtAccessory[]
 }
 
 type Obj = Record<string, unknown>
+/** Values may be wrapped as {value, status, source}. */
+const unwrap = (v: unknown): unknown => (v && typeof v === 'object' && !Array.isArray(v) && 'value' in (v as Obj) ? (v as Obj).value : v)
 const obj = (v: unknown): Obj => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Obj) : {})
-const num = (v: unknown): number | null => {
+const num = (v0: unknown): number | null => {
+  const v = unwrap(v0)
   if (typeof v === 'number' && Number.isFinite(v)) return v
   if (typeof v === 'string' && v.trim() && Number.isFinite(Number(v.replace(',', '.')))) return Number(v.replace(',', '.'))
   return null
 }
-const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null)
+const str = (v0: unknown): string | null => { const v = unwrap(v0); return typeof v === 'string' && v.trim() ? v.trim() : null }
 /** First numeric value among the keys. */
 const pickNum = (o: Obj, ...keys: string[]): number | null => {
   for (const k of keys) {
@@ -96,7 +106,7 @@ const pickStr = (o: Obj, ...keys: string[]): string | null => {
 }
 const pickBool = (o: Obj, ...keys: string[]): boolean | null => {
   for (const k of keys) {
-    const v = o[k]
+    const v = unwrap(o[k])
     if (typeof v === 'boolean') return v
     if (v === 1 || v === 0) return v === 1
     if (typeof v === 'string') {
@@ -107,6 +117,14 @@ const pickBool = (o: Obj, ...keys: string[]): boolean | null => {
   }
   return null
 }
+/** Field names that trw marks as `neznámé` (not contained in the .trw), from `fields` / per-value status. */
+export function unknownFields(o: Obj): Set<string> {
+  const out = new Set<string>()
+  for (const [k, f] of Object.entries(obj(o.fields))) if (/^nezn/i.test(String(obj(f).status ?? ''))) out.add(k)
+  for (const [k, v] of Object.entries(o)) if (v && typeof v === 'object' && 'value' in (v as Obj) && /^nezn/i.test(String((v as Obj).status ?? ''))) out.add(k)
+  return out
+}
+const isUnknown = (u: Set<string>, ...keys: string[]) => keys.some((k) => u.has(k) || u.has(k.replace(/_mm$/, '')))
 const sub = (v: number | null, x0: number) => (v == null ? null : v - x0)
 
 export const BODY_TYPE_LABEL: Record<BodyType, string> = { flatbed: 'valník', tipper: 'sklápěč', hooklift: 'hákový nosič', other: 'nástavba' }
@@ -145,9 +163,11 @@ function dims(o: Obj) {
   }
 }
 
-export function parseBody(v: unknown, x0: number, warnings: string[] = []): ExtBody | undefined {
+export function parseBody(v: unknown, x0: number, warnings: string[] = [], unknown: string[] = []): ExtBody | undefined {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
   const o = v as Obj
+  const u = unknownFields(o)
+  const quiet = (label: string, ...keys: string[]) => (isUnknown(u, ...keys) ? (unknown.push(label), true) : false)
   const typeRaw = pickStr(o, 'type', 'kind', 'body_type', 'category')
   const type = normalizeBodyType(typeRaw)
   const { from, to } = range(o)
@@ -165,17 +185,19 @@ export function parseBody(v: unknown, x0: number, warnings: string[] = []): ExtB
   if (!typeRaw) warnings.push('Typ nástavby chybí – zobrazen obecný kvádr.')
   else if (type === 'other') warnings.push(`Typ nástavby „${typeRaw}“ není rozpoznán – zobrazen obecný kvádr.`)
   if (xFrom == null || xTo == null) warnings.push('Poloha nástavby (x od/do) chybí – nástavba nezobrazena.')
-  if (d.width == null) warnings.push('Šířka nástavby chybí – použito 2500 mm.')
-  if (type === 'flatbed' && sideHeight == null) warnings.push('Výška bočnic valníku chybí – použito 400 mm.')
+  if (d.width == null && !quiet('šířka nástavby', 'width_mm')) warnings.push('Šířka nástavby chybí – použito 2500 mm.')
+  if (type === 'flatbed' && sideHeight == null && !quiet('výška bočnic', 'side_height_mm')) warnings.push('Výška bočnic valníku chybí – použito 400 mm.')
   if (massKg == null || massKg <= 0) warnings.push('Hmotnost nástavby chybí.')
   if (b.cog.x == null) warnings.push('Těžiště nástavby chybí.')
+  if (b.cog.x != null && (b.cog.y == null || b.cog.z == null)) unknown.push('těžiště nástavby y/z')
   return b
 }
 
 const OUTRIGGER_RE = /outrigger|podper|stabiliz|support.?leg/i
 
-export function parseAccessory(v: unknown, i: number, x0: number, warnings: string[] = []): ExtAccessory {
+export function parseAccessory(v: unknown, i: number, x0: number, warnings: string[] = [], unknown: string[] = []): ExtAccessory {
   const o = obj(v)
+  const u = unknownFields(o)
   const kind = pickStr(o, 'kind', 'type', 'category')
   const name = pickStr(o, 'name', 'label', 'title') ?? kind ?? `příslušenství ${i + 1}`
   const norm = `${kind ?? ''} ${name}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -196,6 +218,8 @@ export function parseAccessory(v: unknown, i: number, x0: number, warnings: stri
   const outlineO = obj(o.outline)
   const a: ExtAccessory = {
     name,
+    xLeft: sub(pickNum(o, 'x_left_mm'), x0),
+    xRight: sub(pickNum(o, 'x_right_mm'), x0),
     kind,
     isOutrigger,
     x,
@@ -211,19 +235,51 @@ export function parseAccessory(v: unknown, i: number, x0: number, warnings: stri
     reachLeft: reachLeft ?? (spread != null ? spread / 2 : null),
     reachRight: reachRight ?? (spread != null ? spread / 2 : null),
   }
-  const miss = [a.x == null ? 'polohu' : null, a.massKg == null ? 'hmotnost' : null].filter(Boolean)
+  const massUnknown = a.massKg == null && isUnknown(u, 'mass_kg')
+  if (massUnknown) unknown.push(`hmotnost „${name}“`)
+  const miss = [a.x == null ? 'polohu' : null, a.massKg == null && !massUnknown ? 'hmotnost' : null].filter(Boolean)
   if (miss.length) warnings.push(`Příslušenství „${name}“ nemá ${miss.join(' ani ')}${a.x == null ? ' – nezobrazeno' : ''}.`)
-  if (isOutrigger && (a.reachLeft == null || a.reachRight == null)) warnings.push(`Podpěra „${name}“ nemá vyložení na ${a.reachLeft == null && a.reachRight == null ? 'obě strany' : a.reachLeft == null ? 'levou stranu' : 'pravou stranu'}.`)
+  const reachUnknown = isUnknown(u, 'reach_left_mm', 'reach_right_mm')
+  if (isOutrigger && (a.reachLeft == null || a.reachRight == null) && reachUnknown) unknown.push(`vyložení „${name}“`)
+  else if (isOutrigger && (a.reachLeft == null || a.reachRight == null)) warnings.push(`Podpěra „${name}“ nemá vyložení na ${a.reachLeft == null && a.reachRight == null ? 'obě strany' : a.reachLeft == null ? 'levou stranu' : 'pravou stranu'}.`)
   return a
 }
 
-export function parseAccessories(v: unknown, x0: number, warnings: string[] = []): ExtAccessory[] | undefined {
+const kindOf = (v: unknown) => (pickStr(obj(v), 'kind') ?? '').toLowerCase()
+
+/**
+ * Splits accessories[] per doc: crane first (kind "crane"), then its outriggers (kind "outrigger",
+ * with x_left_mm/x_right_mm; other accessories carry x_to_mm instead), then the other accessories. Crane + crane outriggers are returned
+ * separately (they are drawn by the existing crane/outrigger markers).
+ */
+export function splitAccessories(v: unknown[]): { crane: unknown[]; other: unknown[] } {
+  const crane: unknown[] = []
+  const other: unknown[] = []
+  let afterCrane = false
+  for (const a of v) {
+    const k = kindOf(a)
+    const o = obj(a)
+    if (k === 'crane') {
+      crane.push(a)
+      afterCrane = true
+    } else if (k === 'outrigger' && ('x_left_mm' in o || 'x_right_mm' in o || (afterCrane && !('x_to_mm' in o)))) crane.push(a)
+    else {
+      afterCrane = false
+      other.push(a)
+    }
+  }
+  return { crane, other }
+}
+
+export function parseAccessories(v: unknown, x0: number, warnings: string[] = [], unknown: string[] = [], craneOut?: ExtAccessory[]): ExtAccessory[] | undefined {
   if (v == null) return undefined
   if (!Array.isArray(v)) {
     warnings.push('Blok příslušenství (accessories) není seznam – ignorován.')
     return undefined
   }
-  return v.map((a, i) => parseAccessory(a, i, x0, warnings))
+  const { crane, other } = splitAccessories(v)
+  if (craneOut) craneOut.push(...crane.map((a, i) => parseAccessory(a, i, x0, [], [])))
+  return other.map((a, i) => parseAccessory(a, i, x0, warnings, unknown))
 }
 
 function parsePoint(v: unknown, x0: number): ExtPoint | null {
@@ -264,7 +320,7 @@ function parseReaction(v: unknown, i: number, x0: number): ExtReaction {
   return { kind, id, x: sub(pickNum(o, 'x_mm', 'x'), x0), y: pickNum(o, 'y_mm', 'y'), side, kN: pickNum(o, 'kN', 'kn', 'force_kN', 'force_kn', 'reaction_kN', 'value_kN', 'F_kN') }
 }
 
-export function parseStability(v: unknown, x0: number, warnings: string[] = []): ExtStability | undefined {
+export function parseStability(v: unknown, x0: number, warnings: string[] = [], crane: ExtAccessory[] = []): ExtStability | undefined {
   if (v == null) return undefined
   let list: unknown = v
   let root: Obj = {}
@@ -278,6 +334,21 @@ export function parseStability(v: unknown, x0: number, warnings: string[] = []):
   }
   const angles: ExtStabilityAngle[] = []
   let dropped = 0
+  // Angle-independent reactions (doc: stability.reactions[]); placed by crane outrigger x_left/x_right when x missing.
+  const legs = crane.filter((a) => a.isOutrigger || (a.kind ?? '').toLowerCase() === 'outrigger')
+  const rootReactions = (Array.isArray(root.reactions) ? root.reactions : []).map((r, i) => {
+    const re = parseReaction(r, i, x0)
+    if (re.x == null && re.side) {
+      const leg = legs[0]
+      re.x = (re.side === 'left' ? leg?.xLeft : leg?.xRight) ?? leg?.x ?? null
+    }
+    if (re.y == null && re.side) {
+      const leg = legs[0]
+      const reach = re.side === 'left' ? leg?.reachLeft : leg?.reachRight
+      if (reach != null) re.y = re.side === 'left' ? -Math.abs(reach) : Math.abs(reach)
+    }
+    return re
+  })
   for (const item of list) {
     const o = obj(item)
     const angleDeg = pickNum(o, 'angle_deg', 'angle', 'slew_deg', 'slew_angle_deg', 'deg')
@@ -289,7 +360,7 @@ export function parseStability(v: unknown, x0: number, warnings: string[] = []):
     const lines = (Array.isArray(o.tipping_lines) ? o.tipping_lines : Array.isArray(o.tipping_edges) ? o.tipping_edges : Array.isArray(o.lines) ? o.lines : [])
       .map((l) => parseLine(l, x0))
       .filter((l): l is [ExtPoint, ExtPoint] => !!l)
-    const reactions = (Array.isArray(o.reactions) ? o.reactions : []).map((r, i) => parseReaction(r, i, x0))
+    const reactions = Array.isArray(o.reactions) ? o.reactions.map((r, i) => parseReaction(r, i, x0)) : rootReactions
     angles.push({ angleDeg, factor, pass: pickBool(o, 'pass', 'ok', 'passed', 'result', 'status'), tippingLines: lines, reactions })
   }
   angles.sort((a, b) => a.angleDeg - b.angleDeg)
@@ -299,10 +370,11 @@ export function parseStability(v: unknown, x0: number, warnings: string[] = []):
   if (noPass) warnings.push(`Stabilita: ${noPass} úhlů bez výsledku vyhovuje/nevyhovuje.`)
   if (angles.some((a) => a.factor == null)) warnings.push('Stabilita: u některých úhlů chybí součinitel stability.')
   if (angles.length && angles.every((a) => !a.tippingLines.length)) warnings.push('Stabilita: klopné hrany chybí.')
-  if (angles.length && angles.every((a) => !a.reactions.length)) warnings.push('Stabilita: reakce na podpěrách a kolech chybí.')
+  if (angles.length && angles.every((a) => !a.reactions.length)) warnings.push('Stabilita: reakce na podpěrách chybí.')
   const rootPass = pickBool(root, 'pass', 'ok', 'passed')
   const pass = angles.some((a) => a.pass === false) || rootPass === false ? false : angles.length && angles.every((a) => a.pass === true) ? true : rootPass
-  const verified = root.verified === true || root.verified_cranewin === true
+  const status = (pickStr(root, 'status') ?? '').toLowerCase()
+  const verified = root.verified === true || root.verified_cranewin === true || (/^ověřeno/.test(status) && !/^neověř/.test(status))
   if (!verified) warnings.push('Stabilita z trw není ověřena proti CraneWIN.')
   const fs = angles.map((a) => a.factor).filter((f): f is number => f != null)
   return { angles, pass, verified, minFactor: fs.length ? Math.min(...fs) : null }
@@ -322,23 +394,32 @@ export function nearestAngle(st: ExtStability | undefined, deg: number): ExtStab
 export function mapExtended(data: unknown, x0: number, warnings: string[] = []): TrwExtended | undefined {
   const t = obj(data)
   const ext: TrwExtended = {}
+  const unknown: string[] = []
+  const crane: ExtAccessory[] = []
   try {
-    const body = parseBody(t.body, x0, warnings)
+    const body = parseBody(t.body, x0, warnings, unknown)
     if (body) ext.body = body
   } catch {
     warnings.push('Blok nástavby (body) nelze přečíst.')
   }
   try {
-    const acc = parseAccessories(t.accessories, x0, warnings)
+    const acc = parseAccessories(t.accessories, x0, warnings, unknown, crane)
+    if (crane.length) ext.craneAccessories = crane
     if (acc) ext.accessories = acc
   } catch {
     warnings.push('Blok příslušenství nelze přečíst.')
   }
   try {
-    const st = parseStability(t.stability, x0, warnings)
+    const st = parseStability(t.stability, x0, warnings, crane)
     if (st) ext.stability = st
+    else {
+      const f = obj(t.stability_fields)
+      const note = pickStr(f, 'evidence', 'note', 'reason') ?? pickStr(obj(t.stability), 'evidence')
+      if (note) ext.stabilityNote = note
+    }
   } catch {
     warnings.push('Blok stability nelze přečíst.')
   }
-  return ext.body || ext.accessories || ext.stability ? ext : undefined
+  if (unknown.length) warnings.push(`trw uvádí, že .trw neobsahuje: ${[...new Set(unknown)].join(', ')} – použity výchozí hodnoty.`)
+  return ext.body || ext.accessories || ext.stability || ext.stabilityNote ? ext : undefined
 }

@@ -36,6 +36,10 @@ export function TrwExtendedPanel({ ext, slewDeg, onSlew }: { ext: TrwExtended; s
             </label>
           ) : null}
         </div>
+      ) : ext.stabilityNote ? (
+        <div>
+          <strong>Stabilita:</strong> nespočtena – {ext.stabilityNote}
+        </div>
       ) : null}
     </div>
   )
