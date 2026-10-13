@@ -48,7 +48,12 @@ export interface CsSimResult {
     uniformPct: number | null
     /** True when the span or profile was not in the file. */
     estimated: boolean
+    /** Configurator x of the governing subframe check, if given. */
+    governingX: number | null
   }
+  /** Outrigger beam positions (configurator x); null = not in the file. */
+  outriggersX: number[] | null
+  chassisRail: { profile: string | null; dims: ProfileDims | null; steel: string | null; curve: [number, number][]; uniformPct: number | null }
   warnings: string[]
 }
 
@@ -141,21 +146,26 @@ export function parseCsSimResult(data: unknown): CsSimResult {
     warnings.push(sb ? 'Rozsah mezirámu (x_from/x_to) chybí – odhad od jeřábu po konec rámu.' : 'Výsledek neobsahuje blok subframe – mezirám kreslen jako odhad (od jeřábu po konec rámu).')
   }
   if (from > to) [from, to] = [to, from]
-  const curveRaw = Array.isArray(sb?.utilization) ? sb.utilization : []
-  const curve = curveRaw
-    .map((p): [number, number] | null => {
-      if (Array.isArray(p)) return num(p[0]) !== null && num(p[1]) !== null ? [num(p[0])! - x0, num(p[1])!] : null
-      const o = obj(p)
-      const x = num(o?.x_mm ?? o?.x)
-      const pct = num(o?.pct ?? o?.utilization_pct ?? o?.value)
-      return x !== null && pct !== null ? [x - x0, pct] : null
-    })
-    .filter((p): p is [number, number] => !!p)
-    .sort((a, b) => a[0] - b[0])
+  const curve = parseCurve(sb?.utilization_along ?? sb?.utilization, x0)
   const uniformPct = subUtil.length ? Math.max(...subUtil.map((u) => u.pct)) : null
   if (!curve.length) warnings.push('Průběh využití mezirámu po délce chybí – obarven jednotně podle nejvyššího využití.')
   if (!frameLength) warnings.push('Délka rámu chybí.')
-  if (load.outriggers) warnings.push('Polohy podpěr v x výsledek neuvádí – kresleny u jeřábu (nebo podle importu z trw).')
+  const outriggersX = Array.isArray(root.outriggers_x_mm) ? root.outriggers_x_mm.map(num).filter((v): v is number => v !== null).map((v) => v - x0) : null
+  if (load.outriggers && !outriggersX) warnings.push('Polohy podpěr v x výsledek neuvádí – kresleny u jeřábu (nebo podle importu z trw).')
+  const cr = obj(root.chassis_rail)
+  const crP = obj(cr?.profile)
+  const crName = str(crP?.name) ?? str(cr?.profile) ?? str(inputs.chassis_profile)
+  const crDims = crP && num(crP.H_mm) && num(crP.B_mm) ? { H: num(crP.H_mm)!, B: num(crP.B_mm)!, t: num(crP.t_mm) ?? num(crP.tw_mm) ?? 6 } : parseProfileDims(crName)
+  const chUtil = utilization.filter((u) => u.role === 'ch')
+  const chassisRail = {
+    profile: crName,
+    dims: crDims,
+    steel: str(cr?.steel) ?? str(obj(cr?.steel)?.name) ?? chUtil[0]?.steel ?? null,
+    curve: parseCurve(cr?.utilization_along ?? cr?.utilization, x0),
+    uniformPct: chUtil.length ? Math.max(...chUtil.map((u) => u.pct)) : null,
+  }
+  if (!chassisRail.curve.length) warnings.push('Průběh využití podélníků rámu chybí – obarveny jednotně.')
+  const sGovX = X(sb?.governing_x_mm)
 
   return {
     generated: str(root.generated),
@@ -170,11 +180,26 @@ export function parseCsSimResult(data: unknown): CsSimResult {
     stress,
     deflection,
     utilization,
-    governing,
+    governing: governing && sGovX !== null && governing.check === subUtil.find((u) => u.check === governing.check)?.check ? { ...governing, x: sGovX } : governing,
     reactions,
-    subframe: { from, to, profile: profileName, dims, steel: str(sb?.steel) ?? str(obj(sb?.steel)?.name) ?? subUtil[0]?.steel ?? null, curve, uniformPct, estimated },
+    outriggersX,
+    chassisRail,
+    subframe: { from, to, profile: profileName, dims, steel: str(sb?.steel) ?? str(obj(sb?.steel)?.name) ?? subUtil[0]?.steel ?? null, curve, uniformPct, estimated, governingX: sGovX },
     warnings,
   }
+}
+
+function parseCurve(raw: unknown, x0: number): [number, number][] {
+  return (Array.isArray(raw) ? raw : [])
+    .map((p): [number, number] | null => {
+      if (Array.isArray(p)) return num(p[0]) !== null && num(p[1]) !== null ? [num(p[0])! - x0, num(p[1])!] : null
+      const o = obj(p)
+      const x = num(o?.x_mm ?? o?.x)
+      const pct = num(o?.pct ?? o?.util_pct ?? o?.utilization_pct ?? o?.value)
+      return x !== null && pct !== null ? [x - x0, pct] : null
+    })
+    .filter((p): p is [number, number] => !!p)
+    .sort((a, b) => a[0] - b[0])
 }
 
 /** Utilization at x: linear interpolation of the curve, else the uniform value. */

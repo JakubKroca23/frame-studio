@@ -57,3 +57,30 @@ describe('cs-sim/trw-export@1 parser', () => {
     expect(r2).toBeGreaterThan(g2)
   })
 })
+
+import real from './sample-cs-sim-real.json'
+
+describe('cs-sim/trw-export@1 real sample (subframe, outriggers_x_mm, chassis_rail)', () => {
+  const r = parseCsSimResult(real)
+  it('reads the subframe block', () => {
+    expect(r.subframe).toMatchObject({ from: 2200 - 1475, to: 8400 - 1475, profile: 'UPE 160', steel: 'S355', estimated: false, dims: { H: 160, B: 70, t: 5.5 }, governingX: 4400 - 1475 })
+    expect(r.subframe.curve).toHaveLength(34)
+    expect(r.subframe.curve[0]).toEqual([2275 - 1475, 0])
+    expect(Math.max(...r.subframe.curve.map((p) => p[1]))).toBeCloseTo(r.subframe.uniformPct!, 0)
+    expect(r.governing?.x).toBe(4400 - 1475)
+  })
+  it('reads outriggers and chassis rail', () => {
+    expect(r.outriggersX).toEqual([3760 - 1475])
+    expect(r.warnings.some((w) => w.includes('podpěr'))).toBe(false)
+    expect(r.chassisRail).toMatchObject({ steel: 'S420', dims: { H: 220, B: 85, t: 6 } })
+    expect(r.chassisRail.curve).toHaveLength(49)
+    expect(r.chassisRail.curve[0][0]).toBe(50 - 1475)
+    expect(r.warnings.some((w) => w.includes('Průběh'))).toBe(false)
+  })
+  it('older exports have no outriggers/chassis rail data', () => {
+    const old = parseCsSimResult(sample)
+    expect(old.outriggersX).toBeNull()
+    expect(old.chassisRail.curve).toEqual([])
+    expect(old.chassisRail.uniformPct).toBe(48)
+  })
+})

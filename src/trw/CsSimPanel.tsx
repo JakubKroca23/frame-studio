@@ -67,9 +67,16 @@ export function CsSimSummary({ result, onClose }: { result: CsSimResult; onClose
           </li>
         ) : null}
         <li>
+          Podélník rámu {r.chassisRail.profile ?? '?'}
+          {r.chassisRail.dims ? ` (${r.chassisRail.dims.H}/${r.chassisRail.dims.B}/${r.chassisRail.dims.t})` : ''}
+          {r.chassisRail.steel ? `, ${r.chassisRail.steel}` : ''}
+        </li>
+        <li>
           Mezirám {r.subframe.profile ?? '?'}
+          {` (${r.subframe.dims.H}/${r.subframe.dims.B}/${r.subframe.dims.t})`}
           {r.subframe.steel ? `, ${r.subframe.steel}` : ''}, x {f(r.subframe.from, 0)}–{f(r.subframe.to, 0)} mm{r.subframe.estimated ? ' (≈ odhad)' : ''}
         </li>
+        {r.outriggersX?.length ? <li>Podpěry v x = {r.outriggersX.map((x) => f(x, 0)).join(', ')} mm</li> : null}
       </ul>
       <button type="button" className="flag" onClick={() => setOpen(!open)}>
         {open ? 'Skrýt využití' : `Využití prvků (${r.utilization.length})`}

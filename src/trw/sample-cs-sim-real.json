@@ -1,0 +1,596 @@
+{
+  "schema": "cs-sim/trw-export@1",
+  "generated": "2026-10-13T06:30:00.000Z",
+  "app": {
+    "name": "CS Sim",
+    "version": "test"
+  },
+  "inputs": {
+    "chassis_id": 97330,
+    "chassis_name": "MAN TGX 26.480 6x2-2 BL 6x2 Drawbar  Euro 6 -4200 XL Sleeper cab",
+    "crane_id": 10157,
+    "crane_name": "HIAB iX.138",
+    "wheelbase_mm": 4200,
+    "axle_x_mm": [
+      1475,
+      5675,
+      7025
+    ],
+    "frame_length_mm": 9175,
+    "chassis_profile": "M.A.N  Profil 1   220x80x85x6",
+    "subframe_profile": "UPE 160",
+    "load_case": {
+      "crane_x_mm": 4104,
+      "Mk_kNm": 173.09,
+      "Fv_kN": 33.05,
+      "slew_deg": 0,
+      "outriggers": true,
+      "outrigger_spread_mm": 5788,
+      "vehicle_kN": 0
+    }
+  },
+  "results": {
+    "max_bending_moment": {
+      "value_kNm": 109.59,
+      "x_mm": 4454,
+      "chassis_kNm": 25.91,
+      "subframe_kNm": 29.33,
+      "composite_Ne_kNm": 54.34
+    },
+    "max_normal_stress": {
+      "subframe_MPa": 194.6,
+      "chassis_MPa": 197.6
+    },
+    "max_deflection": {
+      "value_mm": 42,
+      "x_mm": 9175,
+      "vertical_mm": -42,
+      "vertical_x_mm": 9175
+    },
+    "utilization": [
+      {
+        "check": "Podélník rámu L",
+        "role": "ch",
+        "profile": "U 220×85×6",
+        "steel": "S420",
+        "pct": 47,
+        "x_mm": 4400
+      },
+      {
+        "check": "Podélník mezirámu L",
+        "role": "sub",
+        "profile": "RHS 160×70×9,5 / UPE 160",
+        "steel": "S355",
+        "pct": 55.5,
+        "x_mm": 4400
+      },
+      {
+        "check": "Podélník rámu P",
+        "role": "ch",
+        "profile": "U 220×85×6",
+        "steel": "S420",
+        "pct": 47,
+        "x_mm": 4400
+      },
+      {
+        "check": "Podélník mezirámu P",
+        "role": "sub",
+        "profile": "RHS 160×70×9,5 / UPE 160",
+        "steel": "S355",
+        "pct": 55.5,
+        "x_mm": 4400
+      },
+      {
+        "check": "Příčka rámu x = 100",
+        "role": "chx",
+        "profile": "U 200×70×6",
+        "steel": "S355MC",
+        "pct": 0,
+        "x_mm": 100
+      },
+      {
+        "check": "Příčka rámu x = 1500",
+        "role": "chx",
+        "profile": "U 200×70×6",
+        "steel": "S355MC",
+        "pct": 0,
+        "x_mm": 1500
+      },
+      {
+        "check": "Příčka rámu x = 3000",
+        "role": "chx",
+        "profile": "U 200×70×6",
+        "steel": "S355MC",
+        "pct": 0,
+        "x_mm": 3000
+      },
+      {
+        "check": "Příčka rámu x = 4600",
+        "role": "chx",
+        "profile": "U 200×70×6",
+        "steel": "S355MC",
+        "pct": 0,
+        "x_mm": 4600
+      },
+      {
+        "check": "Příčka rámu x = 6000",
+        "role": "chx",
+        "profile": "U 200×70×6",
+        "steel": "S355MC",
+        "pct": 0,
+        "x_mm": 6000
+      },
+      {
+        "check": "Příčka rámu x = 7400",
+        "role": "chx",
+        "profile": "U 200×70×6",
+        "steel": "S355MC",
+        "pct": 0,
+        "x_mm": 7400
+      },
+      {
+        "check": "Příčka rámu x = 8300",
+        "role": "chx",
+        "profile": "U 200×70×6",
+        "steel": "S355MC",
+        "pct": 0,
+        "x_mm": 8300
+      },
+      {
+        "check": "Příčka rámu x = 9075",
+        "role": "chx",
+        "profile": "U 200×70×6",
+        "steel": "S355MC",
+        "pct": 0,
+        "x_mm": 9075
+      },
+      {
+        "check": "Příčka mezirámu x = 2200",
+        "role": "subx",
+        "profile": "RHS 120×80×5",
+        "steel": "S355",
+        "pct": 0,
+        "x_mm": 2200
+      },
+      {
+        "check": "Příčka mezirámu x = 4600",
+        "role": "subx",
+        "profile": "RHS 120×80×5",
+        "steel": "S355",
+        "pct": 0,
+        "x_mm": 4600
+      },
+      {
+        "check": "Příčka mezirámu x = 6650",
+        "role": "subx",
+        "profile": "RHS 120×80×5",
+        "steel": "S355",
+        "pct": 0,
+        "x_mm": 6650
+      },
+      {
+        "check": "Příčka mezirámu x = 8400",
+        "role": "subx",
+        "profile": "RHS 120×80×5",
+        "steel": "S355",
+        "pct": 0,
+        "x_mm": 8400
+      },
+      {
+        "check": "Nosník podpěr",
+        "role": "stab",
+        "profile": "RHS 200×150×8",
+        "steel": "S355",
+        "pct": 4.3,
+        "x_mm": 3760
+      }
+    ],
+    "governing": {
+      "check": "Podélník mezirámu L",
+      "pct": 55.5,
+      "ok": true
+    },
+    "support_reactions_kN": [
+      {
+        "label": "N1L",
+        "x_mm": 1475,
+        "Fz_kN": -8.23
+      },
+      {
+        "label": "N1P",
+        "x_mm": 1475,
+        "Fz_kN": -8.23
+      },
+      {
+        "label": "N2L",
+        "x_mm": 5675,
+        "Fz_kN": 10.55
+      },
+      {
+        "label": "N2P",
+        "x_mm": 5675,
+        "Fz_kN": 10.55
+      },
+      {
+        "label": "N3L",
+        "x_mm": 7025,
+        "Fz_kN": 16.3
+      },
+      {
+        "label": "N3P",
+        "x_mm": 7025,
+        "Fz_kN": 16.3
+      },
+      {
+        "label": "Podpěra L",
+        "x_mm": 3760,
+        "Fz_kN": -2.1
+      },
+      {
+        "label": "Podpěra P",
+        "x_mm": 3760,
+        "Fz_kN": -2.1
+      }
+    ]
+  },
+  "subframe": {
+    "x_from_mm": 2200,
+    "x_to_mm": 8400,
+    "profile": {
+      "name": "UPE 160",
+      "H_mm": 160,
+      "B_mm": 70,
+      "t_mm": 5.5
+    },
+    "steel": "S355",
+    "utilization_along": [
+      {
+        "x_mm": 2275,
+        "pct": 0
+      },
+      {
+        "x_mm": 2458,
+        "pct": 7.4
+      },
+      {
+        "x_mm": 2675,
+        "pct": 5.4
+      },
+      {
+        "x_mm": 2892,
+        "pct": 9.1
+      },
+      {
+        "x_mm": 3050,
+        "pct": 10.8
+      },
+      {
+        "x_mm": 3225,
+        "pct": 9.8
+      },
+      {
+        "x_mm": 3475,
+        "pct": 10.3
+      },
+      {
+        "x_mm": 3677,
+        "pct": 32.1
+      },
+      {
+        "x_mm": 3757,
+        "pct": 35.2
+      },
+      {
+        "x_mm": 3867,
+        "pct": 34.6
+      },
+      {
+        "x_mm": 4080,
+        "pct": 22.9
+      },
+      {
+        "x_mm": 4293,
+        "pct": 33.5
+      },
+      {
+        "x_mm": 4427,
+        "pct": 55.5
+      },
+      {
+        "x_mm": 4527,
+        "pct": 49.9
+      },
+      {
+        "x_mm": 4717,
+        "pct": 44.5
+      },
+      {
+        "x_mm": 4950,
+        "pct": 35.8
+      },
+      {
+        "x_mm": 5183,
+        "pct": 27.2
+      },
+      {
+        "x_mm": 5394,
+        "pct": 21.6
+      },
+      {
+        "x_mm": 5581,
+        "pct": 18.8
+      },
+      {
+        "x_mm": 5756,
+        "pct": 16
+      },
+      {
+        "x_mm": 5919,
+        "pct": 13.6
+      },
+      {
+        "x_mm": 6100,
+        "pct": 11.2
+      },
+      {
+        "x_mm": 6313,
+        "pct": 10.4
+      },
+      {
+        "x_mm": 6538,
+        "pct": 7.7
+      },
+      {
+        "x_mm": 6744,
+        "pct": 5.1
+      },
+      {
+        "x_mm": 6931,
+        "pct": 4.1
+      },
+      {
+        "x_mm": 7113,
+        "pct": 6.2
+      },
+      {
+        "x_mm": 7300,
+        "pct": 0.7
+      },
+      {
+        "x_mm": 7500,
+        "pct": 0.6
+      },
+      {
+        "x_mm": 7700,
+        "pct": 0.4
+      },
+      {
+        "x_mm": 7900,
+        "pct": 0.3
+      },
+      {
+        "x_mm": 8100,
+        "pct": 0.2
+      },
+      {
+        "x_mm": 8250,
+        "pct": 0
+      },
+      {
+        "x_mm": 8350,
+        "pct": 0
+      }
+    ],
+    "governing_x_mm": 4400
+  },
+  "outriggers_x_mm": [
+    3760
+  ],
+  "chassis_rail": {
+    "profile": {
+      "name": "M.A.N  Profil 1   220x80x85x6",
+      "H_mm": 220,
+      "B_mm": 85,
+      "t_mm": 6
+    },
+    "steel": "S420",
+    "utilization_along": [
+      {
+        "x_mm": 50,
+        "pct": 0
+      },
+      {
+        "x_mm": 215,
+        "pct": 0
+      },
+      {
+        "x_mm": 444,
+        "pct": 0
+      },
+      {
+        "x_mm": 673,
+        "pct": 0
+      },
+      {
+        "x_mm": 902,
+        "pct": 0
+      },
+      {
+        "x_mm": 1131,
+        "pct": 0
+      },
+      {
+        "x_mm": 1360,
+        "pct": 0
+      },
+      {
+        "x_mm": 1488,
+        "pct": 2.7
+      },
+      {
+        "x_mm": 1617,
+        "pct": 3.6
+      },
+      {
+        "x_mm": 1850,
+        "pct": 6.8
+      },
+      {
+        "x_mm": 2083,
+        "pct": 10
+      },
+      {
+        "x_mm": 2275,
+        "pct": 12.1
+      },
+      {
+        "x_mm": 2458,
+        "pct": 9.3
+      },
+      {
+        "x_mm": 2675,
+        "pct": 8.6
+      },
+      {
+        "x_mm": 2892,
+        "pct": 7.8
+      },
+      {
+        "x_mm": 3050,
+        "pct": 7.1
+      },
+      {
+        "x_mm": 3225,
+        "pct": 15
+      },
+      {
+        "x_mm": 3475,
+        "pct": 24.6
+      },
+      {
+        "x_mm": 3677,
+        "pct": 35.9
+      },
+      {
+        "x_mm": 3757,
+        "pct": 21
+      },
+      {
+        "x_mm": 3867,
+        "pct": 20.4
+      },
+      {
+        "x_mm": 4080,
+        "pct": 26.3
+      },
+      {
+        "x_mm": 4293,
+        "pct": 47
+      },
+      {
+        "x_mm": 4427,
+        "pct": 37.9
+      },
+      {
+        "x_mm": 4527,
+        "pct": 37
+      },
+      {
+        "x_mm": 4717,
+        "pct": 34.7
+      },
+      {
+        "x_mm": 4950,
+        "pct": 31
+      },
+      {
+        "x_mm": 5183,
+        "pct": 27.3
+      },
+      {
+        "x_mm": 5394,
+        "pct": 29.2
+      },
+      {
+        "x_mm": 5581,
+        "pct": 22.9
+      },
+      {
+        "x_mm": 5756,
+        "pct": 16.7
+      },
+      {
+        "x_mm": 5919,
+        "pct": 14.1
+      },
+      {
+        "x_mm": 6100,
+        "pct": 11.6
+      },
+      {
+        "x_mm": 6313,
+        "pct": 12.4
+      },
+      {
+        "x_mm": 6538,
+        "pct": 8.3
+      },
+      {
+        "x_mm": 6744,
+        "pct": 4.3
+      },
+      {
+        "x_mm": 6931,
+        "pct": 6.4
+      },
+      {
+        "x_mm": 7113,
+        "pct": 6.4
+      },
+      {
+        "x_mm": 7300,
+        "pct": 0.6
+      },
+      {
+        "x_mm": 7500,
+        "pct": 0.5
+      },
+      {
+        "x_mm": 7700,
+        "pct": 0.4
+      },
+      {
+        "x_mm": 7900,
+        "pct": 0.2
+      },
+      {
+        "x_mm": 8100,
+        "pct": 0.1
+      },
+      {
+        "x_mm": 8250,
+        "pct": 0
+      },
+      {
+        "x_mm": 8350,
+        "pct": 0
+      },
+      {
+        "x_mm": 8513,
+        "pct": 0
+      },
+      {
+        "x_mm": 8738,
+        "pct": 0
+      },
+      {
+        "x_mm": 8963,
+        "pct": 0
+      },
+      {
+        "x_mm": 9125,
+        "pct": 0
+      }
+    ]
+  }
+}

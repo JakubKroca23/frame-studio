@@ -519,7 +519,10 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
 /** Crane from the CS Sim load case; outriggers from the trw import if present, else at the crane (odhad). */
 function simMarkers(sim: CsSimResult, trw: TrwImport | null): TrwImport['markers'] {
   const x = sim.load.craneX
-  const outriggers = trw?.markers.outriggers.length
+  const spread = sim.load.spread ?? 0
+  const outriggers = sim.outriggersX
+    ? sim.outriggersX.flatMap((ox) => (['left', 'right'] as const).map((side) => ({ x: ox, side, spread })))
+    : trw?.markers.outriggers.length
     ? trw.markers.outriggers
     : sim.load.outriggers && x !== null
       ? (['left', 'right'] as const).map((side) => ({ x, side, spread: sim.load.spread ?? 0 }))

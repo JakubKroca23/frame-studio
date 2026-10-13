@@ -23,7 +23,7 @@ export function CsSimOverlay({ result, frameTop, frameHalfWidth, railHeight }: {
     const { H, B, t } = sf.dims
     const parts: THREE.BufferGeometry[] = []
     const step = 100
-    const chPct = Math.max(0, ...result.utilization.filter((u) => u.role === 'ch').map((u) => u.pct)) || null
+    const rail = result.chassisRail
     for (const sign of [-1, 1]) {
       const zo = sign * frameHalfWidth
       const zi = sign * (frameHalfWidth - t)
@@ -35,18 +35,22 @@ export function CsSimOverlay({ result, frameTop, frameHalfWidth, railHeight }: {
         parts.push(coloredBox(x, x1, frameTop, frameTop + t, zi, zf, rgb))
         parts.push(coloredBox(x, x1, frameTop + H - t, frameTop + H, zi, zf, rgb))
       }
-      // Thin strip on the outer face of the chassis rail, coloured by the chassis rail utilization.
-      if (chPct !== null) {
+      // Thin strip on the outer face of the chassis rail, coloured by the chassis rail utilization along x.
+      if (rail.curve.length || rail.uniformPct !== null) {
         const xa = -result.x0
         const xb = result.frameLength !== null ? result.frameLength - result.x0 : sf.to
-        parts.push(coloredBox(xa, xb, frameTop - railHeight + 15, frameTop - 15, sign * (frameHalfWidth + 1), sign * (frameHalfWidth + 6), utilColor(chPct)))
+        for (let x = xa; x < xb; x += step) {
+          const x1 = Math.min(xb, x + step)
+          const rgb = utilColor(utilizationAt(rail.curve, rail.uniformPct, (x + x1) / 2))
+          parts.push(coloredBox(x, x1, frameTop - railHeight + 15, frameTop - 15, sign * (frameHalfWidth + 1), sign * (frameHalfWidth + 6), rgb))
+        }
       }
     }
     return parts.length ? mergeGeometries(parts) : null
   }, [sf, result, frameTop, frameHalfWidth, railHeight])
   useEffect(() => () => geometry?.dispose(), [geometry])
 
-  const gx = result.governing?.x ?? result.maxMoment?.x ?? null
+  const gx = sf.governingX ?? result.governing?.x ?? result.maxMoment?.x ?? null
   const mx = result.maxMoment?.x ?? null
   const top = frameTop + sf.dims.H
   return (
