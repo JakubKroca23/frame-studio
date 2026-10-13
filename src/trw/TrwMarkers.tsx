@@ -1,3 +1,4 @@
+import { Html } from '@react-three/drei'
 import type { TrwMarkers as Markers } from './trwConfig'
 
 /** Simple markers for the crane column and outrigger legs (X rearward from axle 1, Y up, Z lateral). */
@@ -29,6 +30,32 @@ export function TrwMarkers({ markers, frameTop }: { markers: Markers; frameTop: 
           </group>
         )
       })}
+      {(markers.payloads ?? []).map((p, i) => {
+        if (p.x == null) return null
+        const len = p.xFrom != null && p.xTo != null && p.xTo > p.xFrom ? p.xTo - p.xFrom : 400
+        const cx = p.xFrom != null && p.xTo != null ? (p.xFrom + p.xTo) / 2 : p.x
+        return (
+          <group key={`payload-${i}`} name={`trw-payload-${i}`}>
+            <mesh position={[cx, frameTop + 200, 0]}>
+              <boxGeometry args={[len, 400, 1800]} />
+              <meshStandardMaterial color="#3a7bd5" transparent opacity={0.35} />
+            </mesh>
+            <mesh position={[p.x, frameTop + 450, 0]}>
+              <sphereGeometry args={[90, 16, 12]} />
+              <meshStandardMaterial color="#1d4e9e" />
+            </mesh>
+            <Label position={[p.x, frameTop + 800, 0]} text={`${p.name}${p.massKg != null ? ` · ${Math.round(p.massKg)} kg` : ' · ? kg'}`} />
+          </group>
+        )
+      })}
     </group>
+  )
+}
+
+function Label({ position, text }: { position: [number, number, number]; text: string }) {
+  return (
+    <Html position={position} center style={{ pointerEvents: 'none' }}>
+      <div style={{ background: 'rgba(29,78,158,0.85)', color: '#fff', font: '11px sans-serif', padding: '2px 6px', borderRadius: 3, whiteSpace: 'nowrap' }}>{text}</div>
+    </Html>
   )
 }

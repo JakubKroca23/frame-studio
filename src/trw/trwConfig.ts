@@ -65,12 +65,60 @@ export interface TrwExport {
     outrigger_x_mm?: { left?: Num; right?: Num } | null
   } | null
   body?: { x_from_mm?: Num; x_to_mm?: Num; height_mm?: Num } | null
+  /** User-entered payload items (cargo, hookloader, exhaust, bumper…). Field names parsed tolerantly. */
+  payloads?: TrwPayload[] | null
+  /** Raw TrailerWIN data block – ignored by the importer. */
+  config?: { trailerwin?: unknown } & Record<string, unknown>
+}
+
+export interface TrwPayload {
+  name?: string | null
+  label?: string | null
+  type?: string | null
+  x_mm?: Num
+  x_from_mm?: Num
+  x_to_mm?: Num
+  x_from?: Num
+  x_to?: Num
+  mass_kg?: Num
+  cog_x_mm?: Num
+  cog?: Num | { x_mm?: Num; x?: Num } | null
+  [k: string]: unknown
+}
+
+export interface TrwPayloadMarker {
+  x: number | null
+  xFrom?: number
+  xTo?: number
+  name: string
+  massKg: number | null
+}
+
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+/** Parses one payload item; x values are converted relative to x0 (first axle). */
+export function mapPayload(p: unknown, i: number, x0: number): TrwPayloadMarker {
+  const o = (p && typeof p === 'object' ? p : {}) as TrwPayload
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  const name = str(o.name) ?? str(o.label) ?? str(o.type) ?? `položka ${i + 1}`
+  const from = num(o.x_from_mm) ?? num(o.x_from)
+  const to = num(o.x_to_mm) ?? num(o.x_to)
+  const cog = o.cog
+  const cogX = num(o.cog_x_mm) ?? num(cog) ?? (cog && typeof cog === 'object' ? num(cog.x_mm) ?? num(cog.x) : null)
+  const x = cogX ?? num(o.x_mm) ?? (from != null && to != null ? (from + to) / 2 : from ?? to)
+  const m: TrwPayloadMarker = { x: x == null ? null : x - x0, name, massKg: num(o.mass_kg) }
+  if (from != null && to != null) {
+    m.xFrom = Math.min(from, to) - x0
+    m.xTo = Math.max(from, to) - x0
+  }
+  return m
 }
 
 /** Marker positions in configurator coordinates (x behind the first axle, mm). */
 export interface TrwMarkers {
   crane?: { x: number; name: string }
   outriggers: { x: number; side: 'left' | 'right'; spread: number }[]
+  payloads?: TrwPayloadMarker[]
 }
 
 export interface TrwImport {
@@ -238,6 +286,15 @@ export function mapTrwExport(data: unknown): TrwImport {
       if (ok(ox)) markers.outriggers.push({ x: ox - x0, side, spread })
     }
     if (!spread && markers.outriggers.length) warnings.push('Rozpětí podpěr jeřábu chybí.')
+  }
+
+  if (Array.isArray(t.payloads)) {
+    const items = t.payloads.map((p, i) => mapPayload(p, i, x0))
+    for (const m of items) {
+      const miss = [m.x == null ? 'polohu' : null, m.massKg == null ? 'hmotnost' : null].filter(Boolean)
+      if (miss.length) warnings.push(`Náklad „${m.name}“ nemá ${miss.join(' ani ')}${m.x == null ? ' – nezobrazen' : ''}.`)
+    }
+    markers.payloads = items
   }
 
   const approx = leafPaths(cfg).filter((path) => !measured.has(path))
