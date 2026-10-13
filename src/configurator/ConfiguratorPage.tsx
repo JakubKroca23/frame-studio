@@ -16,7 +16,8 @@ import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
 import { parseCsSimResult, type CsSimResult } from '../trw/csSimResult'
 import { CS_SIM_ORIGIN, TRW_ORIGIN, csSimLink, csSimMessageData, fetchTrwUrl, stripLinkParams, trwFromCsSim, type LinkRequest } from '../trw/links'
-import { TrwAuthError } from '../trw/trwConfig'
+import { TrwAuthError, mapTrwExport } from '../trw/trwConfig'
+import { classifyFile, convertTrwFile, unwrapConfig } from '../trw/fromTrw'
 
 /** Cab shapes offered in the form: every make plus Mercedes-Benz (shape only, no chassis presets yet). */
 const CAB_STYLES: { id: CabStyle; name: string }[] = [...MAKES, { id: 'mercedes', name: 'Mercedes-Benz (jen tvar kabiny)' }]
@@ -74,6 +75,8 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
     link?.kind === 'invalid' ? { text: link.error, level: 'error' } : null,
   )
   const trwRef = useRef<TrwImport | null>(null)
+  const trwFileRef = useRef<HTMLInputElement>(null)
+  const [dragging, setDragging] = useState(false)
   trwRef.current = trw
   const groupRef = useRef<THREE.Group | null>(null)
   const openModel = useApp((s) => s.openModel)
@@ -155,6 +158,60 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [link])
+
+  /** Opens a .trw project (converted by trw), a trw/config@1 JSON or a CS Sim result. */
+  async function openFile(file: File) {
+    const isTrw = /\.trw$/i.test(file.name)
+    const text = isTrw ? null : await file.text()
+    const kind = classifyFile(file.name, text)
+    try {
+      if (kind === 'trw-project') {
+        setLinkStatus({ text: `Převádím ${file.name} v trw…`, level: 'info' })
+        const result = await convertTrwFile(file)
+        choosePreset(result.preset, result)
+        setLinkStatus({ text: `Projekt ${file.name} převeden (${result.report.length ? `${result.report.length} položek v hlášení` : 'bez hlášení'}).`, level: 'ok' })
+      } else if (kind === 'trw-config') {
+        const result = mapTrwExport(unwrapConfig(JSON.parse(text!)))
+        choosePreset(result.preset, result)
+        setLinkStatus({ text: `Konfigurace trw načtena ze ${file.name}.`, level: 'ok' })
+      } else if (kind === 'cs-sim') {
+        setSim(parseCsSimResult(JSON.parse(text!)))
+        setLinkStatus({ text: `Výsledek CS Sim načten ze ${file.name}.`, level: 'ok' })
+      } else setLinkStatus({ text: `${file.name}: nerozpoznaný soubor – očekáván .trw, export trw (trw/config@1) nebo výsledek CS Sim.`, level: 'error' })
+    } catch (err) {
+      setLinkStatus({ text: err instanceof Error ? err.message : String(err), level: 'error', login: err instanceof TrwAuthError })
+    }
+  }
+  const openFileRef = useRef(openFile)
+  openFileRef.current = openFile
+
+  // Drag & drop of .trw / .json anywhere on the window.
+  useEffect(() => {
+    const accepts = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.items].some((i) => i.kind === 'file')
+    const over = (e: DragEvent) => {
+      if (!accepts(e)) return
+      e.preventDefault()
+      setDragging(true)
+    }
+    const leave = (e: DragEvent) => {
+      if (!e.relatedTarget) setDragging(false)
+    }
+    const drop = (e: DragEvent) => {
+      const file = e.dataTransfer?.files?.[0]
+      setDragging(false)
+      if (!file) return
+      e.preventDefault()
+      void openFileRef.current(file)
+    }
+    window.addEventListener('dragover', over)
+    window.addEventListener('dragleave', leave)
+    window.addEventListener('drop', drop)
+    return () => {
+      window.removeEventListener('dragover', over)
+      window.removeEventListener('dragleave', leave)
+      window.removeEventListener('drop', drop)
+    }
+  }, [])
 
   const set = (path: Path, value: unknown) => setCfg((prev) => setAt(prev, path, value))
   const isApprox = (path: Path) => {
@@ -256,6 +313,11 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
 
   return (
     <div className="app config-page">
+      {dragging ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, pointerEvents: 'none', background: 'rgba(30,40,50,.45)', border: '3px dashed #e0a019', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 22 }}>
+          Pusťte soubor .trw, export trw nebo výsledek CS Sim
+        </div>
+      ) : null}
       <header className="app-header">
         <div className="brand">
           <h1>Nový podvozek</h1>
@@ -364,6 +426,23 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
             </p>
           ) : null}
           <TrwImportPanel onImport={(result) => choosePreset(result.preset, result)} />
+          <div className="row" style={{ marginTop: 4 }}>
+            <Button size="sm" variant="outline" onClick={() => trwFileRef.current?.click()}>
+              Otevřít .trw
+            </Button>
+            <input
+              ref={trwFileRef}
+              type="file"
+              accept=".trw"
+              style={{ display: 'none' }}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file) void openFile(file)
+              }}
+            />
+            <span className="muted">nebo přetáhněte .trw / .json do okna</span>
+          </div>
           <div className="row" style={{ marginTop: 4 }}>
             <a className="head-link" href={TRW_ORIGIN} target="_blank" rel="noreferrer">
               Otevřít v trw
