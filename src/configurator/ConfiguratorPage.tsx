@@ -436,7 +436,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
             <input
               ref={trwFileRef}
               type="file"
-              accept=".trw"
+              accept=".trw,.json,application/json,application/octet-stream"
               style={{ display: 'none' }}
               onChange={(event) => {
                 const file = event.target.files?.[0]

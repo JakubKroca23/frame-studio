@@ -53,7 +53,7 @@ export function TrwImportPanel({ onImport }: { onImport: (result: TrwImport) => 
         <input
           ref={fileRef}
           type="file"
-          accept=".json,application/json"
+          accept=".json,application/json,text/plain"
           style={{ display: 'none' }}
           onChange={(event) => {
             const file = event.target.files?.[0]

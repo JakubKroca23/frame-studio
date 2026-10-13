@@ -15,7 +15,7 @@ export function CsSimLoadButton({ onLoad }: { onLoad: (result: CsSimResult | nul
       <input
         ref={ref}
         type="file"
-        accept=".json,application/json"
+        accept=".json,application/json,text/plain"
         style={{ display: 'none' }}
         onChange={async (event) => {
           const file = event.target.files?.[0]

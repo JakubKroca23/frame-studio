@@ -804,3 +804,331 @@ button.switch-track[data-state='checked'] .switch-knob {
   align-items: center;
   gap: 2px;
 }
+
+/* ---------- Phones / small tablets (desktop layout above is untouched) ---------- */
+html,
+body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (max-width: 960px) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+  }
+
+  /* Header wraps instead of overflowing. */
+  .app-header {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 6px 12px;
+    min-height: 52px;
+    box-sizing: border-box;
+  }
+
+  .app-header .row {
+    gap: 6px;
+  }
+
+  .app-header .row > .muted {
+    max-width: 40vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .brand span {
+    display: none;
+  }
+
+  /* 3D canvas first, controls below; page scrolls naturally. */
+  .app,
+  .app.config-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 52dvh) auto auto;
+    grid-template-areas:
+      "head"
+      "view"
+      "side"
+      "preview";
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .viewport {
+    height: 52dvh;
+    min-height: 260px;
+  }
+
+  .app-side {
+    max-height: none;
+    overflow: visible;
+    border-bottom: 0;
+    border-top: 1px solid var(--line);
+    padding: 12px 12px 32px;
+    min-width: 0;
+  }
+
+  .app-side * {
+    min-width: 0;
+  }
+
+  .app.is-review .app-side {
+    max-height: none;
+  }
+
+  /* Readable inputs (16px also stops iOS zoom-on-focus) and touch targets. */
+  .cfg-field,
+  .field,
+  .toggle,
+  .cfg-check {
+    font-size: 14px;
+  }
+
+  .cfg-field select,
+  .cfg-field input[type="number"],
+  .cfg-field input[type="text"],
+  .field input[type="text"],
+  .field input[type="number"],
+  .text-input,
+  .cfg-axles input[type="number"],
+  .cfg-axles input[type="text"] {
+    height: 44px;
+    font-size: 16px;
+  }
+
+  .cfg-field input[type="color"] {
+    height: 44px;
+  }
+
+  .app button,
+  .start button,
+  .head-link,
+  .pane-toggle,
+  .start-preset {
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  .head-link,
+  .pane-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    font-size: 14px;
+  }
+
+  .flag {
+    min-width: 44px;
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  button.switch-track {
+    min-height: 0;
+    margin: 10px 0;
+  }
+
+  .cfg-check input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+
+  .cfg-check {
+    min-height: 44px;
+  }
+
+  .source-note,
+  .hints,
+  .approx {
+    font-size: 13px;
+  }
+
+  /* Axle table scrolls horizontally inside its block instead of the page. */
+  .cfg-axles {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .view-buttons {
+    max-width: calc(100% - 24px);
+    top: 8px;
+    left: 8px;
+  }
+
+  .axis-note {
+    display: none;
+  }
+
+  .empty-hint {
+    padding: 16px;
+  }
+
+  .empty-hint h2 {
+    font-size: 18px;
+  }
+
+  .empty-hint p {
+    font-size: 13px;
+  }
+
+  /* Drawing preview: stack the three views. */
+  .preview-pane {
+    height: auto;
+    min-height: 0;
+  }
+
+  .preview-views {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 220px;
+  }
+
+  .review-side {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .review-item {
+    min-height: 44px;
+  }
+
+  /* Start screen */
+  .start {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .start-main {
+    padding: 20px 12px 32px;
+  }
+
+  .start-choices {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    max-width: 520px;
+    gap: 16px;
+  }
+
+  .start-card {
+    padding: 20px 16px;
+  }
+
+  .start-card h2 {
+    font-size: 20px;
+    padding-right: 40px;
+  }
+
+  .start-preset {
+    font-size: 13px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .cfg-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .start-presets {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Phone landscape: canvas beside the controls, both filling the screen height. */
+@media (max-width: 960px) and (orientation: landscape) and (max-height: 520px) {
+  .app,
+  .app.config-page {
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head head"
+      "view side"
+      "preview preview";
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .app.is-review {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "head" "side" "review";
+    height: auto;
+  }
+
+  .viewport {
+    height: auto;
+    min-height: 0;
+  }
+
+  .app-side {
+    overflow: auto;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .app-header {
+    min-height: 0;
+    padding: 4px 12px;
+  }
+
+  .preview-pane {
+    max-height: 45dvh;
+    overflow: auto;
+  }
+
+  .preview-views {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 160px;
+  }
+}
+
+@media (max-width: 960px) {
+  /* View presets: one swipeable row so they don't cover the model. */
+  .view-buttons {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    right: 8px;
+  }
+
+  .view-buttons > * {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 960px) {
+  /* Drawing review: the review board comes first, parameters below. */
+  .app.is-review,
+  .app.is-review.config-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "head"
+      "review"
+      "side";
+    height: auto;
+  }
+
+  .app.is-review .review-pane {
+    min-height: 0;
+  }
+
+  .app.is-review .review-stage {
+    min-height: 0;
+    height: 62dvh;
+  }
+
+  .app.is-review .app-side {
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}
