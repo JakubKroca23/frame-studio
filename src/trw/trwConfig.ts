@@ -5,6 +5,7 @@
  * marked as estimated (same `approx` mechanism as the presets).
  */
 import { PRESETS, cloneConfig } from '../presets'
+import { mapExtended, type TrwExtended } from './trwExtended'
 import type { ChassisConfig, ChassisPreset, Make } from '../presets/types'
 
 export const TRW_SCHEMA = 'trw/config@1'
@@ -119,6 +120,8 @@ export interface TrwMarkers {
   crane?: { x: number; name: string }
   outriggers: { x: number; side: 'left' | 'right'; spread: number }[]
   payloads?: TrwPayloadMarker[]
+  /** body / accessories / stability (extended export, tolerant parse). */
+  extended?: TrwExtended
 }
 
 export interface TrwImport {
@@ -296,6 +299,9 @@ export function mapTrwExport(data: unknown): TrwImport {
     }
     markers.payloads = items
   }
+
+  const extended = mapExtended(t, x0, warnings)
+  if (extended) markers.extended = extended
 
   const approx = leafPaths(cfg).filter((path) => !measured.has(path))
   const preset: ChassisPreset = {

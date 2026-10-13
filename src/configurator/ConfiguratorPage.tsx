@@ -11,6 +11,8 @@ import { useApp } from '../state'
 import { Viewport } from '../view/Viewport'
 import { TrwImportPanel } from '../trw/TrwImportPanel'
 import { TrwMarkers } from '../trw/TrwMarkers'
+import { TrwExtendedPanel } from '../trw/TrwExtendedPanel'
+import { TrwExtendedView } from '../trw/TrwExtendedView'
 import type { TrwImport } from '../trw/trwConfig'
 import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
@@ -68,6 +70,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [trw, setTrw] = useState<TrwImport | null>(null)
+  const [slewDeg, setSlewDeg] = useState(0)
   const [sim, setSim] = useState<CsSimResult | null>(null)
   const [simError, setSimError] = useState<string | null>(null)
   const [trwSource, setTrwSource] = useState<string | null>(link?.kind === 'trw' ? link.url : null)
@@ -466,6 +469,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
               {trw.steel?.name ? <> · materiál rámu {trw.steel.name}{trw.steel.re_MPa ? ` (ReH ${trw.steel.re_MPa} MPa)` : ''}</> : null}
               {trw.subframe?.profile?.name ? <> · mezirám {trw.subframe.profile.name}{trw.subframe.steel?.name ? `, ${trw.subframe.steel.name}` : ''}</> : null}
               {trw.markers.crane ? <> · jeřáb {trw.markers.crane.name} na {Math.round(trw.markers.crane.x)} mm za 1. nápravou (žlutě), podpěry červeně</> : null}
+              {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={slewDeg} onSlew={setSlewDeg} /> : null}
               <ul className="hints">
                 {trw.warnings.map((warning) => (
                   <li key={warning} className="warn">
@@ -672,6 +676,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} /> : null}
+        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={slewDeg} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>
             <CsSimOverlay result={sim} frameTop={built.frame.topHeight} frameHalfWidth={built.frame.widthRear / 2} railHeight={built.frame.sectionHeight} />
