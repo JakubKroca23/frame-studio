@@ -12,6 +12,9 @@ import { Viewport } from '../view/Viewport'
 import { TrwImportPanel } from '../trw/TrwImportPanel'
 import { TrwMarkers } from '../trw/TrwMarkers'
 import type { TrwImport } from '../trw/trwConfig'
+import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
+import { CsSimOverlay } from '../trw/CsSimOverlay'
+import type { CsSimResult } from '../trw/csSimResult'
 
 /** Cab shapes offered in the form: every make plus Mercedes-Benz (shape only, no chassis presets yet). */
 const CAB_STYLES: { id: CabStyle; name: string }[] = [...MAKES, { id: 'mercedes', name: 'Mercedes-Benz (jen tvar kabiny)' }]
@@ -62,6 +65,8 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [trw, setTrw] = useState<TrwImport | null>(null)
+  const [sim, setSim] = useState<CsSimResult | null>(null)
+  const [simError, setSimError] = useState<string | null>(null)
   const groupRef = useRef<THREE.Group | null>(null)
   const openModel = useApp((s) => s.openModel)
 
@@ -279,6 +284,15 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
             Hodnoty označené <span className="approx">≈</span> jsou odhad ({preset.approx.length}×), ostatní z podkladu {trw ? 'trw' : 'výrobce'}.
           </p>
           <TrwImportPanel onImport={(result) => choosePreset(result.preset, result)} />
+          <div className="row" style={{ marginTop: 4 }}>
+            <CsSimLoadButton
+              onLoad={(result, error) => {
+                setSimError(error)
+                if (result) setSim(result)
+              }}
+            />
+          </div>
+          {simError ? <p className="status error">{simError}</p> : null}
           {trw ? (
             <div className="source-note">
               <strong>Import z trw</strong>
@@ -295,6 +309,8 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
             </div>
           ) : null}
         </section>
+
+        {sim ? <CsSimSummary result={sim} onClose={() => setSim(null)} /> : null}
 
         <section className="block">
           <h2>Základ</h2>
@@ -488,10 +504,27 @@ export function ConfiguratorPage({ initialPreset }: { initialPreset?: string }) 
       </aside>
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
-        {trw ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} /> : null}
+        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} /> : null}
+        {sim ? (
+          <>
+            <CsSimOverlay result={sim} frameTop={built.frame.topHeight} frameHalfWidth={built.frame.widthRear / 2} railHeight={built.frame.sectionHeight} />
+            <TrwMarkers markers={simMarkers(sim, trw)} frameTop={built.frame.topHeight + sim.subframe.dims.H} />
+          </>
+        ) : null}
       </Viewport>
     </div>
   )
+}
+
+/** Crane from the CS Sim load case; outriggers from the trw import if present, else at the crane (odhad). */
+function simMarkers(sim: CsSimResult, trw: TrwImport | null): TrwImport['markers'] {
+  const x = sim.load.craneX
+  const outriggers = trw?.markers.outriggers.length
+    ? trw.markers.outriggers
+    : sim.load.outriggers && x !== null
+      ? (['left', 'right'] as const).map((side) => ({ x, side, spread: sim.load.spread ?? 0 }))
+      : []
+  return { crane: x !== null ? { x, name: sim.craneName ?? 'jeřáb' } : trw?.markers.crane, outriggers }
 }
 
 function Field({ label, unit, approx, wide, children }: { label: string; unit?: string; approx?: boolean; wide?: boolean; children: ReactNode }) {

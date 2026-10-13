@@ -1,0 +1,81 @@
+{
+ "schema": "cs-sim/trw-export@1",
+ "generated": "2026-10-13T06:00:00.000Z",
+ "app": {
+  "name": "CS Sim",
+  "version": "0.1.0"
+ },
+ "inputs": {
+  "chassis_id": 97330,
+  "chassis_name": "MAN TGX 26.480",
+  "crane_id": 9815,
+  "crane_name": "TKA CRANES 2.200BX 2H1M",
+  "wheelbase_mm": 4200,
+  "axle_x_mm": [
+   1475,
+   5675,
+   7025
+  ],
+  "frame_length_mm": 9175,
+  "chassis_profile": "M.A.N  Profil 1   220x80x85x6",
+  "subframe_profile": "UC 200x80x8",
+  "load_case": {
+   "crane_x_mm": 2800,
+   "Mk_kNm": 200,
+   "Fv_kN": 4.16,
+   "slew_deg": 0,
+   "outriggers": true,
+   "outrigger_spread_mm": 5600,
+   "vehicle_kN": 0
+  }
+ },
+ "results": {
+  "max_bending_moment": {
+   "value_kNm": -152.3,
+   "x_mm": 2450,
+   "chassis_kNm": -60.1,
+   "subframe_kNm": -30.2,
+   "composite_Ne_kNm": -62.0
+  },
+  "max_normal_stress": {
+   "subframe_MPa": 210.4,
+   "chassis_MPa": 180.2
+  },
+  "max_deflection": {
+   "value_mm": 12.3,
+   "x_mm": 9175,
+   "vertical_mm": -11.8,
+   "vertical_x_mm": 9175
+  },
+  "utilization": [
+   {
+    "check": "Podélník mezirámu L",
+    "role": "sub",
+    "profile": "UC 200×80×8",
+    "steel": "S420MC",
+    "pct": 62.4,
+    "x_mm": 2450
+   },
+   {
+    "check": "Podélník rámu L",
+    "role": "ch",
+    "profile": "220x80x85x6",
+    "steel": "S420",
+    "pct": 48.0,
+    "x_mm": 2600
+   }
+  ],
+  "governing": {
+   "check": "Podélník mezirámu L",
+   "pct": 62.4,
+   "ok": true
+  },
+  "support_reactions_kN": [
+   {
+    "label": "N1L",
+    "x_mm": 1475,
+    "Fz_kN": 10.2
+   }
+  ]
+ }
+}
