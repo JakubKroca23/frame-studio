@@ -102,6 +102,8 @@ export interface KeyDim { key: string; name: string; mm: number | null; source: 
 
 export interface CraneSheet {
   isCrane: boolean
+  /** jib reach from an iQ JIB sheet (L7: stored, not modelled) */
+  jib?: { minMm: number; maxMm: number; manMm: number } | null
   reason: string
   title: string
   /** model number read from the sheet ("142", "408" …) */
@@ -144,11 +146,46 @@ function sheetScale(dims: DimRecord[], labelled: Omit<LabelledDim, 'mm'>[], valu
   return { scale: s, note: `Měřítko z kót s popisem (${recs.length} kót souhlasí s hodnotami v tabulkách: ${recs.map((r) => r.text).join(', ')}). ${s.titleHint ? `Razítko: ${s.titleHint}.` : ''}` }
 }
 
+/**
+ * LESSONS L4: iQ / X-HiPro "GEN. DIM." sheets have no tables. One variant per sheet (E8 / E-9 in the title);
+ * outreach = dim text "Min. A / Max. B" (largest Max, "(v8)" = main boom), "Manual extension Min/Max", jib "(v8+v6)".
+ */
+export function unlabelledOutreach(texts: readonly string[]): { variants: SheetVariant[]; jib: { minMm: number; maxMm: number; manMm: number } | null } {
+  const title = texts.find((t) => /GEN(\.|ERAL)\s*DIM/i.test(t)) ?? ''
+  const em = /E\s*-?\s*(\d{1,2})\b/.exec(title.replace(/\\P/g, ' ').replace(/GEN(\.|ERAL)\s*DIM\w*\.?/i, ''))
+  if (!em) return { variants: [], jib: null }
+  const lines = texts.flatMap((t) => t.split('\\P')).map((t) => t.trim())
+  const rx = /Min\.\s*(\d{3,5})\s*\/\s*Max\.\s*(\d{3,5})\s*(?:\(([^)]*)\))?/i
+  const hyd: { a: number; b: number }[] = [], plus: { a: number; b: number }[] = []
+  let man = 0
+  for (const l of lines) {
+    const m = rx.exec(l)
+    if (!m) continue
+    const a = +m[1], b = +m[2], tag = m[3] ?? ''
+    if (/manual/i.test(l)) man = Math.max(man, b)
+    else if (/\+\s*1\s*m?$/i.test(tag)) plus.push({ a, b }) // "(v6+1m)" = + manual extension of the jib
+    else hyd.push({ a, b })
+  }
+  const top = (xs: { a: number; b: number }[]) => xs.reduce<{ a: number; b: number } | null>((p, x) => (!p || x.b > p.b ? x : p), null)
+  let jib: { minMm: number; maxMm: number; manMm: number } | null = null
+  let rest = hyd
+  if (texts.some((t) => /GEN(\.|ERAL)\s*DIM.*JIB/i.test(t) || /\(v\d+\s*\+\s*v\d+/i.test(t))) {
+    const j = top(hyd)
+    if (j) { jib = { minMm: j.a, maxMm: j.b, manMm: top(plus.filter((x) => x.a === j.a))?.b ?? j.b }; rest = hyd.filter((x) => x.b !== j.b && x.a >= 4000) }
+  }
+  const mm = top(rest)
+  if (!mm) return { variants: [], jib: null }
+  const main: [number, number] = [mm.a, mm.b]
+  const n = +em[1]
+  return { variants: [{ id: `E-${n}`, family: 'E', boom: 'E', extensions: n, minOutreachMm: main[0], hydMaxMm: main[1], manMaxMm: Math.max(man, main[1]) }], jib }
+}
+
 export function readCraneSheet(raw: string, db: DxfDb = parseDxf(raw)): CraneSheet {
   const tables = parseAcadTables(raw)
   const texts = [...db.entities.filter((e) => e.text).map((e) => e.text!), ...tables.flatMap((t) => t.cells.flat())]
-  const variants = outreachVariants(tables)
   const allText = texts.join('\n')
+  const unl = unlabelledOutreach([...texts, ...(raw.match(/^[^\n]*(Min\.|GEN(\.|ERAL)\s*DIM)[^\n]*$/gm) ?? []).map((l) => l.replace(/\r$/, ''))])
+  const variants = unl.variants.length && !outreachVariants(tables).length ? unl.variants : outreachVariants(tables)
   const hiab = /HIAB/i.test(allText) || /HIAB/i.test(raw.slice(0, 2_000_000))
   const exterior = /EXTERIOR DRAWING/i.test(allText)
   const isCrane = hiab && (variants.length > 0 || exterior)
@@ -200,6 +237,6 @@ export function readCraneSheet(raw: string, db: DxfDb = parseDxf(raw)): CraneShe
   return {
     isCrane,
     reason: isCrane ? `HIAB výkres${exterior ? ' (EXTERIOR DRAWING)' : ''}, tabulka dosahů: ${variants.length} variant` : 'není výkres jeřábu HIAB',
-    title, model, scale, scaleNote: note, scaleConfirmed: /Potvrzeno/.test(note), heights, variants, labelled, tableValues: values, dims: keyDims,
+    jib: unl.jib, title, model, scale, scaleNote: note, scaleConfirmed: /Potvrzeno/.test(note) || (unl.variants.length > 0 && scale.source === 'dims'), heights, variants, labelled, tableValues: values, dims: keyDims,
   }
 }

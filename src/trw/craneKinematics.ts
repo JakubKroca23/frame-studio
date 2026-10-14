@@ -186,7 +186,9 @@ export interface CatalogEntry {
   dh: number
   baseX: number
   defaultVariantId: string
-  variants: { id: string; boom: string; extensions: number; minOutreachMm: number; hydMaxMm: number; manMaxMm: number; sheet: string }[]
+  variants: { id: string; boom: string; extensions: number; minOutreachMm: number; hydMaxMm: number; manMaxMm: number; sheet: string; /** LESSONS L7: jib reach from the JIB sheet (not modelled) */ jib?: { minMm: number; maxMm: number; manMm: number } | null }[]
+  /** other model names using the same drawings (LESSONS L6) */
+  aliases?: string[]
   report: { name: string; drawing: number | null; template: number | null; deviation: number | null; used: string; note: string }[]
   sheets: string[]
   notes: string[]
@@ -202,6 +204,9 @@ export function templateSectionStrokes(tpl: CraneDef): number[] {
 /** CraneDef that reuses a template mesh, adapted per part (see src/craneTpl/adaptMesh.ts). */
 export function deriveDef(tpl: CraneDef, e: Pick<CatalogEntry, 'key' | 'name' | 'match' | 'dh' | 'baseX' | 'defaultVariantId'> & { variants: Omit<CraneVariant, 'model'>[]; loads?: Record<string, LoadTable> | null }): CraneDef {
   const lift = (p: RH) => ({ r: p.r, h: p.h + e.dh })
+  // LESSONS L2: reference reach = template's own kinematic reach at full stroke (hook offset), so derived variants hit 1-3 MAX
+  const v0 = tpl.variants.find((v) => v.id === tpl.defaultVariantId)!
+  const hookDev = forwardKinematics({ slew: 0, a1: 0, rel: -meshAngles(tpl).delta, ext: variantBoom(v0).stroke }, v0).tip.r * 1000 - v0.hydMaxMm
   const variants = e.variants.map((v) => ({ id: v.id, family: v.family, extensions: v.extensions, minOutreachMm: v.minOutreachMm, hydMaxMm: v.hydMaxMm, manMaxMm: v.manMaxMm, model: e.key }))
   return {
     ...tpl,
@@ -211,6 +216,7 @@ export function deriveDef(tpl: CraneDef, e: Pick<CatalogEntry, 'key' | 'name' | 
     // the 142 folded GLB is a fixed mesh: only usable while the template parts stay unchanged
     foldedFile: e.dh === 0 && e.baseX === 1 ? tpl.foldedFile : undefined,
     geom: { ...tpl.geom, p1: lift(tpl.geom.p1), p2: lift(tpl.geom.p2), tipRetracted: lift(tpl.geom.tipRetracted) },
+    refMinOutreachMm: tpl.refMinOutreachMm + hookDev,
     variants,
     defaultVariantId: variants.find((v) => v.id === e.defaultVariantId)?.id ?? variants[variants.length - 1].id,
     loads: e.loads ?? null,
@@ -220,10 +226,6 @@ export function deriveDef(tpl: CraneDef, e: Pick<CatalogEntry, 'key' | 'name' | 
 }
 
 export const CRANE_CATALOG: CatalogEntry[] = (CATALOG as { entries: CatalogEntry[] }).entries
-for (const e of CRANE_CATALOG) {
-  const tpl = CRANE_DEFS.find((d) => d.key === e.template)!
-  CRANE_DEFS.push(deriveDef(tpl, { ...e, variants: e.variants.map((v) => ({ ...v, family: (v.boom.endsWith('S') && v.boom.length > 1 ? 'ES' : 'E') as 'E' | 'ES' })) }))
-}
 
 export function craneDefFor(name: string | null | undefined): CraneDef | null {
   if (!name) return null
@@ -239,13 +241,16 @@ export function registerCraneDef(def: CraneDef) {
   else CRANE_DEFS.push(def)
 }
 
-/** Cumulative extension fraction of telescope k (1-based) of n sections. */
+/**
+ * Cumulative extension fraction of telescope k (1-based) of n sections. RULE (LESSONS.md R1): a variant shows exactly
+ * its n telescopes; the drawing only gives the total stroke, so each gets stroke/n — except the sample model's own
+ * measured variant (n = measured sections, not derived), which keeps its measured per-section strokes.
+ */
 export function extFraction(def: CraneDef, n: number, k: number): number {
   const s = def.extStrokes
-  if (!s || s.length < n) return k / n
-  const used = s.slice(0, n)
-  const tot = used.reduce((a, b) => a + b, 0)
-  return used.slice(0, k).reduce((a, b) => a + b, 0) / tot
+  if (!s || def.adapt || s.length !== n) return k / n
+  const tot = s.reduce((a, b) => a + b, 0)
+  return s.slice(0, k).reduce((a, b) => a + b, 0) / tot
 }
 
 /** Variant of a crane + whether trw named it exactly. */
@@ -403,4 +408,10 @@ export function jointFromBoomPoint(j: CraneJoints, key: 'a1' | 'rel' | 'ext', p:
   const a = (j.a1 + j.rel + delta) / DEG
   const along = (p.r - k.r) * Math.cos(a) + (p.h - k.h) * Math.sin(a)
   return setJoint(j, 'ext', along - variantBoom(v).l2 * Math.cos(delta / DEG), v)
+}
+
+// registered last: deriveDef needs the kinematics helpers (defOf …) initialised
+for (const e of CRANE_CATALOG) {
+  const tpl = CRANE_DEFS.find((d) => d.key === e.template)!
+  CRANE_DEFS.push(deriveDef(tpl, { ...e, variants: e.variants.map((v) => ({ ...v, family: (v.boom.endsWith('S') && v.boom.length > 1 ? 'ES' : 'E') as 'E' | 'ES' })) }))
 }

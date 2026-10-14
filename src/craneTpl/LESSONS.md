@@ -1,0 +1,44 @@
+# Crane template flow — rules and lessons
+
+Every crane is a sample model (template 142 or 408) adapted to dimensions read from HIAB drawings. Each lesson below
+is enforced in code (`rules.ts`, ids in comments). Check every new crane against all lessons; add a lesson when a
+crane needs something new. Never invent a dimension: a value is from the drawing (table or dimension), derived from
+drawing values, or kept from the template — and the report says which.
+
+## Rules
+
+- **R1 — telescopes are real.** A variant with N extensions shows exactly N extension parts. Extra template parts are
+  removed, missing ones are copies of the innermost one. Each part's stroke = (hydraulic max − retracted reach) / N from
+  that variant's 1-3 OUTREACH row (the drawing gives no per-section split); its length = own stroke + the template's
+  overlap for that section (≥ 0.15 m). Never hide parts, never keep all template parts with short strokes, never spread
+  the stroke over extra parts. Exception: the sample model's own measured variant (408 E-8, 8 measured strokes).
+  Code: `extFraction`, `adaptGroups` (`realExtensions`, `minOverlap`).
+
+## Lessons
+
+- **L0 — template choice.** 142 for the medium class, 408 for ≥ 22 t·m (225L, 228, 232, 235L, 262, 302, 638, iQ.708,
+  iQ.958/1188). Adapt a part only when the drawing differs by > 2 %.
+- **L1 — scale.** Never assume 1:1. Generic dims-vs-geometry scale, confirmed by labelled dims ("3-5a" …) matching their
+  table values. Detail views can sit at other scales (DL sheets gave 1:21.89 from leg details) → unconfirmed scale =
+  no geometric adaptation, tables still usable (they are scale-free).
+- **L2 — hook offset (142: −113 mm, 408: −8 mm).** Catalogue outreach is measured to the hook; the template's own
+  kinematic tip is not. The reference reach of a derived crane is the template's kinematic reach of its own variant,
+  so a derived variant reaches exactly its drawing 1-3 MAX. (`hookOffsetFromKinematics`)
+- **L3 — what kóta 1-1 measures.** On the 142 sheet 1-1 is the top of the column/main boom at the slewing axis in the
+  straight drawing pose (sample 2569 mm vs. drawing 2598 mm). There is no 408 drawing, and the 408-class drawings give
+  2586–2634 mm against 2911 mm on the 408 mesh — the reference point cannot be calibrated, so a 408-based crane keeps
+  the template column and the 1-1 difference is only reported. (`heightFrom11`)
+- **L4 — iQ / X-HiPro sheets ("GEN. DIM."/dimension drawings) have no labels and no tables.** One variant per sheet
+  (E-n in the title / file name). Outreach = horizontal DIMENSION with text "Min. A / Max. B" (the one with the largest
+  Max; suffix "(v8)" = main boom, "(v8+v6)" = with jib). No 1-1, no 3-5 → template height and base, no manual
+  extension (+MAN = hydraulic). Scale counts as confirmed when ≥ 10 dims agree (values are code-42 lengths).
+- **L5 — several 1-1 dims / sheets.** Ignore "1-1 REEL", "BOOM COVER"; take the lowest 1-1 of a sheet; sheets of one
+  crane must agree within 3 % (228/232 E-ES 1-3 vs 3-6: 2607 vs 2086 → template).
+- **L6 — shared drawings.** Identical files (262 E = 302 E, md5) and shared drawing numbers (142/162 family 0807/0808,
+  CLX ↔ iX) are aliases of one crane, not new data.
+- **L7 — JIB.** No jib template exists. A jib needs its own boom + telescope + joint; building it from the 408's
+  smallest telescopes would be pure geometry invention (jib length, pivot, angles are not on the sheets except the
+  total reach). JIB sheets are imported as the main-boom variant (reach "(v8)"); the jib reach "(v8+v6)" is stored
+  and shown, the jib itself is not modelled → flagged.
+- **L8 — not derivable from 142/408.** Z-folding (Z-HiPro) and sheets without a reach table (S-HiPro 230W "W") are
+  skipped. CL (forestry-line) sheets carry normal B/BS reach tables matching iX.188/228 → derived like B/BS, flagged.

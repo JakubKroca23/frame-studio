@@ -5,9 +5,9 @@ import { craneModelFor } from '../trw/CraneModel'
 describe('crane catalog (template + drawings)', () => {
   it('has the models from the drawings', () => {
     const keys = CRANE_CATALOG.map((e) => e.key)
-    for (const k of ['ex142-bbs', 'ex142-bss', 'ex142-dds', 'ex162-ees', 'ex162-bbs', 'ex162-bss', 'ex162-dds', 'ix148-bbs', 'ex192-ees', 'ix188-bbs', 'ix188-ees', 'ix228-bbs', 'ix228-ees', 'ex232-ees', 'ix225l-dldll', 'ex235l-dldll', 'ex262-e', 'ex302-e', 'ex302-ep']) expect(keys).toContain(k)
+    for (const k of ['ex142-bbs', 'ex142-bss', 'ex142-dds', 'ex162-ees', 'ex162-bbs', 'ex162-bss', 'ex162-dds', 'ix148-bbs', 'ex192-ees', 'ix188-bbs', 'ix188-ees', 'ix228-bbs', 'ix228-ees', 'ex232-ees', 'ix225l-dldll', 'ex235l-dldll', 'ex262-e', 'ex302-e', 'ex302-ep', 'cl19-bbs', 'cl23-bbs', 'iq708-e', 'iq708-ejib', 'iq1188-e', 'iq1188-ejib', 'x638-e']) expect(keys).toContain(k)
     for (const e of CRANE_CATALOG) {
-      expect(e.template).toBe(Number.parseInt(e.model, 10) >= 220 ? '408' : '142')
+      expect(e.template).toBe(e.key === 'cl23-bbs' || Number.parseInt(e.model, 10) >= 220 ? '408' : '142')
       expect(new Set(e.variants.map((v) => v.id)).size).toBe(e.variants.length)
       for (const v of e.variants) { expect(v.hydMaxMm).toBeGreaterThan(v.minOutreachMm); expect(v.manMaxMm).toBeGreaterThanOrEqual(v.hydMaxMm) }
     }
@@ -17,13 +17,20 @@ describe('crane catalog (template + drawings)', () => {
       const { stroke } = variantBoom(v)
       expect(stroke).toBeCloseTo((v.hydMaxMm - v.minOutreachMm) / 1000, 6)
       const t = forwardKinematics({ slew: 0, a1: 0, rel: -meshAngles(d).delta, ext: stroke }, v).tip
-      expect(Math.abs(t.r * 1000 - v.hydMaxMm)).toBeLessThan(400)
+      expect(Math.abs(t.r * 1000 - v.hydMaxMm)).toBeLessThan(15) // LESSONS L2: hook offset corrected
       for (const [a1, rel, ext] of [[30, -60, 0], [10, -20, stroke / 2]]) {
         const target = forwardKinematics({ slew: 0, a1, rel, ext }, v).tip
         const r = forwardKinematics(inverseKinematics(target, v), v).tip
         expect(Math.hypot(r.r - target.r, r.h - target.h)).toBeLessThan(0.05)
       }
     }
+  })
+  it('aliases share the drawings (LESSONS L6)', () => {
+    expect(craneVariantMatch('HIAB CLX 178 E-4')?.def.key).toBe('ix188-ees')
+    expect(craneVariantMatch('HIAB CLX 218 B-3')?.def.key).toBe('ix228-bbs')
+    expect(craneVariantMatch('HIAB CLX 288 EP-4')?.def.key).toBe('ex302-ep')
+    expect(craneVariantMatch('HIAB iQ.958 E-9')?.def.key).toBe('iq1188-e')
+    expect(craneVariantMatch('HIAB iQ.708 E-7')?.variant.id).toBe('E-7')
   })
   it('maps trw crane names', () => {
     expect(craneVariantMatch('HIAB  X-HiPro 192 E-4')).toMatchObject({ def: { key: 'ex192-ees' }, variant: { id: 'E-4' }, exact: true })

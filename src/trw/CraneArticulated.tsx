@@ -7,7 +7,7 @@ import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
 import { adaptGroups } from '../craneTpl/adaptMesh'
-import { defOf, extFraction, forwardKinematics, inverseKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, slewFromAzimuth, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
+import { defOf, extFraction, templateSectionStrokes, forwardKinematics, inverseKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, slewFromAzimuth, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
 
 const material = new THREE.MeshStandardMaterial({ color: '#c8231b', metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide })
 const handleMat = new THREE.MeshStandardMaterial({ color: '#1f6fd1', emissive: '#0b3a7a', transparent: true, opacity: 0.85 })
@@ -99,7 +99,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const dl = l2 - mesh.l2 // variant retracted length vs. the mesh variant
   const n = variant.extensions, S = def.meshExtSections
   const vStroke = variantBoom(variant).stroke
-  const groups = useMemo(() => adaptGroups(raw, def, def.adapt ? dl : 0, n, Ud, U, vStroke), [raw, def, dl, n, vStroke]) // eslint-disable-line react-hooks/exhaustive-deps
+  const groups = useMemo(() => adaptGroups(raw, def, def.adapt ? dl : 0, n, Ud, U, vStroke, def.adapt?.secStroke ?? templateSectionStrokes(def)), [raw, def, dl, n, vStroke]) // eslint-disable-line react-hooks/exhaustive-deps
   const meshes = (g: string) => (groups[g] ?? []).map((geo, i) => <mesh key={`${g}${i}`} geometry={geo} material={material} castShadow receiveShadow />)
 
   // S telescopes in the mesh. A variant with n < S shows only the first n (the n-th carries the hook); n > S adds

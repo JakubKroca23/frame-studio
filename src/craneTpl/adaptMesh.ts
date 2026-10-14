@@ -22,7 +22,7 @@ function map(geo: THREE.BufferGeometry, f: (v: THREE.Vector3) => void): THREE.Bu
  * - n > template sections: extra telescopes = copies of the innermost one, cross-section shrunk by CLONE_SHRINK per step
  * Without def.adapt only the extension clones are added (the shipped models stay untouched).
  */
-export function adaptGroups(groups: Record<string, THREE.BufferGeometry[]>, def: CraneDef, dl: number, n: number, ud: { r: number; h: number }, u: { r: number; h: number }, stroke = 0): Record<string, THREE.BufferGeometry[]> {
+export function adaptGroups(groups: Record<string, THREE.BufferGeometry[]>, def: CraneDef, dl: number, n: number, ud: { r: number; h: number }, u: { r: number; h: number }, stroke = 0, secStroke?: number[]): Record<string, THREE.BufferGeometry[]> {
   const out: Record<string, THREE.BufferGeometry[]> = { ...groups }
   const a = def.adapt
   if (a) {
@@ -62,18 +62,21 @@ export function adaptGroups(groups: Record<string, THREE.BufferGeometry[]>, def:
       }))
     }
   }
-  // telescopes whose variant stroke exceeds the template's: lengthen along the axis towards the knuckle (outer end
-  // fixed, so the retracted tip stays put and the extended sections still overlap)
-  const ss = a?.secStroke
+  // RULE R1 (LESSONS.md): exactly n telescopes, each sized from the variant: length = own stroke + the template's
+  // overlap of that section (template length − template stroke). Scaled along the axis about the outer end, so the
+  // retracted tip stays put; longer sections reach back into the outer boom, shorter ones lose overlap length only.
+  const ss = secStroke ?? a?.secStroke
   if (ss && stroke > 0) for (let k = 1; k <= n; k++) {
     const need = stroke * (extFraction(def, n, k) - extFraction(def, n, k - 1))
     const have = ss[Math.min(k, ss.length) - 1]
-    const f = need / have
     const gs = out[`ext${k}`]
-    if (!gs?.length || f <= 1.02) continue
-    let hi = -Infinity
+    if (!gs?.length) continue
+    let hi = -Infinity, lo = Infinity
     const t = new THREE.Vector3()
-    for (const g of gs) { const pa = g.getAttribute('position'); for (let i = 0; i < pa.count; i++) { t.fromBufferAttribute(pa, i); hi = Math.max(hi, t.z * u.r + t.y * u.h) } }
+    for (const g of gs) { const pa = g.getAttribute('position'); for (let i = 0; i < pa.count; i++) { t.fromBufferAttribute(pa, i); const al = t.z * u.r + t.y * u.h; hi = Math.max(hi, al); lo = Math.min(lo, al) } }
+    const L = hi - lo
+    const f = (need + Math.max(0.15, L - have)) / L
+    if (Math.abs(f - 1) < 0.01) continue
     out[`ext${k}`] = gs.map((g) => map(g, (v) => {
       const al = v.z * u.r + v.y * u.h
       const d = (al - hi) * (f - 1)
@@ -81,5 +84,7 @@ export function adaptGroups(groups: Record<string, THREE.BufferGeometry[]>, def:
       v.y += d * u.h
     }))
   }
+  // only the n telescopes of the variant exist
+  for (const k of Object.keys(out)) { const m = /^ext(\d+)$/.exec(k); if (m && +m[1] > n) delete out[k] }
   return out
 }

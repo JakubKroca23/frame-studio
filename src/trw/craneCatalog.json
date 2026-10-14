@@ -1,15 +1,21 @@
 {
  "generated": "src/craneTpl/catalog.local.test.ts",
  "skipped": [
-  "eX.262 EP: eX.262 HIPRO GD-EP-466-4146_drw.dxf — ve výkresu není tabulka dosahů 1-3 OUTREACH (1:16.67, není výkres jeřábu HIAB) → přeskočeno"
+  "eX.262 EP: eX.262 HIPRO GD-EP-466-4146_drw.dxf — ve výkresu není tabulka dosahů 1-3 OUTREACH (1:16.67, není výkres jeřábu HIAB) → přeskočeno",
+  "Z.191 C: Z-HIPRO 191 GD-C 387-4974.dxf — ve výkresu není tabulka dosahů 1-3 OUTREACH (1:1, HIAB výkres (EXTERIOR DRAWING), tabulka dosahů: 0 variant) → přeskočeno",
+  "S.230W W: S-HIPRO 230W GD-W 456-9645.dxf — ve výkresu není tabulka dosahů 1-3 OUTREACH (1:20, není výkres jeřábu HIAB) → přeskočeno"
  ],
  "entries": [
   {
    "key": "ex142-bbs",
    "model": "142",
    "template": "142",
-   "name": "HIAB eX 142 HiPro B/BS",
-   "match": "(^|\\D)142(?!\\d|\\s*L\\b)",
+   "name": "HIAB eX 142 HiPro B/BS (= iX 142 HiPro, iX 138)",
+   "match": "(^|\\D)142(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)142\\s*HiPro(?!\\d)|(^|\\D)138(?!\\d)",
+   "aliases": [
+    "iX 142 HiPro",
+    "iX 138"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "BS-3",
@@ -111,12 +117,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 3,
      "template": 4,
      "deviation": -1,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -136,8 +142,12 @@
    "key": "ex142-bss",
    "model": "142",
    "template": "142",
-   "name": "HIAB eX 142 HiPro BSS",
-   "match": "(^|\\D)142(?!\\d|\\s*L\\b)",
+   "name": "HIAB eX 142 HiPro BSS (= iX 142 HiPro, iX 138)",
+   "match": "(^|\\D)142(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)142\\s*HiPro(?!\\d)|(^|\\D)138(?!\\d)",
+   "aliases": [
+    "iX 142 HiPro",
+    "iX 138"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "BSS-2",
@@ -194,12 +204,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 2,
      "template": 4,
      "deviation": -2,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (2), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -219,8 +229,12 @@
    "key": "ex142-dds",
    "model": "142",
    "template": "142",
-   "name": "HIAB eX 142 HiPro D/DS",
-   "match": "(^|\\D)142(?!\\d|\\s*L\\b)",
+   "name": "HIAB eX 142 HiPro D/DS (= iX 142 HiPro, iX 138)",
+   "match": "(^|\\D)142(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)142\\s*HiPro(?!\\d)|(^|\\D)138(?!\\d)",
+   "aliases": [
+    "iX 142 HiPro",
+    "iX 138"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "DS-5",
@@ -358,12 +372,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 5,
      "template": 4,
      "deviation": 1,
      "used": "výkres",
-     "note": "1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3, 4, 5), každý se zdvihem (MAX − MIN)/n; 1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -384,8 +398,12 @@
    "key": "ex162-ees",
    "model": "162",
    "template": "142",
-   "name": "HIAB eX 162 HiPro E/ES",
-   "match": "(^|\\D)162(?!\\d|\\s*L\\b)",
+   "name": "HIAB eX 162 HiPro E/ES (= iX 138, iX 158)",
+   "match": "(^|\\D)162(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)138(?!\\d)|(^|\\D)158(?!\\d)",
+   "aliases": [
+    "iX 138",
+    "iX 158"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "ES-5",
@@ -523,12 +541,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 5,
      "template": 4,
      "deviation": 1,
      "used": "výkres",
-     "note": "1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3, 4, 5), každý se zdvihem (MAX − MIN)/n; 1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -551,8 +569,11 @@
    "key": "ex162-bbs",
    "model": "162",
    "template": "142",
-   "name": "HIAB eX 162 HiPro B/BS",
-   "match": "(^|\\D)162(?!\\d|\\s*L\\b)",
+   "name": "HIAB eX 162 HiPro B/BS (= iX 158)",
+   "match": "(^|\\D)162(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)158(?!\\d)",
+   "aliases": [
+    "iX 158"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "BS-3",
@@ -654,12 +675,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 3,
      "template": 4,
      "deviation": -1,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -679,8 +700,11 @@
    "key": "ex162-bss",
    "model": "162",
    "template": "142",
-   "name": "HIAB eX 162 HiPro BSS",
-   "match": "(^|\\D)162(?!\\d|\\s*L\\b)",
+   "name": "HIAB eX 162 HiPro BSS (= iX 158)",
+   "match": "(^|\\D)162(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)158(?!\\d)",
+   "aliases": [
+    "iX 158"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "BSS-2",
@@ -737,12 +761,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 2,
      "template": 4,
      "deviation": -2,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (2), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -762,8 +786,11 @@
    "key": "ex162-dds",
    "model": "162",
    "template": "142",
-   "name": "HIAB eX 162 HiPro D/DS",
-   "match": "(^|\\D)162(?!\\d|\\s*L\\b)",
+   "name": "HIAB eX 162 HiPro D/DS (= iX 158)",
+   "match": "(^|\\D)162(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)158(?!\\d)",
+   "aliases": [
+    "iX 158"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "DS-5",
@@ -901,12 +928,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 5,
      "template": 4,
      "deviation": 1,
      "used": "výkres",
-     "note": "1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3, 4, 5), každý se zdvihem (MAX − MIN)/n; 1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -928,7 +955,7 @@
    "model": "148",
    "template": "142",
    "name": "HIAB iX 148 Duo B/BS",
-   "match": "(^|\\D)148(?!\\d|\\s*L\\b)",
+   "match": "(^|\\D)148(?!\\d|\\s*L\\b|\\s*CL\\b)",
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "BS-3",
@@ -1030,12 +1057,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 3,
      "template": 4,
      "deviation": -1,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -1058,7 +1085,7 @@
    "model": "192",
    "template": "142",
    "name": "HIAB eX 192 HiPro E/ES",
-   "match": "(^|\\D)192(?!\\d|\\s*L\\b)",
+   "match": "(^|\\D)192(?!\\d|\\s*L\\b|\\s*CL\\b)",
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "ES-6",
@@ -1206,12 +1233,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 6,
      "template": 4,
      "deviation": 2,
      "used": "výkres",
-     "note": "2 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (2, 3, 4, 5, 6), každý se zdvihem (MAX − MIN)/n; 2 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -1232,8 +1259,11 @@
    "key": "ix188-bbs",
    "model": "188",
    "template": "142",
-   "name": "HIAB iX 188 HiDuo B/BS",
-   "match": "(^|\\D)188(?!\\d|\\s*L\\b)",
+   "name": "HIAB iX 188 HiDuo B/BS (= CLX 178)",
+   "match": "(^|\\D)188(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)178(?!\\d)",
+   "aliases": [
+    "CLX 178"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "BS-4",
@@ -1363,12 +1393,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 4,
      "template": 4,
      "deviation": 0,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3, 4), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -1389,8 +1419,11 @@
    "key": "ix188-ees",
    "model": "188",
    "template": "142",
-   "name": "HIAB iX 188 HiDuo E/ES",
-   "match": "(^|\\D)188(?!\\d|\\s*L\\b)",
+   "name": "HIAB iX 188 HiDuo E/ES (= CLX 178)",
+   "match": "(^|\\D)188(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)178(?!\\d)",
+   "aliases": [
+    "CLX 178"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "ES-6",
@@ -1538,12 +1571,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 6,
      "template": 4,
      "deviation": 2,
      "used": "výkres",
-     "note": "2 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (2, 3, 4, 5, 6), každý se zdvihem (MAX − MIN)/n; 2 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -1564,9 +1597,12 @@
    "key": "ix228-bbs",
    "model": "228",
    "template": "408",
-   "name": "HIAB iX 228 HiDuo B/BS",
-   "match": "(^|\\D)228(?!\\d|\\s*L\\b)",
-   "dh": -0.277,
+   "name": "HIAB iX 228 HiDuo B/BS (= CLX 218)",
+   "match": "(^|\\D)228(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)218(?!\\d)",
+   "aliases": [
+    "CLX 218"
+   ],
+   "dh": 0,
    "baseX": 1,
    "defaultVariantId": "BS-4",
    "variants": [
@@ -1667,8 +1703,8 @@
      "drawing": 2634,
      "template": 2911,
      "deviation": -277,
-     "used": "výkres",
-     "note": "sloup natažen/zkrácen svisle"
+     "used": "šablona",
+     "note": "kóta 1-1 na šabloně 408 nekalibrována (LESSONS L3) → jen kontrola, sloup ze šablony"
     },
     {
      "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
@@ -1695,12 +1731,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 4,
      "template": 8,
      "deviation": -4,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3, 4), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -1721,8 +1757,11 @@
    "key": "ix228-ees",
    "model": "228",
    "template": "408",
-   "name": "HIAB iX 228 HiDuo E/ES",
-   "match": "(^|\\D)228(?!\\d|\\s*L\\b)",
+   "name": "HIAB iX 228 HiDuo E/ES (= CLX 218)",
+   "match": "(^|\\D)228(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)218(?!\\d)",
+   "aliases": [
+    "CLX 218"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "ES-6",
@@ -1870,12 +1909,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 6,
      "template": 8,
      "deviation": -2,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (2, 3, 4, 5, 6), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -1897,7 +1936,7 @@
    "model": "232",
    "template": "408",
    "name": "HIAB eX 232 HiPro E/ES",
-   "match": "(^|\\D)232(?!\\d|\\s*L\\b)",
+   "match": "(^|\\D)232(?!\\d|\\s*L\\b|\\s*CL\\b)",
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "ES-6",
@@ -2045,12 +2084,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 6,
      "template": 8,
      "deviation": -2,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (2, 3, 4, 5, 6), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -2166,12 +2205,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 3,
      "template": 8,
      "deviation": -5,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -2289,12 +2328,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 3,
      "template": 8,
      "deviation": -5,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -2318,8 +2357,8 @@
    "model": "262",
    "template": "408",
    "name": "HIAB eX 262 HiPro E",
-   "match": "(^|\\D)262(?!\\d|\\s*L\\b)",
-   "dh": -0.325,
+   "match": "(^|\\D)262(?!\\d|\\s*L\\b|\\s*CL\\b)",
+   "dh": 0,
    "baseX": 1,
    "defaultVariantId": "E-8",
    "variants": [
@@ -2375,8 +2414,8 @@
      "drawing": 2586,
      "template": 2911,
      "deviation": -325,
-     "used": "výkres",
-     "note": "sloup natažen/zkrácen svisle"
+     "used": "šablona",
+     "note": "kóta 1-1 na šabloně 408 nekalibrována (LESSONS L3) → jen kontrola, sloup ze šablony"
     },
     {
      "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
@@ -2411,12 +2450,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 8,
      "template": 8,
      "deviation": 0,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (4, 5, 6, 7, 8), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -2437,8 +2476,8 @@
    "model": "302",
    "template": "408",
    "name": "HIAB eX 302 HiPro E",
-   "match": "(^|\\D)302(?!\\d|\\s*L\\b)",
-   "dh": -0.325,
+   "match": "(^|\\D)302(?!\\d|\\s*L\\b|\\s*CL\\b)",
+   "dh": 0,
    "baseX": 1,
    "defaultVariantId": "E-8",
    "variants": [
@@ -2494,8 +2533,8 @@
      "drawing": 2586,
      "template": 2911,
      "deviation": -325,
-     "used": "výkres",
-     "note": "sloup natažen/zkrácen svisle"
+     "used": "šablona",
+     "note": "kóta 1-1 na šabloně 408 nekalibrována (LESSONS L3) → jen kontrola, sloup ze šablony"
     },
     {
      "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
@@ -2530,12 +2569,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 8,
      "template": 8,
      "deviation": 0,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (4, 5, 6, 7, 8), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -2555,8 +2594,12 @@
    "key": "ex302-ep",
    "model": "302",
    "template": "408",
-   "name": "HIAB eX 302 HiPro EP",
-   "match": "(^|\\D)302(?!\\d|\\s*L\\b)",
+   "name": "HIAB eX 302 HiPro EP (= CLX 248, CLX 288)",
+   "match": "(^|\\D)302(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)248(?!\\d)|(^|\\D)288(?!\\d)",
+   "aliases": [
+    "CLX 248",
+    "CLX 288"
+   ],
    "dh": 0,
    "baseX": 1,
    "defaultVariantId": "EP-5",
@@ -2632,12 +2675,12 @@
      "note": "ve výkresu nekótováno"
     },
     {
-     "name": "Počet výsuvů",
+     "name": "Počet výsuvů (max. varianta)",
      "drawing": 5,
      "template": 8,
      "deviation": -3,
      "used": "výkres",
-     "note": "nadbytečné výsuvy šablony skryty"
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (2, 3, 4, 5), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
     },
     {
      "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
@@ -2653,6 +2696,764 @@
    ],
    "notes": [
     "měřítko nepotvrzeno: eX.302 HIPRO GD-EP 466-4146 drw_1.dxf 1:20"
+   ]
+  },
+  {
+   "key": "cl19-bbs",
+   "model": "19",
+   "template": "142",
+   "name": "HIAB CL 19 B/BS",
+   "match": "(^|\\D)19\\s*CL\\b",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "BS-4",
+   "variants": [
+    {
+     "id": "B-1",
+     "boom": "B",
+     "extensions": 1,
+     "minOutreachMm": 4640,
+     "hydMaxMm": 6540,
+     "manMaxMm": 6540,
+     "sheet": "19 CL-2-3 GD 466-7987.dxf"
+    },
+    {
+     "id": "B-2",
+     "boom": "B",
+     "extensions": 2,
+     "minOutreachMm": 4730,
+     "hydMaxMm": 8630,
+     "manMaxMm": 10760,
+     "sheet": "19 CL-2-3 GD 466-7987.dxf"
+    },
+    {
+     "id": "B-3",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 4810,
+     "hydMaxMm": 10710,
+     "manMaxMm": 10710,
+     "sheet": "19 CL-2-3 GD 466-7987.dxf"
+    },
+    {
+     "id": "B-3 (4)",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 4740,
+     "hydMaxMm": 10690,
+     "manMaxMm": 12870,
+     "sheet": "19 CL-4 GD 466-7988.dxf"
+    },
+    {
+     "id": "B-4",
+     "boom": "B",
+     "extensions": 4,
+     "minOutreachMm": 4820,
+     "hydMaxMm": 12870,
+     "manMaxMm": 15160,
+     "sheet": "19 CL-4 GD 466-7988.dxf"
+    },
+    {
+     "id": "BS-3",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4440,
+     "hydMaxMm": 10390,
+     "manMaxMm": 12570,
+     "sheet": "19 CL-4 GD 466-7988.dxf"
+    },
+    {
+     "id": "BS-4",
+     "boom": "BS",
+     "extensions": 4,
+     "minOutreachMm": 4520,
+     "hydMaxMm": 12570,
+     "manMaxMm": 14860,
+     "sheet": "19 CL-4 GD 466-7988.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2590,
+     "template": 2569,
+     "deviation": 21,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2511,
+     "deviation": -15,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5564,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4864, 5.5m: 5564 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů (max. varianta)",
+     "drawing": 4,
+     "template": 4,
+     "deviation": 0,
+     "used": "výkres",
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3, 4), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4820,
+     "template": 4810,
+     "deviation": 10,
+     "used": "výkres",
+     "note": "4440–4820 mm → vnější výložník natažen od kloubu o -0.37…0.01 m"
+    }
+   ],
+   "sheets": [
+    "19 CL-2-3 GD 466-7987.dxf",
+    "19 CL-4 GD 466-7988.dxf"
+   ],
+   "notes": [
+    "řada CL (lesní/recyklační provedení) — tabulky dosahů B/BS jako iX.188, odvozeno jako B/BS, tvar CL (sloup, ovládací místo) šablona nemá"
+   ]
+  },
+  {
+   "key": "cl23-bbs",
+   "model": "23",
+   "template": "408",
+   "name": "HIAB CL 23 B/BS",
+   "match": "(^|\\D)23\\s*CL\\b",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "BS-4",
+   "variants": [
+    {
+     "id": "B-1",
+     "boom": "B",
+     "extensions": 1,
+     "minOutreachMm": 4758,
+     "hydMaxMm": 6608,
+     "manMaxMm": 6608,
+     "sheet": "23 CL-2-3 GD 466-7985.dxf"
+    },
+    {
+     "id": "B-2",
+     "boom": "B",
+     "extensions": 2,
+     "minOutreachMm": 4843,
+     "hydMaxMm": 8693,
+     "manMaxMm": 10823,
+     "sheet": "23 CL-2-3 GD 466-7985.dxf"
+    },
+    {
+     "id": "B-3",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 4928,
+     "hydMaxMm": 10778,
+     "manMaxMm": 10778,
+     "sheet": "23 CL-2-3 GD 466-7985.dxf"
+    },
+    {
+     "id": "B-3 (4)",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 4857,
+     "hydMaxMm": 10757,
+     "manMaxMm": 12937,
+     "sheet": "23 CL-4 GD 466-7986.dxf"
+    },
+    {
+     "id": "B-4",
+     "boom": "B",
+     "extensions": 4,
+     "minOutreachMm": 4942,
+     "hydMaxMm": 12942,
+     "manMaxMm": 15232,
+     "sheet": "23 CL-4 GD 466-7986.dxf"
+    },
+    {
+     "id": "BS-3",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4557,
+     "hydMaxMm": 10457,
+     "manMaxMm": 12637,
+     "sheet": "23 CL-4 GD 466-7986.dxf"
+    },
+    {
+     "id": "BS-4",
+     "boom": "BS",
+     "extensions": 4,
+     "minOutreachMm": 4642,
+     "hydMaxMm": 12642,
+     "manMaxMm": 14932,
+     "sheet": "23 CL-4 GD 466-7986.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2635,
+     "template": 2911,
+     "deviation": -276,
+     "used": "šablona",
+     "note": "kóta 1-1 na šabloně 408 nekalibrována (LESSONS L3) → jen kontrola, sloup ze šablony"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2533,
+     "deviation": -37,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5564,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4864, 5.5m: 5564 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů (max. varianta)",
+     "drawing": 4,
+     "template": 8,
+     "deviation": -4,
+     "used": "výkres",
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (1, 2, 3, 4), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4942,
+     "template": 4967,
+     "deviation": -25,
+     "used": "výkres",
+     "note": "4557–4942 mm → vnější výložník natažen od kloubu o -0.41…-0.03 m"
+    }
+   ],
+   "sheets": [
+    "23 CL-2-3 GD 466-7985.dxf",
+    "23 CL-4 GD 466-7986.dxf"
+   ],
+   "notes": [
+    "řada CL (lesní/recyklační provedení) — tabulky dosahů B/BS jako iX.228, odvozeno jako B/BS, tvar CL šablona nemá"
+   ]
+  },
+  {
+   "key": "iq708-e",
+   "model": "708",
+   "template": "408",
+   "name": "HIAB iQ 708 HiPro E",
+   "match": "(^|\\D)708(?!\\d|\\s*L\\b|\\s*CL\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "E-9",
+   "variants": [
+    {
+     "id": "E-6",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 4981,
+     "hydMaxMm": 16231,
+     "manMaxMm": 16231,
+     "sheet": "iQ.708 HiPro E-6 GD 556-7913_00.dxf"
+    },
+    {
+     "id": "E-7",
+     "boom": "E",
+     "extensions": 7,
+     "minOutreachMm": 4984,
+     "hydMaxMm": 18384,
+     "manMaxMm": 18384,
+     "sheet": "iQ.708 HiPro E-7 GD 556-7607_00.dxf"
+    },
+    {
+     "id": "E-8",
+     "boom": "E",
+     "extensions": 8,
+     "minOutreachMm": 4996,
+     "hydMaxMm": 20596,
+     "manMaxMm": 20596,
+     "sheet": "iQ.708 HiPro E-8 GD 556-7914_00.dxf"
+    },
+    {
+     "id": "E-9",
+     "boom": "E",
+     "extensions": 9,
+     "minOutreachMm": 5112,
+     "hydMaxMm": 23062,
+     "manMaxMm": 23062,
+     "sheet": "iQ.708 HiPro E-9 GD 556-7915_00.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "kóta 1-1 chybí"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": null,
+     "template": 2533,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu chybí → šablona"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů (max. varianta)",
+     "drawing": 9,
+     "template": 8,
+     "deviation": 1,
+     "used": "výkres",
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (6, 7, 8, 9), každý se zdvihem (MAX − MIN)/n; 1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 5112,
+     "template": 4967,
+     "deviation": 145,
+     "used": "výkres",
+     "note": "4981–5112 mm → vnější výložník natažen od kloubu o 0.01…0.14 m"
+    }
+   ],
+   "sheets": [
+    "iQ.708 HiPro E-6 GD 556-7913_00.dxf",
+    "iQ.708 HiPro E-7 GD 556-7607_00.dxf",
+    "iQ.708 HiPro E-8 GD 556-7914_00.dxf",
+    "iQ.708 HiPro E-9 GD 556-7915_00.dxf"
+   ],
+   "notes": [
+    "výkres bez popsaných kót a tabulek (iQ/X-HiPro, LESSONS L4): jen dosahy, výška a základ ze šablony"
+   ]
+  },
+  {
+   "key": "iq708-ejib",
+   "model": "708",
+   "template": "408",
+   "name": "HIAB iQ 708 HiPro E+JIB",
+   "match": "(^|\\D)708(?!\\d|\\s*L\\b|\\s*CL\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "E-8 JIB",
+   "variants": [
+    {
+     "id": "E-6 JIB",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 5304,
+     "hydMaxMm": 16554,
+     "manMaxMm": 16554,
+     "sheet": "iQ.708 HiPro E-6 JIB155Q-6 GD 556-7916_00.dxf",
+     "jib": {
+      "minMm": 8194,
+      "maxMm": 28944,
+      "manMm": 30744
+     }
+    },
+    {
+     "id": "E-7 JIB",
+     "boom": "E",
+     "extensions": 7,
+     "minOutreachMm": 5302,
+     "hydMaxMm": 18702,
+     "manMaxMm": 18702,
+     "sheet": "iQ.708 HiPro E-7 JIB155Q-6 GD 556-7917_00.dxf",
+     "jib": {
+      "minMm": 8192,
+      "maxMm": 31092,
+      "manMm": 32892
+     }
+    },
+    {
+     "id": "E-8 JIB",
+     "boom": "E",
+     "extensions": 8,
+     "minOutreachMm": 5302,
+     "hydMaxMm": 20902,
+     "manMaxMm": 20902,
+     "sheet": "iQ.708 HiPro E-8 JIB155Q-6 GD 556-7499_00.dxf",
+     "jib": {
+      "minMm": 8192,
+      "maxMm": 33292,
+      "manMm": 35092
+     }
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "kóta 1-1 chybí"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": null,
+     "template": 2533,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu chybí → šablona"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů (max. varianta)",
+     "drawing": 8,
+     "template": 8,
+     "deviation": 0,
+     "used": "výkres",
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (6, 7, 8), každý se zdvihem (MAX − MIN)/n; nadbytečné výsuvy šablony odstraněny"
+    },
+    {
+     "name": "Dosah s jibem (max.)",
+     "drawing": 33292,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "jen údaj — jib nemodelován (LESSONS L7)"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 5304,
+     "template": 4967,
+     "deviation": 337,
+     "used": "výkres",
+     "note": "5302–5304 mm → vnější výložník natažen od kloubu o 0.34…0.34 m"
+    }
+   ],
+   "sheets": [
+    "iQ.708 HiPro E-6 JIB155Q-6 GD 556-7916_00.dxf",
+    "iQ.708 HiPro E-7 JIB155Q-6 GD 556-7917_00.dxf",
+    "iQ.708 HiPro E-8 JIB155Q-6 GD 556-7499_00.dxf"
+   ],
+   "notes": [
+    "JIB 155Q-6: dosah jibu z výkresu uložen, jib sám nemodelován (LESSONS L7)",
+    "výkres bez popsaných kót a tabulek (iQ/X-HiPro, LESSONS L4): jen dosahy, výška a základ ze šablony"
+   ]
+  },
+  {
+   "key": "iq1188-e",
+   "model": "1188",
+   "template": "408",
+   "name": "HIAB iQ 1188 HiPro E (= iQ 958)",
+   "match": "(^|\\D)1188(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)958(?!\\d)",
+   "aliases": [
+    "iQ 958"
+   ],
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "E-10",
+   "variants": [
+    {
+     "id": "E-8",
+     "boom": "E",
+     "extensions": 8,
+     "minOutreachMm": 4710,
+     "hydMaxMm": 19710,
+     "manMaxMm": 19710,
+     "sheet": "iQ.1188 HiPro GD-E-8 556-3054.dxf"
+    },
+    {
+     "id": "E-9",
+     "boom": "E",
+     "extensions": 9,
+     "minOutreachMm": 4720,
+     "hydMaxMm": 21920,
+     "manMaxMm": 21920,
+     "sheet": "iQ.1188 HiPro GD-E-9 556-3055.dxf"
+    },
+    {
+     "id": "E-10",
+     "boom": "E",
+     "extensions": 10,
+     "minOutreachMm": 4832,
+     "hydMaxMm": 24032,
+     "manMaxMm": 24032,
+     "sheet": "iQ.1188 HiPro GD-E-10 556-3056.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "kóta 1-1 chybí"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": null,
+     "template": 2533,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu chybí → šablona"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů (max. varianta)",
+     "drawing": 10,
+     "template": 8,
+     "deviation": 2,
+     "used": "výkres",
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (8, 9, 10), každý se zdvihem (MAX − MIN)/n; 2 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4832,
+     "template": 4967,
+     "deviation": -135,
+     "used": "výkres",
+     "note": "4710–4832 mm → vnější výložník natažen od kloubu o -0.26…-0.14 m"
+    }
+   ],
+   "sheets": [
+    "iQ.1188 HiPro GD-E-8 556-3054.dxf",
+    "iQ.1188 HiPro GD-E-9 556-3055.dxf",
+    "iQ.1188 HiPro GD-E-10 556-3056.dxf"
+   ],
+   "notes": [
+    "výkres bez popsaných kót a tabulek (iQ/X-HiPro, LESSONS L4): jen dosahy, výška a základ ze šablony"
+   ]
+  },
+  {
+   "key": "iq1188-ejib",
+   "model": "1188",
+   "template": "408",
+   "name": "HIAB iQ 1188 HiPro E+JIB (= iQ 958)",
+   "match": "(^|\\D)1188(?!\\d|\\s*L\\b|\\s*CL\\b)|(^|\\D)958(?!\\d)",
+   "aliases": [
+    "iQ 958"
+   ],
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "E-9 JIB",
+   "variants": [
+    {
+     "id": "E-8 JIB",
+     "boom": "E",
+     "extensions": 8,
+     "minOutreachMm": 5024,
+     "hydMaxMm": 20024,
+     "manMaxMm": 20024,
+     "sheet": "iQ.1188 HiPro GD-E-8 JIB 155Q GD 556-3073.dxf",
+     "jib": {
+      "minMm": 7914,
+      "maxMm": 32414,
+      "manMm": 34214
+     }
+    },
+    {
+     "id": "E-9 JIB",
+     "boom": "E",
+     "extensions": 9,
+     "minOutreachMm": 5024,
+     "hydMaxMm": 22224,
+     "manMaxMm": 22224,
+     "sheet": "iQ.1188 HiPro GD-E-9 JIB 155Q GD 556-3074.dxf",
+     "jib": {
+      "minMm": 7914,
+      "maxMm": 34614,
+      "manMm": 36414
+     }
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "kóta 1-1 chybí"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": null,
+     "template": 2533,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu chybí → šablona"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů (max. varianta)",
+     "drawing": 9,
+     "template": 8,
+     "deviation": 1,
+     "used": "výkres",
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (8, 9), každý se zdvihem (MAX − MIN)/n; 1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah s jibem (max.)",
+     "drawing": 34614,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "jen údaj — jib nemodelován (LESSONS L7)"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 5024,
+     "template": 4967,
+     "deviation": 57,
+     "used": "výkres",
+     "note": "5024–5024 mm → vnější výložník natažen od kloubu o 0.06…0.06 m"
+    }
+   ],
+   "sheets": [
+    "iQ.1188 HiPro GD-E-8 JIB 155Q GD 556-3073.dxf",
+    "iQ.1188 HiPro GD-E-9 JIB 155Q GD 556-3074.dxf"
+   ],
+   "notes": [
+    "JIB 155Q: dosah jibu z výkresu uložen, jib sám nemodelován (LESSONS L7)",
+    "výkres bez popsaných kót a tabulek (iQ/X-HiPro, LESSONS L4): jen dosahy, výška a základ ze šablony"
+   ]
+  },
+  {
+   "key": "x638-e",
+   "model": "638",
+   "template": "408",
+   "name": "HIAB X 638 HiPro E",
+   "match": "(^|\\D)638(?!\\d|\\s*L\\b|\\s*CL\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "E-9",
+   "variants": [
+    {
+     "id": "E-6",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 4809,
+     "hydMaxMm": 15859,
+     "manMaxMm": 15859,
+     "sheet": "X-HIPRO 638 GD-E-6 549-3958.dxf"
+    },
+    {
+     "id": "E-8",
+     "boom": "E",
+     "extensions": 8,
+     "minOutreachMm": 4967,
+     "hydMaxMm": 20117,
+     "manMaxMm": 20117,
+     "sheet": "X-HIPRO 638 GD-E-8 549-3959.dxf"
+    },
+    {
+     "id": "E-9",
+     "boom": "E",
+     "extensions": 9,
+     "minOutreachMm": 5101,
+     "hydMaxMm": 22301,
+     "manMaxMm": 24514,
+     "sheet": "X-HIPRO 638 GD-E-9 549-3960.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "kóta 1-1 chybí"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": null,
+     "template": 2533,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu chybí → šablona"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů (max. varianta)",
+     "drawing": 9,
+     "template": 8,
+     "deviation": 1,
+     "used": "výkres",
+     "note": "R1: každá varianta ukazuje přesně svůj počet výsuvů (6, 8, 9), každý se zdvihem (MAX − MIN)/n; 1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 5101,
+     "template": 4967,
+     "deviation": 134,
+     "used": "výkres",
+     "note": "4809–5101 mm → vnější výložník natažen od kloubu o -0.16…0.13 m"
+    }
+   ],
+   "sheets": [
+    "X-HIPRO 638 GD-E-6 549-3958.dxf",
+    "X-HIPRO 638 GD-E-8 549-3959.dxf",
+    "X-HIPRO 638 GD-E-9 549-3960.dxf"
+   ],
+   "notes": [
+    "výkres bez popsaných kót a tabulek (iQ/X-HiPro, LESSONS L4): jen dosahy, výška a základ ze šablony"
    ]
   }
  ]

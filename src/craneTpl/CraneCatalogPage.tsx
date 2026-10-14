@@ -53,8 +53,8 @@ function Inner({ defKey, setKey, def, entry }: { defKey: string; setKey: (k: str
             <section className="block">
               <h2>Dosahy z výkresu (1-3 OUTREACH) [mm]</h2>
               <table className="dxf3d-table">
-                <thead><tr><th>Var.</th><th>Výs.</th><th>Zasunuto</th><th>Hydr. max</th><th>+ ruční</th></tr></thead>
-                <tbody>{entry.variants.map((v) => <tr key={v.id}><td>{v.id}</td><td>{v.extensions}</td><td>{fmtMm(v.minOutreachMm)}</td><td>{fmtMm(v.hydMaxMm)}</td><td>{fmtMm(v.manMaxMm)}</td></tr>)}</tbody>
+                <thead><tr><th>Var.</th><th>Výs.</th><th>Zasunuto</th><th>Hydr. max</th><th>+ ruční</th>{entry.variants.some((v) => v.jib) ? <th>s jibem</th> : null}</tr></thead>
+                <tbody>{entry.variants.map((v) => <tr key={v.id}><td>{v.id}</td><td>{v.extensions}</td><td>{fmtMm(v.minOutreachMm)}</td><td>{fmtMm(v.hydMaxMm)}</td><td>{fmtMm(v.manMaxMm)}</td>{entry.variants.some((x) => x.jib) ? <td title="jib nemodelován (LESSONS L7)">{fmtMm(v.jib?.maxMm)} / {fmtMm(v.jib?.manMm)}</td> : null}</tr>)}</tbody>
               </table>
             </section>
             <section className="block">
