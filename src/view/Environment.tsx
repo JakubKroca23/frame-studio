@@ -72,15 +72,21 @@ export function buildHall() {
   const fu = front.getAttribute('position'), fuv = front.getAttribute('uv')
   for (let i = 0; i < fu.count; i++) fuv.setXY(i, fu.getX(i) / 200, fu.getY(i) / 1000)
   add(front.translate(0, 0, z1), 'clad')
-  const back = new THREE.ShapeGeometry(new THREE.Shape(s.getPoints())); back.rotateY(Math.PI); back.translate(0, 0, z0)
+  const back = new THREE.ShapeGeometry(new THREE.Shape(s.getPoints())); back.rotateY(Math.PI); back.translate(2 * cx, 0, z0)
   const bu = back.getAttribute('position'), buv = back.getAttribute('uv')
   for (let i = 0; i < bu.count; i++) buv.setXY(i, bu.getX(i) / 200, bu.getY(i) / 1000)
   add(back, 'clad')
   add(panel(L, wall).rotateY(-Math.PI / 2).translate(x0, wall / 2, (z0 + z1) / 2), 'clad')
   add(panel(L, wall).rotateY(Math.PI / 2).translate(x1, wall / 2, (z0 + z1) / 2), 'clad')
   // roof slopes
-  const slope = Math.hypot(W / 2 + 300, ridge - wall), ang = Math.atan2(ridge - wall, W / 2)
-  for (const sgn of [-1, 1]) add(new THREE.PlaneGeometry(slope, L + 600).rotateX(-Math.PI / 2).rotateZ(-sgn * ang).translate(cx + sgn * (W / 4 + 75), (wall + ridge) / 2, (z0 + z1) / 2), 'roof')
+  const ov = 400, k = (ridge - wall) / (W / 2), ye = wall - ov * k, zf = z1 + ov, zb = z0 - ov
+  for (const xe of [x0 - ov, x1 + ov]) {
+    const r = new THREE.BufferGeometry()
+    const q = [[xe, ye, zf], [cx, ridge, zf], [cx, ridge, zb], [xe, ye, zb]]
+    r.setAttribute('position', new THREE.Float32BufferAttribute([0, 1, 2, 0, 2, 3].flatMap((i) => q[i]), 3))
+    r.computeVertexNormals()
+    add(r, 'roof')
+  }
   // doors, pilasters, lintel, personnel door, lamps
   const B = (x: number, y: number, z: number, sx: number, sy: number, sz: number, m: string) => add(new THREE.BoxGeometry(sx, sy, sz).translate(x, y, z), m)
   for (const d of DOORS) {
