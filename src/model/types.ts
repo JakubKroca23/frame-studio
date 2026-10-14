@@ -98,6 +98,8 @@ export interface PartModel {
   evidence?: string
   /** A closed contour in this block tightened or confirmed the box. */
   contour?: boolean
+  /** Dominant drawing layer of the part's blocks. */
+  layer?: string
 }
 
 export interface CabModel {

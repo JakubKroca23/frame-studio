@@ -28,7 +28,7 @@ const LARGE_DWG = 4 * 1024 * 1024
  * The shipped WASM reads AutoCAD 2000–2018 (AC1015–AC1032). R13/R14 are attempted.
  * Writing DWG is not part of this build; test files are produced with the LibreDWG dxf2dwg CLI (R2000).
  */
-export async function dwgBytesToDxf(bytes: Uint8Array): Promise<string> {
+export async function dwgBytesToDxf(bytes: Uint8Array, opts: { noFilter?: boolean } = {}): Promise<string> {
   const header = ascii(bytes.subarray(0, 6))
   if (!header.startsWith('AC')) {
     throw new Error('Soubor nevypadá jako DWG. Čtečka očekává AutoCAD 2000 až 2018.')
@@ -36,7 +36,7 @@ export async function dwgBytesToDxf(bytes: Uint8Array): Promise<string> {
   if (!isAttemptable(header)) {
     throw new Error(versionError(header))
   }
-  if (bytes.byteLength > LARGE_DWG) {
+  if (bytes.byteLength > LARGE_DWG && !opts.noFilter) {
     const rich = await tryFiltered(bytes)
     if (rich) return rich
   }
@@ -64,7 +64,7 @@ export async function dwgBytesToDxf(bytes: Uint8Array): Promise<string> {
   try {
     const db = lib.convert(data)
     const text = databaseToDxf(db, header)
-    if (!text.includes('ENTITIES')) return filteredOrThrow(bytes, header)
+    if (!modelSpaceCount(text)) return filteredOrThrow(bytes, header)
     return text
   } catch {
     return filteredOrThrow(bytes, header)
@@ -76,7 +76,17 @@ export async function dwgBytesToDxf(bytes: Uint8Array): Promise<string> {
 async function tryFiltered(bytes: Uint8Array): Promise<string | null> {
   const { filteredDwgToDxf } = await import('./dwgFilter')
   const text = await filteredDwgToDxf(bytes)
-  return text?.includes('ENTITIES') ? text : null
+  return text && modelSpaceCount(text) > 0 ? text : null
+}
+
+/** Entities in the ENTITIES section. The filtered reader can return a file whose model space is empty (all geometry
+ *  only in block definitions, INSERTs lost) – e.g. Volvo BEP 2018 drawings – which is useless for detection. */
+export function modelSpaceCount(text: string): number {
+  const i = text.indexOf('\nENTITIES')
+  if (i < 0) return 0
+  const j = text.indexOf('\nENDSEC', i)
+  const seg = text.slice(i, j < 0 ? undefined : j)
+  return (seg.match(/\n0\n(?!ENDSEC)/g) ?? []).length
 }
 
 async function filteredOrThrow(bytes: Uint8Array, header: string): Promise<string> {

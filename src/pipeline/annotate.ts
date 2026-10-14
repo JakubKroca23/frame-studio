@@ -1,7 +1,7 @@
 import type { Txt } from '../dxf/types'
 import { boxWidth, type BBox } from '../lib/geom'
 import type { Axle, CabModel, FrameModel, PartModel } from '../model/types'
-import { BLOCK_PREFIX, classifyKind, kindFromText, type KindInput } from './kinds'
+import { BLOCK_PREFIX, classifyKind, kindFromLayer, kindFromText, type KindInput } from './kinds'
 
 /**
  * Writes kind, confidence and evidence onto parts.
@@ -42,9 +42,13 @@ export function annotateParts(
       axles,
       cab,
     }
-    const decision = classifyKind(input)
+    const byLayer = kindFromLayer(part.layer)
+    const base = classifyKind(input)
+    const decision = byLayer && byLayer !== base.kind
+      ? { kind: byLayer, confidence: 0.95, source: 'measured' as const, evidence: `Vrstva ${part.layer}.` }
+      : byLayer ? { ...base, evidence: `${base.evidence ?? ''} Vrstva ${part.layer}.`.trim() } : base
     const prefix = BLOCK_PREFIX[part.partNumber.split('_')[0]]
-    const nearby = prefix || decision.kind === 'skip' ? null : labelNear(texts, side, top)
+    const nearby = byLayer || prefix || decision.kind === 'skip' ? null : labelNear(texts, side, top)
     if (nearby) {
       part.kind = nearby.kind
       part.confidence = nearby.kind === decision.kind ? 0.9 : 0.84

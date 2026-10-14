@@ -1,7 +1,7 @@
 import { hookliftPlacement } from '../trw/hooklift'
 import { HookliftModel } from '../trw/HookliftModel'
 import { takePendingProject } from '../openProject'
-import { parseDrawing } from '../state'
+import { isDwgMagic, parseDrawing } from '../state'
 import { decodeDrawing } from '../io/decodeDrawing'
 import { refineConfigFromDxf, type RefineResult } from './refineFromDxf'
 import { TopBar } from '../components/TopBar'
@@ -244,7 +244,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
     setLinkStatus({ text: `Čtu výkres ${file.name}…`, level: 'info' })
     try {
       const bytes = new Uint8Array(await file.arrayBuffer())
-      const dwg = /\.dwg$/i.test(file.name)
+      const dwg = /\.dwg$/i.test(file.name) || isDwgMagic(bytes)
       const m = dwg ? await parseDrawing('', undefined, bytes) : await parseDrawing(decodeDrawing(file.name, bytes))
       const res = refineConfigFromDxf(cfg, m)
       setCfg(res.cfg)

@@ -242,3 +242,31 @@ function intervalOverlap(ca: number, sa: number, cb: number, sb: number) {
   const b1 = cb + sb / 2
   return Math.max(0, Math.min(a1, b1) - Math.max(a0, b0))
 }
+
+/**
+ * Kind from a component-named layer (Volvo BEP: "41_Fuel_tank", "27_Urea_tank", "48_Fender_rear"…). Layer names beat
+ * block prefixes: the same prefix means different things across drawings (FE = fifth wheel vs. rear fender, UT = tool
+ * box vs. urea tank). `skip` = internal part (pipes, springs, sensors) that is not drawn as a box.
+ */
+const LAYER_KIND: [RegExp, EquipKind][] = [
+  [/fuel_?tank(?!_bracket)/i, 'fuel'],
+  [/urea_?tank|adblue/i, 'adblue'],
+  [/battery/i, 'battery'],
+  [/air_?tank/i, 'air'],
+  [/heat_?shield/i, 'shield'],
+  [/muffler|exhaust_?pipe/i, 'exhaust'],
+  [/fender(?!_stay)/i, 'shield'],
+  [/side_?underrun_?protection_?bar/i, 'skirt'],
+  [/rear_?underrun/i, 'underrun'],
+  [/tail_?lamp/i, 'light'],
+  [/electrical_?box/i, 'case'],
+  [/towing_?coupling/i, 'case'],
+  [/fifth_?wheel/i, 'fifth'],
+  [/power_?take_?off|^\d+_pto/i, 'pto'],
+  [/brake_?pipe|urea_?hose|hose|spring|stabili[sz]er|shock|level_?control|sensor|lidar|brake_?cyl|brake_?conn|gearbox|axle|suspension|bogie|crossmember|towing_?member|fender_?stay|underrun_?protection_?brac|air_?intake|fairing|tank_?bracket|steering|cab|mirror|dimension|holes/i, 'skip'],
+]
+export function kindFromLayer(layer: string | undefined): EquipKind | null {
+  if (!layer || !/^\d{2}_/.test(layer)) return null
+  for (const [re, k] of LAYER_KIND) if (re.test(layer)) return k
+  return null
+}

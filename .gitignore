@@ -26,3 +26,5 @@ blob-report
 *.njsproj
 *.sln
 *.sw?
+test-local/
+*.local.test.ts

@@ -32,7 +32,7 @@ const DEFAULT_PART = /^(?<pn>\d{7})(?:_\d+)?$/
  * The same function runs in a worker today and can move to a server function later;
  * the UI only consumes ChassisModel plus parameters.
  */
-export function analyzeDxf(text: string, onProgress?: (stage: string) => void): ChassisModel {
+export function analyzeDxf(text: string, onProgress?: (stage: string) => void, rescaled = 0): ChassisModel {
   const t0 = performance.now()
   onProgress?.('Čtu DXF…')
   const db = parseDxf(text)
@@ -42,7 +42,7 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
   if (!match) {
     warnings.push('Profil výrobce nebyl rozpoznán. Detekce zkouší pravidla Scania ICD jako výchozí.')
   }
-  if (db.units === 0) warnings.push('Výkres neuvádí jednotky. Počítá se s milimetry a kontroluje se proti kótám.')
+  if (db.units === 0 && !rescaled) warnings.push('Výkres neuvádí jednotky. Počítá se s milimetry a kontroluje se proti kótám.')
 
   const named = (patterns: string[]) => [...db.layers].filter((l) => layerMatches(l, patterns))
   onProgress?.('Rozkládám bloky…')
@@ -117,6 +117,14 @@ export function analyzeDxf(text: string, onProgress?: (stage: string) => void): 
     const label = profile.semantics.axleSpacings[0]
     const expected = dmap.get(label)
     const actual = axles[1].x - axles[0].x
+    const ratio = expected && actual > 0 ? expected / actual : 1
+    const k = [10, 2, 5, 20, 25, 50, 100, 25.4].find((c) => Math.abs(ratio / c - 1) < 0.015)
+    if (expected && !rescaled && db.units === 0 && k) {
+      // drawing exported at 1:k without units (e.g. Volvo BEP DWG at 1:10): rescale the geometry and read again
+      const again = analyzeDxf(scaleDxfText(text, k), onProgress, k)
+      again.warnings.unshift(`Výkres je v měřítku 1:${k} bez jednotek (kóta ${label} ${expected} mm = ${Math.round(actual)} jednotek) – geometrie přepočtena na mm.`)
+      return again
+    }
     if (expected && Math.abs(expected - actual) > 30) {
       warnings.push(`Kóta ${label} (${expected}) nesedí na vzdálenost náprav (${Math.round(actual)}). Jednotky výkresu nemusí být milimetry.`)
     }
@@ -633,6 +641,10 @@ function extractComponents(
         both.push({ side: s.bb, top: tops[best].bb, sidePts: s.pts, topPts: tops[best].pts, contour: false })
       }
     }
+    // dominant drawing layer of the blocks (Volvo BEP names layers by component: 41_Fuel_tank, 27_Urea_tank…)
+    const layerCount = new Map<string, number>()
+    for (const name of names) for (const seg of byBlock.get(name) ?? []) layerCount.set(seg.layer, (layerCount.get(seg.layer) ?? 0) + 1)
+    const layer = [...layerCount].sort((a, b) => b[1] - a[1])[0]?.[0]
     let n = 0
     for (const item of both) {
       if (!keepPart(item.side, item.top, frame, axles, cab)) continue
@@ -644,6 +656,7 @@ function extractComponents(
         top: item.top,
         samples,
         contour: item.contour,
+        ...(layer ? { layer } : {}),
       })
       n++
     }
@@ -1028,4 +1041,20 @@ function mode(values: number[]): number | null {
     }
   }
   return best
+}
+
+/**
+ * Multiply DXF geometry by k: point coordinates (10–37) and radii / text heights (40). Insert scale factors (41–43),
+ * bulges and angles are left alone, so nested blocks scale with their parents' coordinates.
+ */
+export function scaleDxfText(text: string, k: number): string {
+  const lines = text.split(/\r?\n/)
+  for (let i = 0; i + 1 < lines.length; i += 2) {
+    const code = Number.parseInt(lines[i], 10)
+    if ((code >= 10 && code <= 37) || code === 40) {
+      const v = Number.parseFloat(lines[i + 1])
+      if (Number.isFinite(v)) lines[i + 1] = String(v * k)
+    }
+  }
+  return lines.join('\n')
 }

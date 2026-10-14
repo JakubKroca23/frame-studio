@@ -177,7 +177,9 @@ export const useApp = create<AppState>((set, get) => {
     }
   },
   loadFile: async (file) => {
-    const dwg = file.name.toLowerCase().endsWith('.dwg')
+    const head = new Uint8Array(await file.slice(0, 4).arrayBuffer())
+    // a DWG saved with a .dxf name (seen with Volvo BEP exports) is still a DWG: sniff the "AC10" magic
+    const dwg = file.name.toLowerCase().endsWith('.dwg') || isDwgMagic(head)
     set({ status: 'loading', message: dwg ? 'Čtu DWG…' : 'Rozbaluji soubor…', error: null, fileName: file.name })
     try {
       const bytes = new Uint8Array(await file.arrayBuffer())
@@ -307,3 +309,6 @@ export function parseDrawing(text: string, onProgress?: (message: string) => voi
     else worker.postMessage({ text })
   })
 }
+
+/** DWG files start with "AC10" (AC1015…AC1032). */
+export const isDwgMagic = (b: Uint8Array) => b.length >= 4 && b[0] === 0x41 && b[1] === 0x43 && b[2] === 0x31 && b[3] === 0x30
