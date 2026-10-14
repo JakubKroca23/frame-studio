@@ -99,8 +99,10 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const { l2 } = variantBoom(variant)
   const dl = l2 - mesh.l2 // variant retracted length vs. the mesh variant
   const n = variant.extensions, S = def.meshExtSections
-  // S telescopes in the mesh; they extend equally. n ≤ S: the first n move; n > S (408: 8 vs 6 profiles): spread over S
-  const frac = (k: number) => (n <= S ? Math.min(k, n) / n : k / S)
+  // S telescopes in the mesh, extending equally. A variant with n < S shows only the first n (the n-th carries the hook);
+  // n > S spreads the stroke over the S meshes.
+  const shown = Math.min(n, S)
+  const frac = (k: number) => (n <= S ? k / n : k / S)
   const extPos = (k: number) => ({ r: Ud.r * dl + U.r * joints.ext * frac(k), h: Ud.h * dl + U.h * joints.ext * frac(k) })
   const tipLocal = { r: D2.r + Ud.r * dl + U.r * joints.ext, h: D2.h + Ud.h * dl + U.h * joints.ext }
 
@@ -189,7 +191,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
           <group rotation={[-(joints.rel - REL_CAD) * rad, 0, 0]}>
             <group position={[0, -P2.h, -P2.r]}>
               {meshes('outer')}
-              {Array.from({ length: S }, (_, i) => i + 1).map((k) => (
+              {Array.from({ length: shown }, (_, i) => i + 1).map((k) => (
                 <group key={k} position={[0, extPos(k).h, extPos(k).r]}>
                   {meshes(`ext${k}`)}
                 </group>

@@ -10,9 +10,34 @@ for k in range(pid.max()+1):
     t=T[o[cuts[k]:cuts[k+1]]]
     if len(t) and np.ptp(t.reshape(-1,3),0).max()<0.025: small.add(k)
 keep=np.array([int(p) not in small for p in pid])
+# --- 2 missing telescopes (approved): clone + scale neighbour profiles in the boom cross-section frame ---
+U=np.array([0,0.535,0.845]);U/=np.linalg.norm(U); W=np.array([0,0.845,-0.535]);W/=np.linalg.norm(W)
+CX,CW=-0.926,-0.705
+g=g.astype(object)
+g[g=='ext6']='ext7'; g[g=='ext5']='ext6'
+def frame(t): return t@U, t[...,0], t@W
+def unframe(u,v,w): return u[...,None]*U+w[...,None]*W+v[...,None]*np.array([1.,0,0])
+def core(nm):
+    m=(g==nm)&keep; c=T.mean(1); u,v,w=frame(c)
+    return m&(np.abs(v-CX)<0.13)&(np.abs(w-CW)<0.25)
+def clone(src,sv,sw,du):
+    t=T[core(src)]; u,v,w=frame(t)
+    return unframe(u+du,CX+(v-CX)*sv,CW+(w-CW)*sw)
+new5=clone('ext4',166/188,345/377,-0.09)
+new8=clone('ext7',101/123,249/281,-0.09)
+# hook / tip head: parts of the old innermost section reaching beyond its profile end → last section
+o2=np.argsort(pid); ps2=pid[o2]
+tipm=np.zeros(len(T),bool)
+for k in set(pid[(g=='ext7')&keep].tolist()):
+    sel=pid==k
+    if (T[sel]@U).min()<-1.81: tipm|=sel
+tipT=T[tipm]+(-0.09)*U; g[tipm]='tip'
+extra={'ext5':new5,'ext8':np.concatenate([new8,tipT])}
+print('clone tris',len(new5),len(new8),'tip',tipm.sum())
 names=[]
-for nm in ['base','column','main','outer','ext1','ext2','ext3','ext4','ext5','ext6']:
+for nm in ['base','column','main','outer']+[f'ext{i}' for i in range(1,9)]:
     m=(g==nm)&keep; t=T[m]
+    if nm in extra: t=np.concatenate([t,extra[nm]])
     x,y,z=t[...,0],t[...,1],t[...,2]
     if nm=='base': P=np.stack([z+0.107,0.419-y,x+0.485],-1)
     else: P=np.stack([-(x+0.485),0.419-y,z+0.107],-1)

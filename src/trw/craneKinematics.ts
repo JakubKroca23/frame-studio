@@ -113,12 +113,13 @@ export interface CraneDef {
  * ASSUMED to be the mounting plane), y up (= −y of the GLB), z = r along the boom plane of the folded pose.
  * Pins measured (centres of cylindrical parts, ±5 mm): P1 = main boom pivot (part 55), P2 = knuckle (part 220),
  * tip = hook pin of the innermost section (part 115). The outer boom package runs 0.44 m beside the main boom plane.
- * Mesh has 6 nested telescopic profiles; datasheet says E-8 = 8 hydraulic extensions (one ~166 mm profile and the
- * smallest are missing in the GLB) → the 6 mesh sections are spread over the full 8-extension stroke.
+ * GLB has 6 nested telescopic profiles; E-8 = 8 hydraulic extensions → the ~166 mm one and the smallest (~101 mm) were
+ * modelled by cloning/scaling the neighbouring profile (approved by the user), the hook moved 90 mm out to the 8th section
+ * (tip measured on part 115 + 0.09 m along the extension axis).
  * hydMax 20.9 m / manMax 22.4 m: Hiab X-HiPro 408 E-8 technical data. minOutreach = retracted straight reach from
  * the measured geometry (not a drawing value) → stroke 16.0 m ≈ 8 × 2.0 m.
  */
-const X408_GEOM = { p1: { r: -0.31, h: 2.384 }, p2: { r: 1.244, h: 0.555 }, tipRetracted: { r: -0.991, h: 2.22 }, lateralOffset: 0.44, extDir: { r: -0.845, h: 0.535 } }
+const X408_GEOM = { p1: { r: -0.31, h: 2.384 }, p2: { r: 1.244, h: 0.555 }, tipRetracted: { r: -1.067, h: 2.268 }, lateralOffset: 0.44, extDir: { r: -0.845, h: 0.535 } }
 const len = (a: RH) => Math.hypot(a.r, a.h)
 const sub = (a: RH, b: RH): RH => ({ r: a.r - b.r, h: a.h - b.h })
 const X408_MIN_OUT = Math.round((X408_GEOM.p1.r + len(sub(X408_GEOM.p2, X408_GEOM.p1)) + len(sub(X408_GEOM.tipRetracted, X408_GEOM.p2))) * 1000)
@@ -136,8 +137,12 @@ export const CRANE_DEFS: CraneDef[] = [
     geom: X408_GEOM, refMinOutreachMm: X408_MIN_OUT,
     // ASSUMED limits (no drawing yet); must contain the measured folded pose (a1 −49.6°, rel −167°). Slewing: continuous.
     limits: { a1: [-52, 80], rel: [-170, 30], slew: [-360, 360] },
-    variants: [{ id: 'E-8', family: 'E', extensions: 8, minOutreachMm: X408_MIN_OUT, hydMaxMm: 20900, manMaxMm: 22400, model: '408' }],
-    defaultVariantId: 'E-8', loads: null, meshExtSections: 6, noLoadText: 'nosnost n/a',
+    // hydMax from the Hiab datasheet; E-4…E-7: retracted length ASSUMED equal to the E-8 (no drawing), no manual extension
+    variants: [
+      ...([[4, 11600], [5, 13800], [6, 16100], [7, 18500]] as const).map(([n, hyd]) => ({ id: `E-${n}`, family: 'E' as const, extensions: n, minOutreachMm: X408_MIN_OUT, hydMaxMm: hyd, manMaxMm: hyd, model: '408' as const })),
+      { id: 'E-8', family: 'E', extensions: 8, minOutreachMm: X408_MIN_OUT, hydMaxMm: 20900, manMaxMm: 22400, model: '408' },
+    ],
+    defaultVariantId: 'E-8', loads: null, meshExtSections: 8, noLoadText: 'nosnost n/a',
     // folded = the GLB pose; booms over the right-hand side (ASSUMED side: the GLB does not say which side is which)
     folded: { slew: 90, a1: 0, rel: 0, ext: 0 },
     unfolded: { a1: 15, rel: -10, ext: 0 }, // ASSUMED working pose

@@ -25,7 +25,7 @@ The base group is stored in the slew-0 frame (z = forward), so the boom groups a
 * Measured (±5 mm, pin centres): main pivot P1 r −0.310 / h 2.384 m, knuckle P2 r 1.244 / h 0.555 m → main boom 2.400 m;
   retracted outer boom P2 → hook pin 2.787 m; extension axis 4.4° off P2 → tip; outer boom 0.44 m beside the main boom plane;
   folded pose a1 −49.6°, rel −167.0°; folded envelope 1.33 × 2.51 (h) × 2.60 (w) m (datasheet 1.406 / 2.458 / 2.542).
-* Telescopes: **6** nested profiles in the GLB (widths 258…123 mm, ≈ 2.35–2.7 m long). E-8 = 8 extensions per datasheet → one profile (~166 mm) and probably the smallest are missing in the mesh; the 6 meshes are spread over the whole stroke.
+* Telescopes: 6 nested profiles in the GLB (258…123 mm); the missing ~166 mm and ~101 mm sections were modelled (approved) by cloning + scaling the neighbour profile incl. pads/end plates, nested, tip 90 mm beyond the neighbour; hook moved to the 8th. 8 sections × ≈2.0 m (15.93 m). E-4…E-7 show only their first n sections (retracted length assumed = E-8).
 * Datasheet (Hiab): hydraulic outreach 20.9 m, manual 22.4 m. Stroke = 20.9 − 4.877 (measured retracted straight reach) = 16.0 m ≈ 8 × 2.0 m.
 * **Assumed**: joint limits (a1 −52…80°, rel −170…30°, slew ±360° continuous), mounting plane = lowest point of the GLB, booms fold over the right side and GLB +x = forward, unfolded preset a1 15° / rel −10°, cylinders move with the booms (not re-aimed).
 * No load table → "nosnost n/a" (the public datasheet has a reach/load chart — add it as `loads` once approved).

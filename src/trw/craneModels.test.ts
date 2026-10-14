@@ -21,12 +21,15 @@ describe('crane definitions', () => {
     const t = forwardKinematics(f, v)
     expect(t.knuckle.r).toBeCloseTo(1.244, 2)
     expect(t.knuckle.h).toBeCloseTo(0.555, 2)
-    expect(t.tip.r).toBeCloseTo(-0.991, 2)
-    expect(t.tip.h).toBeCloseTo(2.22, 2)
+    expect(t.tip.r).toBeCloseTo(-1.067, 2)
+    expect(t.tip.h).toBeCloseTo(2.268, 2)
   })
   it('stroke from datasheet outreach minus measured retracted reach', () => {
     expect(meshAngles(m.def).l1).toBeCloseTo(2.4, 2)
-    expect(variantBoom(v).stroke).toBeCloseTo(16.0, 1)
+    expect(variantBoom(v).stroke).toBeGreaterThan(15.9)
+    expect(variantBoom(v).stroke / v.extensions).toBeCloseTo(2.0, 1)
+    expect(craneVariantMatch('408 E-6')).toMatchObject({ exact: true, variant: { id: 'E-6', extensions: 6 } })
+    expect(m.def.meshExtSections).toBe(8)
     // straight, fully extended: horizontal outreach ≈ 20.9 m (extension off-axis by delta → slightly less)
     const s = forwardKinematics({ slew: 0, a1: 0, rel: -meshAngles(m.def).delta, ext: variantBoom(v).stroke }, v).tip
     expect(s.r).toBeGreaterThan(20.5)
