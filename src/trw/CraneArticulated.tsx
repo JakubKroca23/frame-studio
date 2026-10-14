@@ -113,7 +113,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const tipRef = useRef<THREE.Mesh>(null)
 
   // ---- joint handles / protractors ----
-  const [sel, setSel] = useState<JointKey | null>(null)
+  const [, setSel] = useState<JointKey | null>(null)
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setSel(null) }
     window.addEventListener('keydown', k)
@@ -143,7 +143,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
       <mesh name="crane-joint-slew" position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]} material={jointMat} {...pick('slew')}>
         <torusGeometry args={[0.55, 0.06, 10, 40]} />
       </mesh>
-      {sel === 'slew' && (
+      {(
         <group position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <Suspense fallback={null}><Protractor offset={180} value={joints.slew} limits={lim('slew')} radius={1.1} /></Suspense>
         </group>
@@ -156,7 +156,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
         {meshes('column')}
         {meshes('cyl1')}
         <mesh name="crane-joint-a1" position={[lat, P1.h, P1.r]} material={jointMat} {...pick('a1')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
-        {sel === 'a1' && (
+        {(
           <group position={[lat + 0.25, P1.h, P1.r]} rotation={[0, -Math.PI / 2, 0]}>
             <Suspense fallback={null}><Protractor offset={0} value={joints.a1} limits={lim('a1')} radius={0.7} /></Suspense>
           </group>
@@ -168,7 +168,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
           <group position={[0, -P1.h, -P1.r]}>{meshes('main')}</group>
           <group position={[0, P2.h - P1.h, P2.r - P1.r]}>
           <mesh name="crane-joint-rel" position={[lat, 0, 0]} material={jointMat} {...pick('rel')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
-          {sel === 'rel' && (
+          {(
             <group position={[lat + 0.25, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
               {/* frame rotates with the main boom: absolute = φ + a1 − A1_CAD, so rel = φ − A1_CAD */}
               <group>
@@ -201,7 +201,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
               <mesh name="crane-joint-ext" position={[lat, extBase.h + 0.25, extBase.r]} rotation={[-Math.atan2(U.h, U.r), 0, 0]} material={jointMat} {...pick('ext')}>
                 <boxGeometry args={[0.18, 0.18, 0.4]} />
               </mesh>
-              {sel === 'ext' && (
+              {(
                 <group position={[lat + 0.2, extBase.h + 0.35, extBase.r]} rotation={[0, -Math.PI / 2, 0]}>
                   <group rotation={[0, 0, Math.atan2(U.h, U.r)]}>
                     <Suspense fallback={null}><LinearScale value={joints.ext} max={lim('ext')[1]} /></Suspense>

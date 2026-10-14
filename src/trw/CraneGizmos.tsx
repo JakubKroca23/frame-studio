@@ -85,7 +85,7 @@ export function Protractor({ offset, value, limits, radius: R }: Omit<Protractor
   const span = limits[1] - limits[0]
   const a = (value + offset) * rad
   const labels = []
-  for (let d = -180; d < 180; d += 10) {
+  for (let d = -180; d < 180; d += 30) {
     const ang = (d + offset) * rad
     labels.push(
       <Text key={d} position={[Math.cos(ang) * R * 0.8, Math.sin(ang) * R * 0.8, 0]} fontSize={R * 0.06} color="#e6edf5" anchorX="center" anchorY="middle" outlineWidth={R * 0.006} outlineColor="#141a24">
@@ -99,12 +99,12 @@ export function Protractor({ offset, value, limits, radius: R }: Omit<Protractor
       {span < 360 && (
         <mesh position={[0, 0, -0.002]}>
           <ringGeometry args={[R * 0.88, R, 64, 1, (limits[1] + offset) * rad, (360 - span) * rad]} />
-          <meshBasicMaterial color="#5d6873" transparent opacity={0.45} side={THREE.DoubleSide} depthWrite={false} />
+          <meshBasicMaterial color="#5d6873" transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>
       )}
       <mesh position={[0, 0, -0.003]}>
         <ringGeometry args={[R * 0.88, R, 64, 1, (limits[0] + offset) * rad, Math.min(360, span) * rad]} />
-        <meshBasicMaterial color="#3ee6c4" transparent opacity={0.16} side={THREE.DoubleSide} depthWrite={false} />
+        <meshBasicMaterial color="#3ee6c4" transparent opacity={0.55} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <lineSegments>
         <bufferGeometry onUpdate={(g) => g.setFromPoints(ticks)} />
@@ -113,6 +113,15 @@ export function Protractor({ offset, value, limits, radius: R }: Omit<Protractor
       <Bar from={[0, 0, 0]} to={[Math.cos(offset * rad) * R, Math.sin(offset * rad) * R, 0]} width={R * 0.008} color="#c9d6e3" opacity={0.6} />
       <Bar from={[0, 0, 0]} to={[Math.cos(a) * R * 0.86, Math.sin(a) * R * 0.86, 0]} width={R * 0.012} color="#E53935" opacity={0.7} />
       {labels}
+      {span < 360 && ([0, 1] as const).map((i) => {
+        const ang = (limits[i] + offset) * rad
+        return (
+          <group key={i}>
+            <Bar from={[Math.cos(ang) * R * 0.84, Math.sin(ang) * R * 0.84, 0]} to={[Math.cos(ang) * R * 1.04, Math.sin(ang) * R * 1.04, 0]} width={R * 0.02} color="#3ee6c4" />
+            <Text position={[Math.cos(ang) * R * 1.2, Math.sin(ang) * R * 1.2, 0]} fontSize={R * 0.09} color="#3ee6c4" anchorX="center" anchorY="middle" outlineWidth={R * 0.008} outlineColor="#141a24">{`${i ? 'max' : 'min'} ${fmt(limits[i], 0)}°`}</Text>
+          </group>
+        )
+      })}
     </group>
   )
 }
@@ -123,6 +132,16 @@ const arrowShape = (() => {
   return new THREE.ShapeGeometry(sh)
 })()
 const hitDisc = new THREE.CircleGeometry(0.75, 24)
+/** Straight double-headed arrow along local X (length 2.4). */
+const dblShape = (w: number, hw: number, hl: number, L: number) => {
+  const sh = new THREE.Shape()
+  sh.moveTo(-L, 0); sh.lineTo(-L + hl, hw); sh.lineTo(-L + hl, w); sh.lineTo(L - hl, w); sh.lineTo(L - hl, hw); sh.lineTo(L, 0)
+  sh.lineTo(L - hl, -hw); sh.lineTo(L - hl, -w); sh.lineTo(-L + hl, -w); sh.lineTo(-L + hl, -hw); sh.closePath()
+  return new THREE.ShapeGeometry(sh)
+}
+const dblArrow = dblShape(0.12, 0.38, 0.45, 1.2)
+const dblHit = new THREE.PlaneGeometry(2.8, 1.1)
+const dblOutline = dblShape(0.2, 0.5, 0.55, 1.32)
 const setCursor = (c: string) => { document.body.style.cursor = c }
 
 /** Big arrow (points along local +Y) with a large invisible touch hit area, hover highlight and grab cursor. */
@@ -130,14 +149,14 @@ export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap, ge
   const [hover, setHover] = useState(false)
   const [active, setActive] = useState(false)
   const down0 = useRef<{ x: number; y: number } | null>(null)
-  const color = active ? '#ff8a80' : hover ? '#ff5c5c' : '#FF1A1A'
+  const color = active ? '#ff7a70' : hover ? '#ff4a4a' : '#FF1A1A'
   return (
     <group scale={size}>
       <mesh geometry={geom} raycast={() => null} renderOrder={999}>
-        <meshBasicMaterial color={color} side={THREE.DoubleSide} depthTest={false} transparent opacity={0.95} />
+        <meshBasicMaterial color={color} side={THREE.DoubleSide} depthTest={false} transparent opacity={hover || active ? 1 : 0.55} />
       </mesh>
       <mesh geometry={outline === 1.25 ? geom : outlineOf(geom)} scale={outline === 1.25 ? 1.25 : 1} position={[0, 0, -0.01]} raycast={() => null} renderOrder={998}>
-        <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} depthTest={false} transparent opacity={0.85} />
+        <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} depthTest={false} transparent opacity={hover || active ? 0.9 : 0.35} />
       </mesh>
       <mesh name={name} geometry={hit} userData={{ label }}
         onPointerOver={(e) => { e.stopPropagation(); setHover(true); setCursor('grab') }}
@@ -152,8 +171,8 @@ export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap, ge
   )
 }
 
-/** Two arrows along local +X at the boom tip: drag along the axis = continuous extension, tap = ±step. */
-export function TelescopeArrows({ value, max, step = 0.1, size = 0.75, k, onValue }: { value: number; max: number; step?: number; size?: number; k?: number; onValue: (m: number) => void }) {
+/** One double-headed arrow along local +X at the boom tip: drag along the axis (either way) = continuous extension. */
+export function TelescopeArrows({ value, max, size = 0.75, k, onValue }: { value: number; max: number; size?: number; k?: number; onValue: (m: number) => void }) {
   const ref = useRef<THREE.Group>(null)
   const start = useRef<{ x: number; v: number } | null>(null)
   const clamp = (m: number) => Math.min(max, Math.max(0, m))
@@ -166,13 +185,8 @@ export function TelescopeArrows({ value, max, step = 0.1, size = 0.75, k, onValu
   return (
     <group ref={ref} name="crane-ext-arrows">
       <ScreenScale k={k ?? 0}>
-      <group position={[size * 0.9, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
-        <ArrowHandle size={size} name="crane-ext-out" label="Vysunout" onDown={begin} onMove={drag.move} onUp={finish} onTap={() => onValue(clamp(value + step))} />
-      </group>
-      <group position={[-size * 0.9, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <ArrowHandle size={size} name="crane-ext-in" label="Zasunout" onDown={begin} onMove={drag.move} onUp={finish} onTap={() => onValue(clamp(value - step))} />
-      </group>
-      <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, -size * 1.9, 0]} center zIndexRange={[20, 10]}>
+      <ArrowHandle size={size} name="crane-ext-arrow" label="Výsuv: táhněte šipkou" geom={dblArrow} hit={dblHit} outline={1} onDown={begin} onMove={drag.move} onUp={finish} />
+      <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, -size * 1.0, 0]} center zIndexRange={[20, 10]}>
         <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm / {fmt(max * 1000)} mm</div>
       </Html>
       </ScreenScale>
@@ -192,23 +206,22 @@ export function LinearScale({ value, max }: { value: number; max: number }) {
     return pts
   }, [max])
   const labels = []
-  for (let m = 0; m <= max + 1e-6; m += 1) labels.push(<Text key={m} position={[m, 0.38, 0]} fontSize={0.14} color="#e6edf5" outlineWidth={0.012} outlineColor="#141a24">{`${m * 1000}`}</Text>)
+  for (let m = 2; m < max - 0.5; m += 2) labels.push(<Text key={m} position={[m, 0.38, 0]} fontSize={0.14} color="#e6edf5" outlineWidth={0.012} outlineColor="#141a24">{`${m * 1000}`}</Text>)
   return (
     <group ref={ref} name="crane-ext-scale">
       <mesh position={[value / 2, 0.11, -0.002]}>
         <planeGeometry args={[Math.max(value, 0.001), 0.22]} />
-        <meshBasicMaterial color="#3a8de0" transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} />
+        <meshBasicMaterial color="#ff1a1a" transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      <Bar from={[0, 0, 0]} to={[max, 0, 0]} width={0.02} color="#c9d6e3" />
+      <Bar from={[0, 0, 0]} to={[max, 0, 0]} width={0.06} color="#3ee6c4" opacity={0.8} />
+      <Text position={[0, -0.25, 0]} fontSize={0.16} color="#3ee6c4" outlineWidth={0.012} outlineColor="#141a24">min 0</Text>
+      <Text position={[max, -0.25, 0]} fontSize={0.16} color="#3ee6c4" outlineWidth={0.012} outlineColor="#141a24">{`max ${fmt(max * 1000)} mm`}</Text>
       <lineSegments>
         <bufferGeometry onUpdate={(g) => g.setFromPoints(ticks)} />
         <lineBasicMaterial color="#c9d6e3" />
       </lineSegments>
       <Bar from={[value, -0.1, 0]} to={[value, 0.45, 0]} width={0.04} color="#E53935" />
       {labels}
-      <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[value, -0.9, 0]} center zIndexRange={[20, 10]}>
-        <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm</div>
-      </Html>
     </group>
   )
 }
@@ -251,22 +264,24 @@ export function ScreenScale({ k, children }: { k: number; children: ReactNode })
   return <group ref={ref}>{children}</group>
 }
 
-/** Curved arrow along the unit circle from 0 to `sweep` (radians), arrowhead at the end, band r 0.86..1.14. */
-function arcArrowGeom(sweep: number, w = 0.14, head = 0.3) {
-  const sh = new THREE.Shape(), n = 16, end = sweep - Math.sign(sweep) * 0.32
-  for (let i = 0; i <= n; i++) { const t = (end * i) / n; const p = [Math.cos(t) * (1 + w), Math.sin(t) * (1 + w)]; if (i === 0) sh.moveTo(p[0], p[1]); else sh.lineTo(p[0], p[1]) }
-  sh.lineTo(Math.cos(end) * (1 + head), Math.sin(end) * (1 + head))
-  sh.lineTo(Math.cos(sweep), Math.sin(sweep))
-  sh.lineTo(Math.cos(end) * (1 - head), Math.sin(end) * (1 - head))
-  for (let i = n; i >= 0; i--) { const t = (end * i) / n; sh.lineTo(Math.cos(t) * (1 - w), Math.sin(t) * (1 - w)) }
+/** Curved double-headed arrow on the unit circle from −S to +S (heads at both ends). */
+function arcDoubleGeom(S: number, w: number, head: number, hl = 0.32) {
+  const sh = new THREE.Shape(), n = 24, e = S - hl
+  sh.moveTo(Math.cos(-S), Math.sin(-S))
+  sh.lineTo(Math.cos(-e) * (1 + head), Math.sin(-e) * (1 + head))
+  for (let i = 0; i <= n; i++) { const t = -e + (2 * e * i) / n; sh.lineTo(Math.cos(t) * (1 + w), Math.sin(t) * (1 + w)) }
+  sh.lineTo(Math.cos(e) * (1 + head), Math.sin(e) * (1 + head))
+  sh.lineTo(Math.cos(S), Math.sin(S))
+  sh.lineTo(Math.cos(e) * (1 - head), Math.sin(e) * (1 - head))
+  for (let i = n; i >= 0; i--) { const t = -e + (2 * e * i) / n; sh.lineTo(Math.cos(t) * (1 - w), Math.sin(t) * (1 - w)) }
+  sh.lineTo(Math.cos(-e) * (1 - head), Math.sin(-e) * (1 - head))
+  sh.closePath()
   return new THREE.ShapeGeometry(sh)
 }
-const ARC_SWEEP = 1.0
-const arcCW = arcArrowGeom(-ARC_SWEEP), arcCCW = arcArrowGeom(ARC_SWEEP)
-const arcCWo = arcArrowGeom(-ARC_SWEEP - 0.06, 0.22, 0.4), arcCCWo = arcArrowGeom(ARC_SWEEP + 0.06, 0.22, 0.4)
-const arcHit = (sgn: number) => new THREE.RingGeometry(0.55, 1.5, 12, 1, sgn > 0 ? -0.1 : -ARC_SWEEP - 0.1, ARC_SWEEP + 0.2)
-const arcHitCW = arcHit(-1), arcHitCCW = arcHit(1)
-const outlines = new Map<THREE.BufferGeometry, THREE.BufferGeometry>([[arcCW, arcCWo], [arcCCW, arcCCWo]])
+const ARC_S = 0.9
+const arcDbl = arcDoubleGeom(ARC_S, 0.12, 0.3), arcDblO = arcDoubleGeom(ARC_S + 0.06, 0.2, 0.4, 0.36)
+const arcDblHit = new THREE.RingGeometry(0.6, 1.45, 16, 1, -ARC_S - 0.1, 2 * ARC_S + 0.2)
+const outlines = new Map<THREE.BufferGeometry, THREE.BufferGeometry>([[arcDbl, arcDblO], [dblArrow, dblOutline]])
 function outlineOf(g: THREE.BufferGeometry) { return outlines.get(g) ?? g }
 
 /**
@@ -295,8 +310,7 @@ export function JointArcHandles({ id, offset, value, limits, label, k = 0.055, o
     <group ref={ref} name={`crane-arc-${id}`}>
       <ScreenScale k={k}>
         <group rotation={[0, 0, a]}>
-          <ArrowHandle size={1} name={`crane-arc-${id}-ccw`} label={`${label}: táhněte šipkou`} geom={arcCCW} hit={arcHitCCW} outline={1} onDown={begin} onMove={drag.move} onUp={finish} onTap={() => onAngle(clamp(value + 1))} />
-          <ArrowHandle size={1} name={`crane-arc-${id}-cw`} label={`${label}: táhněte šipkou`} geom={arcCW} hit={arcHitCW} outline={1} onDown={begin} onMove={drag.move} onUp={finish} onTap={() => onAngle(clamp(value - 1))} />
+          <ArrowHandle size={1} name={`crane-arc-${id}-h`} label={`${label}: táhněte šipkou oběma směry`} geom={arcDbl} hit={arcDblHit} outline={1} onDown={begin} onMove={drag.move} onUp={finish} />
           <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[-2.1, 0, 0]} center zIndexRange={[20, 10]}>
             <div className={dragging ? 'crane-gizmo-label is-active' : 'crane-gizmo-label'}>{label}: {fmt(value, 1)}°</div>
           </Html>
