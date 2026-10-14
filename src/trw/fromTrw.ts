@@ -2,7 +2,7 @@
 import { CS_SIM_SCHEMA } from './csSimResult'
 import { TRW_SCHEMA, TRW_URL, TrwAuthError, liveDocOf, mapTrwExport, type TrwImport } from './trwConfig'
 
-import { TRW_OPEN_HINT, trwAuthHeaders } from './trwToken'
+import { TRW_OPEN_HINT, getTrwToken, trwAuthHeaders } from './trwToken'
 
 export const TRW_FROM_TRW_URL = `${TRW_URL}/api/config/from-trw`
 
@@ -135,7 +135,7 @@ export function classifyFile(name: string, text: string | null): DroppedKind {
 
 /** Reason shown in the live status line when the trw import failed (no document → no live request). */
 export function importBlockReason(err: unknown): string {
-  if (err instanceof TrwAuthError) return `trw import vyžaduje přihlášení – ${TRW_OPEN_HINT}`
+  if (err instanceof TrwAuthError) return getTrwToken() ? `trw import: token trw neplatný nebo vypršel – ${TRW_OPEN_HINT}` : `trw import vyžaduje přihlášení – ${TRW_OPEN_HINT}`
   return `import z trw selhal (${err instanceof Error ? err.message : String(err)})`
 }
 

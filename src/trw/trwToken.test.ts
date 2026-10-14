@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureTrwToken, getTrwToken, TRW_TOKEN_KEY, TRW_TOKEN_TTL_MS, trwAuthReason } from './trwToken'
 import { StabilityLive } from './stabilityLive'
-import { convertTrwFile } from './fromTrw'
+import { convertTrwFile, importBlockReason } from './fromTrw'
+import { TrwAuthError } from './trwConfig'
 
 const mem = () => { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), m } }
 let ls: ReturnType<typeof mem>
@@ -28,6 +29,8 @@ describe('trw token', () => {
   it('reason points to the trw button with or without a token', () => {
     expect(trwAuthReason(null)).toMatch(/^nepřihlášen v trw – otevřete frame tlačítkem „Otevřít ve frame-studio“/)
     expect(trwAuthReason('x')).toMatch(/^token trw neplatný nebo vypršel – otevřete/)
+    ls.setItem(TRW_TOKEN_KEY, JSON.stringify({ token: 't', ts: Date.now() }))
+    expect(importBlockReason(new TrwAuthError('x'))).toMatch(/^trw import: token trw neplatný nebo vypršel – otevřete/)
   })
   it('Bearer on from-trw and live POST, credentials kept', async () => {
     ls.setItem(TRW_TOKEN_KEY, JSON.stringify({ token: 'tok', ts: Date.now() }))
