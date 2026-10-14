@@ -144,18 +144,17 @@
   {
    "kind": "hooklift",
    "name": "MULTILIFT ULT18Z59 DIN",
-   "x_mm": 5900,
-   "x_from_mm": 2622,
+   "x_mm": 5884,
+   "x_from_mm": 2592,
    "x_to_mm": 9175,
    "y_mm": 0,
-   "mass_kg": 3200,
    "cog": {
     "x_mm": 5900
    },
    "fields": {
     "mass_kg": {
-     "status": "odhad",
-     "evidence": "příklad"
+     "status": "neznámé",
+     "evidence": "z katalogu"
     }
    }
   }

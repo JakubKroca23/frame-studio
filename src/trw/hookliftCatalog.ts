@@ -1,0 +1,139 @@
+/**
+ * Hooklift catalog from Hiab MULTILIFT datasheets (DIN versions): ULTIMA 18 (BD-ULTIMA18-EN-DIN_191010),
+ * ULTIMA 21SL (BD-ULTIMA21SL-EN-DIN_191010). All lengths in mm, masses in kg.
+ * Merged table cells in the PDF (one value spanning several G-lengths) are expanded to each model.
+ */
+export interface HookliftSpec {
+  /** Canonical name, e.g. "ULTIMA 18Z.59" (= ULT18Z59). */
+  name: string
+  /** Series, e.g. "ULTIMA 18Z". */
+  series: string
+  /** Datasheet the values come from. */
+  source: string
+  /** G-length code (46…61) – nominal hook-to-rear-roller distance in dm. */
+  gCode: number
+  capacityT: number
+  vehicleGvwT: number
+  axles: number
+  /** System weight (incl. hydraulic body locking, excl. oil tank and oil). */
+  massKg: number
+  tippingAngleDeg: number
+  /** SL – subframe length (can be shortened at installation). */
+  subframeLengthMm: number
+  /** G – exact G-length (hook → rear roller pivot), tolerance +20/−40 mm. */
+  gLengthMm: number
+  /** B – centre of gravity distance as drawn (from the rear roller / tipping pivot line; see report). */
+  cogBMm: number
+  /** LR – internal container (body) length range. */
+  bodyLengthMinMm: number
+  bodyLengthMaxMm: number
+  /** HM – horizontal movement of the arm (18S only; 18Z table has no values). */
+  horizontalMovementMm: number | null
+  /** h – installation height (subframe height above truck frame). */
+  installHeightMm: number
+  /** t – minimum free tunnel height under the body. */
+  tunnelHeightMm: number
+  /** HH – DIN hook height. */
+  hookHeightMm: number
+  /** BW – body (container runner) width. */
+  bodyWidthMm: number
+  /** LH – minimum working height (18Z only). */
+  minWorkingHeightMm: number | null
+  rearRollerOffsetMm: number | null
+  maxPressureMPa: number
+  oilFlowLpm: number
+}
+
+/**
+ * One datasheet table = one series. To add a datasheet, append a `defineSeries({...})` call below:
+ * per-model rows are arrays in G-code order; a single number means one merged cell for all models.
+ */
+type Col = number | readonly number[]
+export interface SeriesTable {
+  series: string
+  /** Name prefix of each model, e.g. "ULTIMA 18Z" → "ULTIMA 18Z.59". */
+  source: string
+  capacityT: number
+  vehicleGvwT: number
+  axles: number
+  gCodes: readonly number[]
+  massKg: Col
+  tippingAngleDeg: Col
+  bodyLengthM: readonly (readonly [number, number])[]
+  subframeLengthMm: Col
+  cogBMm: Col
+  gLengthMm: Col
+  horizontalMovementMm?: Col | null
+  installHeightMm: Col
+  tunnelHeightMm: Col
+  hookHeightMm: Col
+  bodyWidthMm: Col
+  minWorkingHeightMm?: Col | null
+  /** Rear roller centre behind the subframe end, if dimensioned in the drawing. */
+  rearRollerOffsetMm?: number | null
+  maxPressureMPa: number
+  oilFlowLpm: number
+}
+
+const at = (c: Col | null | undefined, i: number): number | null => (c == null ? null : typeof c === 'number' ? c : c[i])
+
+export function defineSeries(t: SeriesTable): HookliftSpec[] {
+  return t.gCodes.map((gCode, i) => ({
+    name: `${t.series}.${gCode}`, series: t.series, source: t.source, gCode, capacityT: t.capacityT, vehicleGvwT: t.vehicleGvwT, axles: t.axles,
+    massKg: at(t.massKg, i)!, tippingAngleDeg: at(t.tippingAngleDeg, i)!, subframeLengthMm: at(t.subframeLengthMm, i)!, gLengthMm: at(t.gLengthMm, i)!,
+    cogBMm: at(t.cogBMm, i)!, bodyLengthMinMm: Math.round(t.bodyLengthM[i][0] * 1000), bodyLengthMaxMm: Math.round(t.bodyLengthM[i][1] * 1000),
+    horizontalMovementMm: at(t.horizontalMovementMm, i), installHeightMm: at(t.installHeightMm, i)!, tunnelHeightMm: at(t.tunnelHeightMm, i)!,
+    hookHeightMm: at(t.hookHeightMm, i)!, bodyWidthMm: at(t.bodyWidthMm, i)!, minWorkingHeightMm: at(t.minWorkingHeightMm, i),
+    rearRollerOffsetMm: t.rearRollerOffsetMm ?? null, maxPressureMPa: t.maxPressureMPa, oilFlowLpm: t.oilFlowLpm,
+  }))
+}
+
+const ULTIMA18 = 'Hiab BD-ULTIMA18-EN-DIN_191010'
+export const HOOKLIFT_CATALOG: HookliftSpec[] = [
+  ...defineSeries({
+    series: 'ULTIMA 18S', source: ULTIMA18, capacityT: 18, vehicleGvwT: 26, axles: 3, gCodes: [46, 51, 53, 56, 59, 61],
+    massKg: [1770, 1870, 1960, 2000, 2020, 2040], tippingAngleDeg: [50, 49, 52, 52, 52, 49],
+    bodyLengthM: [[3.9, 5.6], [4.2, 6.1], [4.5, 6.4], [4.5, 6.6], [4.6, 6.9], [4.8, 7.1]],
+    subframeLengthMm: [5308, 5758, 6508, 6508, 6508, 6758], cogBMm: [2450, 2700, 2850, 2950, 3000, 3150], gLengthMm: [4580, 5080, 5360, 5560, 5860, 6080],
+    horizontalMovementMm: [900, 1100, 1100, 1300, 1450, 1450], installHeightMm: [230, 230, 230, 230, 250, 250], tunnelHeightMm: [125, 125, 125, 125, 105, 105],
+    hookHeightMm: 1570, bodyWidthMm: 1070, maxPressureMPa: 30, oilFlowLpm: 80,
+  }),
+  ...defineSeries({
+    series: 'ULTIMA 18Z', source: ULTIMA18, capacityT: 18, vehicleGvwT: 26, axles: 3, gCodes: [46, 51, 53, 56, 59, 61],
+    massKg: [2280, 2360, 2410, 2460, 2520, 2600], tippingAngleDeg: [50, 52, 49, 49, 52, 49],
+    bodyLengthM: [[2.8, 5.6], [3.0, 6.1], [3.3, 6.3], [3.6, 6.6], [3.8, 7.0], [4.1, 7.1]],
+    subframeLengthMm: [5273, 5753, 5983, 6283, 6583, 6783], cogBMm: [2500, 2850, 2950, 3150, 3350, 3500], gLengthMm: [4600, 5080, 5310, 5610, 5880, 6110],
+    horizontalMovementMm: null, installHeightMm: 250, tunnelHeightMm: 125, hookHeightMm: 1570, bodyWidthMm: 1070,
+    minWorkingHeightMm: [2544, 2625, 2720, 2800, 3066, 3066], maxPressureMPa: 30, oilFlowLpm: 80,
+  }),
+  ...defineSeries({
+    series: 'ULTIMA 21SL', source: 'Hiab BD-ULTIMA21SL-EN-DIN_191010', capacityT: 21, vehicleGvwT: 26, axles: 3, gCodes: [49, 51, 52, 53, 56],
+    massKg: [2040, 2100, 2150, 2200, 2200], tippingAngleDeg: [56, 52, 52, 55, 52],
+    bodyLengthM: [[4.0, 5.9], [4.2, 6.1], [4.3, 6.2], [4.5, 6.4], [4.7, 6.6]],
+    subframeLengthMm: [5543, 5843, 5843, 6143, 6443], cogBMm: [2885, 3000, 3070, 3150, 3300], gLengthMm: [4870, 5100, 5240, 5380, 5600],
+    horizontalMovementMm: 1100, installHeightMm: 195, tunnelHeightMm: 105, hookHeightMm: 1570, bodyWidthMm: 1070,
+    rearRollerOffsetMm: 110, maxPressureMPa: 30, oilFlowLpm: 80,
+  }),
+]
+
+const clean = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '')
+/** "ULTIMA 18Z" → "ULT18Z"; "ULT18Z59" and "ULTIMA18Z59" both normalise to "ULT18Z59". */
+const key = (s: string) => clean(s).replace(/^.*?ULT(?:IMA)?(?=\d)/, "ULT")
+
+/**
+ * Fuzzy lookup by name: "ULT18Z59 DIN", "Multilift Ultima 18Z.59", "ULTIMA 21 SL 53"…
+ * With series but no G code, picks the model whose subframe length is closest to `lengthHintMm`.
+ */
+export function findHookliftSpec(name: string | null | undefined, lengthHintMm?: number | null): HookliftSpec | null {
+  if (!name || !/ULT/.test(clean(name))) return null
+  const k = key(name)
+  // longest series key first so "ULT21SL" wins over a hypothetical "ULT21S"
+  const series = [...new Set(HOOKLIFT_CATALOG.map((c) => c.series))].sort((a, b) => key(b).length - key(a).length)
+  const sr = series.find((x) => k.startsWith(key(x)))
+  if (!sr) return null
+  const inSeries = HOOKLIFT_CATALOG.filter((c) => c.series === sr)
+  const g = /^(\d{2})/.exec(k.slice(key(sr).length))
+  if (g) return inSeries.find((c) => c.gCode === Number(g[1])) ?? null
+  if (lengthHintMm == null) return null
+  return inSeries.reduce((a, c) => (Math.abs(c.subframeLengthMm - lengthHintMm) < Math.abs(a.subframeLengthMm - lengthHintMm) ? c : a))
+}

@@ -26,25 +26,25 @@ function Box({ pos, size, color, opacity = 0.55 }: { pos: [number, number, numbe
 }
 
 function HookliftAccessory({ a, frameTop, frameRear }: { a: ExtAccessory; frameTop: number; frameRear: number }) {
-  const { xRear, params } = hookliftPlacement(a, frameRear)
+  const { xRear, params, spec } = hookliftPlacement(a, frameRear)
   const xFront = xRear - params.lengthMm
   const fallback = <Body body={{ type: 'hooklift', typeRaw: a.name, xFrom: xFront, xTo: xRear, length: params.lengthMm, width: null, height: null, sideHeight: null, massKg: null, cog: { x: null, y: null, z: null } }} frameTop={frameTop} frameRear={frameRear} simple />
   return (
     <group name={`trw-accessory-${a.name}`}>
       <HookliftModel xRear={xRear} frameTop={frameTop} params={params} fallback={fallback} />
-      <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${a.name} · ${a.massKg != null ? Math.round(a.massKg) : '?'} kg`} bg="rgba(110,50,140,0.9)" />
+      <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${a.name}${spec && !a.name.includes(spec.name) ? ` (${spec.name})` : ''} · ${a.massKg != null ? `${Math.round(a.massKg)} kg` : spec ? `${spec.massKg} kg (katalog)` : '? kg'}`} bg="rgba(110,50,140,0.9)" />
     </group>
   )
 }
 
 function Body({ body, frameTop, frameRear, simple }: { body: ExtBody; frameTop: number; frameRear: number; simple?: boolean }) {
   if (body.type === 'hooklift' && !simple) {
-    const { xRear, params } = bodyHookliftPlacement(body, frameRear)
+    const { xRear, params, spec } = bodyHookliftPlacement(body, frameRear)
     const xFront = xRear - params.lengthMm
     return (
       <group name="trw-body">
         <HookliftModel xRear={xRear} frameTop={frameTop} params={params} fallback={<Body body={{ ...body, xFrom: xFront, xTo: xRear }} frameTop={frameTop} frameRear={frameRear} simple />} />
-        <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${BODY_TYPE_LABEL.hooklift}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
+        <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${BODY_TYPE_LABEL.hooklift}${spec ? ` ${spec.name}` : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
       </group>
     )
   }

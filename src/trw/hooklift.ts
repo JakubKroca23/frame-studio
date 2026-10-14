@@ -7,11 +7,16 @@
  * Scene (configurator) coordinates: mm, X rearward from axle 1, Y up, Z lateral → X = xRear - (z - zMin)·1000.
  */
 import type { ExtAccessory, ExtBody } from './trwExtended'
+import { findHookliftSpec, type HookliftSpec } from './hookliftCatalog'
 
 export const ULT18Z59 = {
   name: 'MULTILIFT ULT18Z59 DIN',
-  /** Overall length rear roller → front of arm [mm]. */
-  lengthMm: 6553,
+  /** Subframe length SL per datasheet (ULTIMA 18Z.59) [mm]; the CAD mesh itself measures nativeLengthMm. */
+  lengthMm: 6583,
+  nativeLengthMm: 6553,
+  /** Installation height h (subframe above truck frame) per datasheet [mm]. */
+  installHeightMm: 250,
+  massKg: 2520,
   /** DIN 30722 hook height (hook centre above container runners) [mm]. */
   hookHeightMm: 1570,
   capacityT: 18,
@@ -34,9 +39,11 @@ export interface HookliftParams {
   lengthMm: number
   hookHeightMm: number
   capacityT: number
+  /** Installation height h [mm] – scales the low subframe section (default 250). */
+  installHeightMm?: number
 }
 
-const HOOK_RE = /multilift|\bult\d|hakov|hook|ampliroll|abroll|roll.?off|hakovy/i
+const HOOK_RE = /multilift|\bult(?:ima)?\s*\d|hakov|hook|ampliroll|abroll|roll.?off|hakovy/i
 const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
 export function isHookliftAccessory(a: Pick<ExtAccessory, 'name' | 'kind' | 'isOutrigger'>): boolean {
@@ -52,21 +59,26 @@ export function capacityFromName(name: string): number | null {
   return v >= 3 && v <= 40 ? v : null
 }
 
-/** Hooklift parameters + placement from a trw accessory or body. Missing values fall back to ULT18Z59. */
+/**
+ * Hooklift parameters + placement from a trw accessory or body. The model name is looked up in the
+ * datasheet catalog (fuzzy); without a match x_from/x_to length is used; remaining values fall back to ULT18Z59.
+ */
 export function hookliftPlacement(src: { xFrom: number | null; xTo: number | null; x?: number | null; length: number | null; height: number | null; name?: string; typeRaw?: string | null }, frameRear: number) {
   const name = src.name ?? src.typeRaw ?? ''
-  const hookRaw = (src as { hookHeight?: number | null }).hookHeight
   let xRear = src.xTo ?? null
   let length = src.length ?? (src.xFrom != null && src.xTo != null ? src.xTo - src.xFrom : null)
+  const spec: HookliftSpec | null = findHookliftSpec(name, length)
   if (xRear == null && src.xFrom != null && length != null) xRear = src.xFrom + length
   if (xRear == null) xRear = frameRear
+  if (spec) length = spec.subframeLengthMm
   if (length == null || length < 2500 || length > 9000) length = ULT18Z59.lengthMm
   const params: HookliftParams = {
     lengthMm: length,
-    hookHeightMm: hookRaw ?? ULT18Z59.hookHeightMm,
-    capacityT: capacityFromName(name) ?? ULT18Z59.capacityT,
+    hookHeightMm: spec?.hookHeightMm ?? ULT18Z59.hookHeightMm,
+    capacityT: spec?.capacityT ?? capacityFromName(name) ?? ULT18Z59.capacityT,
+    installHeightMm: spec?.installHeightMm ?? ULT18Z59.installHeightMm,
   }
-  return { xRear, params }
+  return { xRear, params, spec }
 }
 
 export function bodyHookliftPlacement(b: ExtBody, frameRear: number) {
@@ -80,11 +92,12 @@ export function bodyHookliftPlacement(b: ExtBody, frameRear: number) {
 export function makeHookliftDeform(p: HookliftParams) {
   const M = ULT18Z59
   const mid = M.zFront - M.zRear
-  const fixedEnds = (M.zMax - M.zMin) - mid
+  const fixedEnds = M.nativeLengthMm / 1000 - mid
   const k = Math.max(0.3, (p.lengthMm / 1000 - fixedEnds) / mid)
   const dz = (k - 1) * mid
   const dh = (p.hookHeightMm - M.hookHeightMm) / 1000
-  const sy = Math.min(1.15, Math.max(0.85, Math.cbrt(p.capacityT / M.capacityT)))
+  // section height: installation height h when known, else a mild capacity-based guess
+  const sy = p.installHeightMm != null ? Math.min(1.4, Math.max(0.6, p.installHeightMm / M.installHeightMm)) : Math.min(1.15, Math.max(0.85, Math.cbrt(p.capacityT / M.capacityT)))
   return (v: { x: number; y: number; z: number }, isArm: boolean) => {
     const z = v.z
     v.z = z <= M.zRear ? z : z >= M.zFront ? z + dz : M.zRear + (z - M.zRear) * k
