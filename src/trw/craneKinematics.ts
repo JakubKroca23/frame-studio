@@ -142,3 +142,34 @@ export function loadAt(variantId: string, r: number): { kg: number; manual: bool
   if (r <= t.mor1) return { kg: kl + ((t.mlc1 - kl) * (r - rl)) / (t.mor1 - rl), manual: true }
   return { kg: 0, manual: true }
 }
+
+export type JointKey = keyof CraneJoints
+
+/** Angle equivalent to `a` (±360°) closest to `prev` — keeps a dragged angle continuous across ±180°. */
+export function nearestEquivalent(a: number, prev: number): number {
+  return a + 360 * Math.round((prev - a) / 360)
+}
+
+/** Joint range [deg or m] for one joint of a variant. */
+export function jointLimits(key: JointKey, v: CraneVariant): [number, number] {
+  return key === 'ext' ? [0, variantBoom(v).stroke] : LIMITS[key]
+}
+
+/** Set ONE joint (others untouched), clamped to its limits. */
+export function setJoint(j: CraneJoints, key: JointKey, value: number, v: CraneVariant): CraneJoints {
+  return { ...j, [key]: clamp(value, jointLimits(key, v)) }
+}
+
+/**
+ * Joint value from a dragged point in the boom plane (r, h) [m]:
+ * a1 = direction from the main pivot, rel = direction from the knuckle minus a1, ext = projection along the outer boom.
+ */
+export function jointFromBoomPoint(j: CraneJoints, key: 'a1' | 'rel' | 'ext', p: { r: number; h: number }, v: CraneVariant): CraneJoints {
+  const P1 = X142_GEOM.p1
+  if (key === 'a1') return setJoint(j, 'a1', nearestEquivalent(Math.atan2(p.h - P1.h, p.r - P1.r) * deg, j.a1), v)
+  const k = forwardKinematics(j, v).knuckle
+  if (key === 'rel') return setJoint(j, 'rel', nearestEquivalent(Math.atan2(p.h - k.h, p.r - k.r) * deg - j.a1, j.rel), v)
+  const a2 = (j.a1 + j.rel) / deg
+  const along = (p.r - k.r) * Math.cos(a2) + (p.h - k.h) * Math.sin(a2)
+  return setJoint(j, 'ext', along - variantBoom(v).l2, v)
+}

@@ -1132,3 +1132,14 @@ body {
     border-top: 1px solid var(--line);
   }
 }
+
+/* crane gizmos */
+.crane-gizmo-label, .crane-dim-label {
+  pointer-events: none; white-space: nowrap; font: 600 13px/1.2 system-ui, sans-serif;
+  padding: 3px 7px; border-radius: 6px; background: rgba(255,255,255,.92); box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+.crane-gizmo-label { color: #10233f; border: 2px solid #f2a900; }
+.crane-dim-h { color: #0a7c3a; border: 2px solid #0a7c3a; }
+.crane-dim-r { color: #7a3db8; border: 2px solid #7a3db8; }
+.crane-dim-load { color: #fff; background: #1f6fd1; }
+@media (max-width: 700px) { .crane-gizmo-label, .crane-dim-label { font-size: 12px; padding: 2px 5px; } }

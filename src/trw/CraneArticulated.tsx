@@ -1,10 +1,11 @@
 import { useGLTF } from '@react-three/drei'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
-import { Suspense, useMemo, useRef, type ReactNode } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { CraneDimensions, LinearScale, Protractor } from './CraneGizmos'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
-import { A1_CAD, forwardKinematics, inverseKinematics, L2_E4, REL_CAD, slewFromAzimuth, variantBoom, X142_GEOM, type CraneJoints, type CraneVariant } from './craneKinematics'
+import { A1_CAD, forwardKinematics, inverseKinematics, jointLimits, L2_E4, loadAt, nearestEquivalent, setJoint, REL_CAD, slewFromAzimuth, variantBoom, X142_GEOM, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
 
 export const ARTICULATED_GLB = 'hiab-x-hipro-142e4-articulated.glb'
 const material = new THREE.MeshStandardMaterial({ color: '#c8231b', metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide })
@@ -12,6 +13,8 @@ const handleMat = new THREE.MeshStandardMaterial({ color: '#1f6fd1', emissive: '
 const D2 = { r: X142_GEOM.tipRetractedE4.r - X142_GEOM.p2.r, h: X142_GEOM.tipRetractedE4.h - X142_GEOM.p2.h }
 const U = { r: D2.r / Math.hypot(D2.r, D2.h), h: D2.h / Math.hypot(D2.r, D2.h) }
 const rad = Math.PI / 180
+const jointMat = new THREE.MeshStandardMaterial({ color: '#f2a900', emissive: '#6b4a00', transparent: true, opacity: 0.9 })
+const JOINT_NAMES: Record<JointKey, string> = { slew: 'Natočení', a1: 'Hlavní výložník', rel: 'Vnější výložník', ext: 'Výsuvy' }
 
 export interface ArticulatedProps {
   x: number
@@ -93,16 +96,58 @@ function Loaded({ x, frameTop, joints, variant, onJoints }: ArticulatedProps) {
     ;(e.target as unknown as Element | null)?.releasePointerCapture?.(e.pointerId)
   }
 
+  // ---- joint handles / protractors ----
+  const [sel, setSel] = useState<JointKey | null>(null)
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setSel(null) }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [])
+  const jr = useRef(joints); jr.current = joints
+  const setOne = (key: JointKey, val: number) => onJoints(setJoint(jr.current, key, key === 'ext' ? val : nearestEquivalent(val, jr.current[key]), variant))
+  const pick = (key: JointKey) => ({ onPointerDown: (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setSel(key) }, onClick: (e: ThreeEvent<MouseEvent>) => e.stopPropagation() })
+  const lim = (k: JointKey) => jointLimits(k, variant)
+  const ro = craneReadout(joints, variant, x, frameTop)
+  const ld = loadAt(variant.id, ro.reach)
+  const loadText = ld ? `max ${Math.round(ld.kg).toLocaleString('cs-CZ')} kg · ${(ld.kg * 9.81 * ro.reach / 1000).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} kNm${ld.manual ? ' (ruční výsuv)' : ''}` : 'nosnost n/a (ES)'
+  const extBase = { r: D2.r + U.r * dl, h: D2.h + U.h * dl }
   const P1 = X142_GEOM.p1, P2 = X142_GEOM.p2
+  const lat = X142_GEOM.lateralOffset
   return (
-    <group name="trw-crane-model" position={[x, frameTop, 0]} scale={1000}>
+   <>
+    <CraneDimensions column={[x, 0]} tip={[ro.x * 1000, ro.y * 1000]} height={ro.height} reach={ro.reach} loadText={loadText} />
+    <group name="trw-crane-model" position={[x, frameTop, 0]} scale={1000} onPointerMissed={() => setSel(null)}>
+      <mesh name="crane-joint-slew" position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]} material={jointMat} {...pick('slew')}>
+        <torusGeometry args={[0.55, 0.06, 10, 40]} />
+      </mesh>
+      {sel === 'slew' && (
+        <group position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <Suspense fallback={null}><Protractor offset={180} value={joints.slew} limits={lim('slew')} radius={2.2} label={JOINT_NAMES.slew} onAngle={(d) => setOne('slew', d)} /></Suspense>
+        </group>
+      )}
       <group rotation={[0, -Math.PI / 2, 0]}>{meshes('base')}</group>
       <group name="trw-crane-slew" rotation={[0, -Math.PI / 2 + joints.slew * rad, 0]}>
         {meshes('column')}
         {meshes('cyl1')}
+        <mesh name="crane-joint-a1" position={[lat, P1.h, P1.r]} material={jointMat} {...pick('a1')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
+        {sel === 'a1' && (
+          <group position={[lat + 0.25, P1.h, P1.r]} rotation={[0, -Math.PI / 2, 0]}>
+            <Suspense fallback={null}><Protractor offset={0} value={joints.a1} limits={lim('a1')} radius={1.4} label={JOINT_NAMES.a1} onAngle={(d) => setOne('a1', d)} /></Suspense>
+          </group>
+        )}
         <group position={[0, P1.h, P1.r]} rotation={[-(joints.a1 - A1_CAD) * rad, 0, 0]}>
           <group position={[0, -P1.h, -P1.r]}>{meshes('main')}</group>
-          <group position={[0, P2.h - P1.h, P2.r - P1.r]} rotation={[-(joints.rel - REL_CAD) * rad, 0, 0]}>
+          <group position={[0, P2.h - P1.h, P2.r - P1.r]}>
+          <mesh name="crane-joint-rel" position={[lat, 0, 0]} material={jointMat} {...pick('rel')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
+          {sel === 'rel' && (
+            <group position={[lat + 0.25, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+              {/* frame rotates with the main boom: absolute = φ + a1 − A1_CAD, so rel = φ − A1_CAD */}
+              <group>
+                <Suspense fallback={null}><Protractor offset={A1_CAD} value={joints.rel} limits={lim('rel')} radius={1.4} label={JOINT_NAMES.rel} onAngle={(d) => setOne('rel', d)} /></Suspense>
+              </group>
+            </group>
+          )}
+          <group rotation={[-(joints.rel - REL_CAD) * rad, 0, 0]}>
             <group position={[0, -P2.h, -P2.r]}>
               {meshes('outer')}
               {[1, 2, 3, 4].map((k) => (
@@ -114,10 +159,24 @@ function Loaded({ x, frameTop, joints, variant, onJoints }: ArticulatedProps) {
             <mesh ref={tipRef} name="crane-tip-handle" position={[X142_GEOM.lateralOffset, tipLocal.h, tipLocal.r]} material={handleMat} onPointerDown={down} onPointerMove={move} onPointerUp={up}>
               <sphereGeometry args={[0.18, 20, 14]} />
             </mesh>
+            <group position={[0, -P2.h, -P2.r]}>
+              <mesh name="crane-joint-ext" position={[lat, extBase.h + 0.25, extBase.r]} rotation={[-Math.atan2(U.h, U.r), 0, 0]} material={jointMat} {...pick('ext')}>
+                <boxGeometry args={[0.18, 0.18, 0.4]} />
+              </mesh>
+              {sel === 'ext' && (
+                <group position={[lat + 0.2, extBase.h + 0.35, extBase.r]} rotation={[0, -Math.PI / 2, 0]}>
+                  <group rotation={[0, 0, Math.atan2(U.h, U.r)]}>
+                    <Suspense fallback={null}><LinearScale value={joints.ext} max={lim('ext')[1]} onValue={(m) => setOne('ext', m)} /></Suspense>
+                  </group>
+                </group>
+              )}
+            </group>
+          </group>
           </group>
         </group>
       </group>
     </group>
+   </>
   )
 }
 
