@@ -2,6 +2,7 @@ import { Html, Line } from '@react-three/drei'
 import type { ReactNode } from 'react'
 import { bodyHookliftPlacement, hookliftPlacement, isHookliftAccessory, pickHooklift } from './hooklift'
 import { HookliftModel } from './HookliftModel'
+import { AuxOutriggerModel, pickAuxStab } from './AuxOutriggerModel'
 import { StabilitySectors } from './StabilitySectors'
 import { BODY_TYPE_LABEL, nearestAngle, type ExtAccessory, type ExtBody, type ExtStability, type TrwExtended } from './trwExtended'
 
@@ -118,6 +119,7 @@ function ExtraOutrigger({ a, frameTop }: { a: ExtAccessory; frameTop: number }) 
   ]
   return (
     <group name={`trw-extra-outrigger-${a.name}`}>
+      <AuxOutriggerModel kind={pickAuxStab((a.reachLeft ?? 0) + (a.reachRight ?? 0) || null)} x={a.x} top={frameTop - 60} />
       {legs.map(([side, reach]) => {
         if (reach == null || reach <= 0) return null
         const z = (side === 'left' ? -1 : 1) * reach
