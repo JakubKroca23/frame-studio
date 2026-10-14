@@ -114,3 +114,42 @@ describe('live client', () => {
     expect(liveDocOf({ schema: 'trw/config@1' })).toBeNull()
   })
 })
+
+import { convertTrwFile } from './fromTrw'
+import { liveStatusText } from './stabilityLive'
+import sampleConfig from './sample-crane-142-3d.json'
+describe('from-trw → live document', () => {
+  it('passes the from-trw document to the live client', async () => {
+    const document = { chassis: { foh: 1475 }, crane: { enabled: true, hook_kg: 2000 } }
+    const fetcher = (async () => ({ ok: true, status: 200, json: async () => ({ filename: 'a.trw', config: sampleConfig, document, report: {} }) })) as never
+    const r = await convertTrwFile(new Blob(['x']) as Blob & { name?: string }, fetcher)
+    expect(r.liveDoc).toEqual({ document })
+  })
+  it('prefers a document_id from the response', async () => {
+    const fetcher = (async () => ({ ok: true, status: 200, json: async () => ({ config: sampleConfig, document: { a: 1 }, document_id: 42 }) })) as never
+    const r = await convertTrwFile(new Blob(['x']) as Blob & { name?: string }, fetcher)
+    expect(r.liveDoc).toEqual({ document_id: 42 })
+  })
+})
+describe('live status text', () => {
+  it('explains why live is off', async () => {
+    expect(liveStatusText(null).text).toContain('lokální data (chybí dokument trw)')
+    const c401 = new StabilityLive({ WebSocket: undefined, fetch: (async () => ({ ok: false, status: 401, json: async () => ({}) })) as never })
+    await c401.connect({ document: {} })
+    expect(liveStatusText(c401).text).toBe('Živé spojení s trw: nedostupné (nepřihlášen v trw) – lokální data')
+    const c422 = new StabilityLive({ WebSocket: undefined, fetch: (async () => ({ ok: false, status: 422, json: async () => ({ detail: 'Dokument nemá zapnutý jeřáb.' }) })) as never })
+    await c422.connect({ document: {} })
+    expect(liveStatusText(c422).text).toContain('dokument nelze použít (Dokument nemá zapnutý jeřáb.)')
+    const ok = new StabilityLive({ WebSocket: undefined, fetch: (async () => ({ ok: true, json: async () => ({ factor: null, pass: true }) })) as never })
+    await ok.connect({ document_id: 1 })
+    expect(liveStatusText(ok).text).toBe('Živé spojení s trw: připojeno (HTTP)')
+  })
+  it('WS close 4401 → nepřihlášen', async () => {
+    class WS4401 { onclose?: (e: { code: number }) => void; onopen?: () => void; onerror?: () => void; onmessage?: () => void; constructor() { setTimeout(() => { this.onopen?.(); setTimeout(() => this.onclose?.({ code: 4401 }), 0) }, 0) } close() {} send() {} }
+    const c = new StabilityLive({ WebSocket: WS4401 as never, fetch: undefined })
+    await c.connect({ document: {} })
+    await new Promise((r) => setTimeout(r, 5))
+    expect(c.mode).toBe('unavailable')
+    expect(c.reason).toBe('nepřihlášen v trw')
+  })
+})

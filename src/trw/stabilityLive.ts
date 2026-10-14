@@ -69,6 +69,18 @@ export class StabilityLive {
     }
   }
 
+  /** why live is not available (Czech, for the panel), null when connected / not tried */
+  reason: string | null = null
+  private statusL = new Set<() => void>()
+  onStatus(cb: () => void) { this.statusL.add(cb); return () => this.statusL.delete(cb) }
+  private setMode(m: LiveMode, reason: string | null = this.reason) {
+    this.mode = m
+    this.reason = m === 'ws' || m === 'http' ? null : reason
+    this.statusL.forEach((l) => l())
+    return m
+  }
+  private gotResult = false
+
   get available() { return this.mode === 'ws' || this.mode === 'http' }
   onResult(cb: (r: LiveResponse) => void) { this.listeners.add(cb); return () => this.listeners.delete(cb) }
 
@@ -78,12 +90,12 @@ export class StabilityLive {
   /** Feature-detect with the document; never throws. Without a document → 'unavailable', no network. */
   async connect(doc: LiveDoc | null | undefined, probe?: LiveRequest): Promise<LiveMode> {
     if (this.mode !== 'idle') return this.mode
-    if (!doc || (doc.document == null && doc.document_id == null)) return (this.mode = 'unavailable')
+    if (!doc || (doc.document == null && doc.document_id == null)) return this.setMode('unavailable', 'chybí dokument trw')
     this.doc = doc.document_id != null ? { document_id: doc.document_id } : { document: doc.document }
-    this.mode = 'connecting'
-    if (await this.tryWs()) return (this.mode = 'ws')
-    if (await this.tryHttp(probe)) return (this.mode = 'http')
-    return (this.mode = 'unavailable')
+    this.setMode('connecting', null)
+    if (await this.tryWs()) return this.setMode('ws')
+    if (await this.tryHttp(probe)) return this.setMode('http')
+    return this.setMode('unavailable', this.reason ?? 'server neodpovídá')
   }
 
   /** the document goes with the first WS message; every POST carries it (stateless) */
@@ -109,11 +121,24 @@ export class StabilityLive {
           if (this.ws === ws) {
             this.ws = null
             // 4401 not logged in / 4403 origin → the POST would fail the same way
-            this.mode = ev && (ev.code === 4401 || ev.code === 4403) ? 'unavailable' : this.d.fetch ? 'http' : 'unavailable'
-          }
+            if (ev?.code === 4401) this.setMode('unavailable', 'nepřihlášen v trw')
+            else if (ev?.code === 4403) this.setMode('unavailable', 'nepovolený původ (CORS)')
+            else this.setMode(this.d.fetch ? 'http' : 'unavailable', 'spojení ukončeno')
+          } else if (ev?.code === 4401) this.reason = 'nepřihlášen v trw'
+          else if (ev?.code === 4403) this.reason = 'nepovolený původ (CORS)'
           finish(false)
         }
-        ws.onmessage = (ev) => { try { this.emit(JSON.parse(String(ev.data))) } catch { /* ignore bad frames */ } }
+        ws.onmessage = (ev) => {
+          try {
+            const m = JSON.parse(String(ev.data))
+            if (m && typeof m === 'object' && 'error' in m) {
+              // server keeps the socket open; before any valid answer this means the document is unusable
+              if (!this.gotResult) { this.reason = `trw: ${String(m.error)}`; this.setMode('unavailable') }
+              return
+            }
+            this.emit(m)
+          } catch { /* ignore bad frames */ }
+        }
       } catch { finish(false) }
     })
   }
@@ -123,12 +148,17 @@ export class StabilityLive {
     try {
       const r = await this.post(probe ?? { slew_deg: 0, outreach_mm: null, load_kg: null })
       return r != null
-    } catch { return false }
+    } catch { this.reason ??= 'síť nedostupná'; return false }
   }
 
   private async post(req: LiveRequest): Promise<LiveResponse | null> {
     const res = await this.d.fetch!(this.d.httpUrl, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.body(req, false)) })
-    if (!res.ok) return null
+    if (!res.ok) {
+      let detail = ''
+      try { const e = await res.json(); detail = typeof e?.detail === 'string' ? e.detail : typeof e?.error === 'string' ? e.error : '' } catch { /* no body */ }
+      this.reason = res.status === 401 || res.status === 403 ? 'nepřihlášen v trw' : res.status === 404 ? (this.doc?.document_id != null ? 'uložený výpočet nenalezen' : 'endpoint neexistuje') : res.status === 422 ? `dokument nelze použít${detail ? ` (${detail})` : ''}` : `chyba trw ${res.status}`
+      return null
+    }
     const body = (await res.json()) as LiveResponse
     if (!isResult(body)) return null
     this.emit(body)
@@ -138,6 +168,7 @@ export class StabilityLive {
   private emit(r: LiveResponse) {
     if (!isResult(r)) return // WS error frames ({schema, error}) keep the connection, keep local data
     this.last = r
+    this.gotResult = true
     this.listeners.forEach((l) => l(r))
   }
 
@@ -162,7 +193,7 @@ export class StabilityLive {
     }
   }
 
-  close() { try { this.ws?.close() } catch { /* ignore */ } this.ws = null; this.mode = 'idle'; this.docSent = false }
+  close() { const ws = this.ws; this.ws = null; try { ws?.close() } catch { /* ignore */ } this.mode = 'idle'; this.docSent = false }
 }
 
 /** A real answer: factor is a number or null (null = cannot tip, valid), no error field. */
@@ -176,4 +207,26 @@ export function liveLevel(r: LiveResponse): LiveLevel {
   if (r.level) return r.level
   if (r.status) return r.status === 'red' ? 'fail' : r.status === 'orange' ? 'warn' : 'ok'
   return r.pass === false ? 'fail' : 'ok'
+}
+
+let shared: StabilityLive | null = null
+let sharedDoc: LiveDoc | null = null
+/** One live client per trw document (page-wide); connects on first use. */
+export function liveClientFor(doc: LiveDoc): StabilityLive {
+  if (!shared || sharedDoc !== doc) {
+    shared?.close()
+    shared = new StabilityLive()
+    sharedDoc = doc
+    void shared.connect(doc)
+  }
+  return shared
+}
+
+/** Panel text: "Živé spojení s trw: …". */
+export function liveStatusText(c: StabilityLive | null): { text: string; level: 'ok' | 'info' | 'error' } {
+  const p = 'Živé spojení s trw: '
+  if (!c) return { text: `${p}lokální data (chybí dokument trw)`, level: 'info' }
+  if (c.mode === 'ws' || c.mode === 'http') return { text: `${p}připojeno (${c.mode === 'ws' ? 'WebSocket' : 'HTTP'})`, level: 'ok' }
+  if (c.mode === 'connecting' || c.mode === 'idle') return { text: `${p}připojuji…`, level: 'info' }
+  return { text: `${p}nedostupné${c.reason ? ` (${c.reason})` : ''} – lokální data`, level: c.reason === 'chybí dokument trw' ? 'info' : 'error' }
 }

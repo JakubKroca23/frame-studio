@@ -5,6 +5,8 @@ import { HookliftModel } from './HookliftModel'
 import { StabilitySectors } from './StabilitySectors'
 import { BODY_TYPE_LABEL, nearestAngle, type ExtAccessory, type ExtBody, type ExtStability, type TrwExtended } from './trwExtended'
 
+const EMPTY_STABILITY: ExtStability = { angles: [], pass: null, verified: false, minFactor: null, requiredN: null } as ExtStability
+
 /** 3D view of the extended trw blocks (X rearward from axle 1, Y up, Z lateral = trw y). */
 export function TrwExtendedView({ ext, frameTop, slewDeg, frameRear, craneX, sectorRadius = 8000, showSectors = true, liveDoc }: { liveDoc?: { document?: unknown; document_id?: number | string } | null; ext: TrwExtended; frameTop: number; slewDeg: number; frameRear?: number; craneX?: number | null; sectorRadius?: number; showSectors?: boolean }) {
   const rear = frameRear ?? Math.max(ext.body?.xTo ?? 0, 8000)
@@ -13,7 +15,7 @@ export function TrwExtendedView({ ext, frameTop, slewDeg, frameRear, craneX, sec
     <group name="trw-extended">
       {ext.body && !(ext.body.type === 'hooklift' && hl !== 'body') ? <Body body={ext.body} frameTop={frameTop} frameRear={rear} /> : null}
       {(ext.accessories ?? []).map((a, i) => (a.isOutrigger ? <ExtraOutrigger key={i} a={a} frameTop={frameTop} /> : isHookliftAccessory(a) ? (hl === i ? <HookliftAccessory key={i} a={a} frameTop={frameTop} frameRear={rear} /> : null) : <Accessory key={i} a={a} frameTop={frameTop} />))}
-      {ext.stability ? (craneX != null && ext.stability.angles.length ? <StabilitySectors st={ext.stability} craneX={craneX} radius={sectorRadius} showSectors={showSectors} slewDeg={slewDeg} liveDoc={liveDoc} /> : <Stability st={ext.stability} slewDeg={slewDeg} frameTop={frameTop} />) : null}
+      {ext.stability || (liveDoc && craneX != null) ? (craneX != null && (ext.stability?.angles.length || liveDoc) ? <StabilitySectors st={ext.stability ?? EMPTY_STABILITY} craneX={craneX} radius={sectorRadius} showSectors={showSectors} slewDeg={slewDeg} liveDoc={liveDoc} />   : <Stability st={ext.stability!} slewDeg={slewDeg} frameTop={frameTop} />) : null}
     </group>
   )
 }

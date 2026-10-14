@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { liveCrane } from './liveCrane'
 import { classify, factorAt, mergeSectors, sectorFan, STATUS_COLOR, STATUS_LABEL, utilisation } from './stabilitySectors'
-import { liveLevel, StabilityLive, type LiveDoc, type LiveResponse } from './stabilityLive'
+import { liveClientFor, liveLevel, type LiveDoc, type LiveResponse, type StabilityLive } from './stabilityLive'
 import type { Sector, SectorStatus } from './stabilitySectors'
 import type { ExtPoint, ExtReaction, ExtStability } from './trwExtended'
 
@@ -17,17 +17,7 @@ const UP = new THREE.Vector3(0, 1, 0)
 const MAX_LINES = 4
 
 let client: StabilityLive | null = null
-let clientDoc: LiveDoc | null = null
-/** One live client per trw document; feature-detected once, silent fallback to local angles. */
-function liveClient(doc: LiveDoc) {
-  if (!client || clientDoc !== doc) {
-    client?.close()
-    client = new StabilityLive()
-    clientDoc = doc
-    void client.connect(doc)
-  }
-  return client
-}
+const liveClient = (doc: LiveDoc) => (client = liveClientFor(doc))
 const LEVEL_STATUS: Record<string, SectorStatus> = { ok: 'ok', warn: 'warn', fail: 'fail' }
 
 /** Live sectors → local Sector list (wrap through 0°: to_deg < from_deg). */
@@ -165,7 +155,7 @@ export function StabilitySectors({ st, craneX, radius, showSectors, slewDeg, liv
 
   return (
     <group name="trw-stability-live">
-      {showSectors ? <mesh name="stability-sectors" geometry={fan} material={fanMat} position={[craneX, 6, 0]} raycast={() => null} renderOrder={1} /> : null}
+      {showSectors && sectors.some((x) => x.status !== 'unknown') ? <mesh name="stability-sectors" geometry={fan} material={fanMat} position={[craneX, 6, 0]} raycast={() => null} renderOrder={1} /> : null}
       <mesh ref={hi} name="stability-sector-current" geometry={hiGeo} material={hiMat} position={[craneX, 7, 0]} raycast={() => null} renderOrder={2} />
       {Array.from({ length: MAX_LINES }, (_, i) => (
         <mesh key={i} ref={(m) => { lines.current[i] = m }} name={`stability-tipping-${i}`} geometry={unitBox} material={lineMats.unknown} visible={false} raycast={() => null} />

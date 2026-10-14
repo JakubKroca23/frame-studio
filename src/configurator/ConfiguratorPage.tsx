@@ -22,7 +22,7 @@ import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
 import { parseCsSimResult, type CsSimResult } from '../trw/csSimResult'
 import { CS_SIM_ORIGIN, TRW_ORIGIN, csSimLink, csSimMessageData, fetchTrwUrl, stripLinkParams, trwFromCsSim, type LinkRequest } from '../trw/links'
-import { TrwAuthError, mapTrwExport } from '../trw/trwConfig'
+import { TrwAuthError, liveDocOf, mapTrwExport } from '../trw/trwConfig'
 import { classifyFile, convertTrwFile, unwrapConfig } from '../trw/fromTrw'
 
 /** Cab shapes offered in the form: every make plus Mercedes-Benz (shape only, no chassis presets yet). */
@@ -196,7 +196,10 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
         choosePreset(result.preset, result)
         setLinkStatus({ text: `Projekt ${file.name} převeden (${result.report.length ? `${result.report.length} položek v hlášení` : 'bez hlášení'}).`, level: 'ok' })
       } else if (kind === 'trw-config') {
-        const result = mapTrwExport(unwrapConfig(JSON.parse(text!)))
+        const raw = JSON.parse(text!)
+        const mapped = mapTrwExport(unwrapConfig(raw))
+        // a saved from-trw response ({config, document, …}) still carries the document for the live API
+        const result = { ...mapped, liveDoc: mapped.liveDoc ?? liveDocOf(raw) }
         choosePreset(result.preset, result)
         setLinkStatus({ text: `Konfigurace trw načtena ze ${file.name}.`, level: 'ok' })
       } else if (kind === 'cs-sim') {
@@ -504,7 +507,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
               {trw.markers.crane && craneModelFor(trw.markers.crane.name) && cranePose === 'unfolded' ? (
                 <CranePanel joints={craneJoints} variant={parseX142Variant(trw.markers.crane.name)} exact={x142VariantMatch(trw.markers.crane.name).exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} />
               ) : null}
-              {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} showSectors={showSectors} onShowSectors={setShowSectors} /> : null}
+              {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} showSectors={showSectors} onShowSectors={setShowSectors} liveDoc={trw.liveDoc} /> : null}
               <ul className="hints">
                 {trw.warnings.map((warning) => (
                   <li key={warning} className="warn">
