@@ -676,7 +676,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} /> : null}
-        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={slewDeg} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
+        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={slewDeg} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>
             <CsSimOverlay result={sim} frameTop={built.frame.topHeight} frameHalfWidth={built.frame.widthRear / 2} railHeight={built.frame.sectionHeight} />
