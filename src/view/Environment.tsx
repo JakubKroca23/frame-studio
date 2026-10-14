@@ -11,8 +11,8 @@ const mats = {
 }
 
 /** Hall (Contsystem style): ridge along Z, gable end with 3 sectional doors facing the yard (+Z). */
-const H = { x0: -9000, x1: 21000, z0: -48000, z1: -12000, wall: 8500, ridge: 11000 }
-const DOORS = [-1500, 6000, 13500], DW = 6000, DH = 6200
+export const H = { x0: -9000, x1: 21000, z0: -48000, z1: -12000, wall: 8500, ridge: 11000 }
+export const DOORS = [-1500, 6000, 13500], DW = 6000, DH = 6200
 
 function canvasTex(w: number, h: number, draw: (c: CanvasRenderingContext2D) => void, repeat = false) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h

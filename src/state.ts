@@ -257,7 +257,7 @@ export const useApp = create<AppState>((set, get) => {
   },
 }) })
 
-function parseDrawing(text: string, onProgress?: (message: string) => void, dwg?: Uint8Array): Promise<ChassisModel> {
+export function parseDrawing(text: string, onProgress?: (message: string) => void, dwg?: Uint8Array): Promise<ChassisModel> {
   return new Promise((resolve, reject) => {
     let worker: Worker
     try {

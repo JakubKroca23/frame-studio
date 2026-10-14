@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { TopBar, useOpenAny } from './components/TopBar'
+import { StartHero } from './StartHero'
 
 const FEATURES = [
   { kind: 'config', title: '3D konfigurátor podvozků a rámů', text: 'Podvozky Volvo, Scania, MAN a DAF podle katalogových listů výrobců: nápravy, rozvor, převisy, rám, kabina a výbava, živě ve 3D a export GLB.', href: '#novy' },
@@ -30,6 +31,7 @@ export function StartScreen() {
     <div className="start">
       <TopBar page="start" />
       <main className="start-main start-page">
+        <StartHero />
         <h1 className="start-title">CS <span>STUDIO</span></h1>
         <div className="feature-grid">
           {FEATURES.map((f) => (

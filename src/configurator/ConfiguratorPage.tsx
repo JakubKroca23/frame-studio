@@ -1,6 +1,9 @@
 import { hookliftPlacement } from '../trw/hooklift'
 import { HookliftModel } from '../trw/HookliftModel'
 import { takePendingProject } from '../openProject'
+import { parseDrawing } from '../state'
+import { decodeDrawing } from '../io/decodeDrawing'
+import { refineConfigFromDxf, type RefineResult } from './refineFromDxf'
 import { TopBar } from '../components/TopBar'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
@@ -115,6 +118,8 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
   /** Why the live stability client could not start because the trw import itself failed (null = import ok / none). */
   const [liveBlock, setLiveBlock] = useState<string | null>(null)
   const trwFileRef = useRef<HTMLInputElement>(null)
+  const dxfFileRef = useRef<HTMLInputElement>(null)
+  const [refine, setRefine] = useState<(RefineResult & { file: string }) | null>(null)
   const [dragging, setDragging] = useState(false)
   const [showSectors, setShowSectors] = useState(true)
   useEffect(() => setLiveCrane({ slewDeg }), [slewDeg])
@@ -206,6 +211,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
 
   /** Opens a .trw project (converted by trw), a trw/config@1 JSON or a CS Sim result. */
   async function openFile(file: File) {
+    if (/\.(dxf|dwg|gz|tgz|zip)$/i.test(file.name)) return refineFromDrawing(file)
     const isTrw = /\.trw$/i.test(file.name)
     const text = isTrw ? null : await file.text()
     const kind = classifyFile(file.name, text)
@@ -231,6 +237,21 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
     } catch (err) {
       if (kind === 'trw-project') setLiveBlock(importBlockReason(err))
       setLinkStatus({ text: err instanceof Error ? err.message : String(err), level: 'error', login: err instanceof TrwAuthError })
+    }
+  }
+  /** DXF/DWG side view (chassis or chassis + crane): refine the current config (trw or preset) with measured values. */
+  async function refineFromDrawing(file: File) {
+    setLinkStatus({ text: `Čtu výkres ${file.name}…`, level: 'info' })
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer())
+      const dwg = /\.dwg$/i.test(file.name)
+      const m = dwg ? await parseDrawing('', undefined, bytes) : await parseDrawing(decodeDrawing(file.name, bytes))
+      const res = refineConfigFromDxf(cfg, m)
+      setCfg(res.cfg)
+      setRefine({ ...res, file: file.name })
+      setLinkStatus({ text: `${trw ? 'Model z trw' : 'Model'} zpřesněn výkresem ${file.name}: ${res.applied.length} hodnot převzato z výkresu.`, level: res.applied.length ? 'ok' : 'error' })
+    } catch (err) {
+      setLinkStatus({ text: `${file.name}: ${err instanceof Error ? err.message : String(err)}`, level: 'error' })
     }
   }
   const openFileRef = useRef(openFile)
@@ -496,8 +517,30 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
                 if (file) void openFile(file)
               }}
             />
-            <span className="muted">nebo přetáhněte .trw / .json do okna</span>
+            <Button size="sm" variant="outline" onClick={() => dxfFileRef.current?.click()} data-testid="cfg-dxf-refine">
+              Zpřesnit z DXF
+            </Button>
+            <input
+              ref={dxfFileRef}
+              type="file"
+              accept=".dxf,.dwg,.gz,.zip,application/dxf,application/acad,application/octet-stream"
+              style={{ display: 'none' }}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file) void refineFromDrawing(file)
+              }}
+            />
+            <span className="muted">nebo přetáhněte .trw / .json / .dxf do okna</span>
           </div>
+          {refine ? (
+            <details className="status ok" data-testid="cfg-refine" open>
+              <summary>Zpřesněno z výkresu {refine.file} ({refine.applied.length})</summary>
+              <ul>{refine.applied.map((t) => <li key={t}>{t}</li>)}</ul>
+              <p className="muted">Ponecháno z trw / předlohy:</p>
+              <ul>{refine.kept.map((t) => <li key={t}>{t}</li>)}</ul>
+            </details>
+          ) : null}
           <div className="row" style={{ marginTop: 4 }}>
             <a className="head-link" href={TRW_ORIGIN} target="_blank" rel="noreferrer">
               Otevřít v trw

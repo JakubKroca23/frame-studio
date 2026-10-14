@@ -206,7 +206,7 @@ interface OrbitLike {
   removeEventListener: (type: string, listener: () => void) => void
 }
 
-function StudioLights() {
+export function StudioLights() {
   const gl = useThree((s) => s.gl)
   const invalidate = useThree((s) => s.invalidate)
   const scene = useThree((s) => s.scene)

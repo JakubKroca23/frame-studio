@@ -41,7 +41,7 @@ export function useOpenAny() {
       const f = e.target.files?.[0]
       e.target.value = ''
       if (!f) return
-      if (isProjectFile(f.name)) { queueProjectFile(f); if (!window.location.hash.startsWith('#novy')) window.location.hash = '#novy' } else { window.location.hash = '#vykres'; void loadFile(f) }
+      if (isProjectFile(f.name) || window.location.hash.startsWith('#novy')) { queueProjectFile(f); if (!window.location.hash.startsWith('#novy')) window.location.hash = '#novy' } else { window.location.hash = '#vykres'; void loadFile(f) }
     }} />
   )
   return { input, open: () => ref.current?.click() }
