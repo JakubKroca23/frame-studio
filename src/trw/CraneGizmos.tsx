@@ -1,4 +1,5 @@
-import { Html, Text } from '@react-three/drei'
+import { Billboard, Html, Text } from '@react-three/drei'
+import type { ComponentProps } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
@@ -88,9 +89,9 @@ export function Protractor({ offset, value, limits, radius: R }: Omit<Protractor
   for (let d = -180; d < 180; d += 30) {
     const ang = (d + offset) * rad
     labels.push(
-      <Text key={d} position={[Math.cos(ang) * R * 0.8, Math.sin(ang) * R * 0.8, 0]} fontSize={R * 0.06} color="#e6edf5" anchorX="center" anchorY="middle" outlineWidth={R * 0.006} outlineColor="#141a24">
+      <BText key={d} position={[Math.cos(ang) * R * 0.8, Math.sin(ang) * R * 0.8, 0]} fontSize={R * 0.06} color="#e6edf5" anchorX="center" anchorY="middle" outlineWidth={R * 0.006} outlineColor="#141a24">
         {`${d}°`}
-      </Text>,
+      </BText>,
     )
   }
   return (
@@ -118,7 +119,7 @@ export function Protractor({ offset, value, limits, radius: R }: Omit<Protractor
         return (
           <group key={i}>
             <Bar from={[Math.cos(ang) * R * 0.84, Math.sin(ang) * R * 0.84, 0]} to={[Math.cos(ang) * R * 1.04, Math.sin(ang) * R * 1.04, 0]} width={R * 0.02} color="#3ee6c4" />
-            <Text position={[Math.cos(ang) * R * 1.2, Math.sin(ang) * R * 1.2, 0]} fontSize={R * 0.09} color="#3ee6c4" anchorX="center" anchorY="middle" outlineWidth={R * 0.008} outlineColor="#141a24">{`${i ? 'max' : 'min'} ${fmt(limits[i], 0)}°`}</Text>
+            <BText position={[Math.cos(ang) * R * 1.2, Math.sin(ang) * R * 1.2, 0]} fontSize={R * 0.09} color="#3ee6c4" anchorX="center" anchorY="middle" outlineWidth={R * 0.008} outlineColor="#141a24">{`${i ? 'max' : 'min'} ${fmt(limits[i], 0)}°`}</BText>
           </group>
         )
       })}
@@ -186,7 +187,7 @@ export function TelescopeArrows({ value, max, size = 0.75, k, onValue }: { value
     <group ref={ref} name="crane-ext-arrows">
       <ScreenScale k={k ?? 0}>
       <ArrowHandle size={size} name="crane-ext-arrow" label="Výsuv: táhněte šipkou" geom={dblArrow} hit={dblHit} outline={1} onDown={begin} onMove={drag.move} onUp={finish} />
-      <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, -size * 1.0, 0]} center zIndexRange={[20, 10]}>
+      <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, size * 1.05, 0]} center zIndexRange={[20, 10]}>
         <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm / {fmt(max * 1000)} mm</div>
       </Html>
       </ScreenScale>
@@ -206,7 +207,7 @@ export function LinearScale({ value, max }: { value: number; max: number }) {
     return pts
   }, [max])
   const labels = []
-  for (let m = 2; m < max - 0.5; m += 2) labels.push(<Text key={m} position={[m, 0.38, 0]} fontSize={0.14} color="#e6edf5" outlineWidth={0.012} outlineColor="#141a24">{`${m * 1000}`}</Text>)
+  for (let m = 2; m < max - 0.5; m += 2) labels.push(<BText key={m} position={[m, 0.38, 0]} fontSize={0.14} color="#e6edf5" outlineWidth={0.012} outlineColor="#141a24">{`${m * 1000}`}</BText>)
   return (
     <group ref={ref} name="crane-ext-scale">
       <mesh position={[value / 2, 0.11, -0.002]}>
@@ -214,8 +215,8 @@ export function LinearScale({ value, max }: { value: number; max: number }) {
         <meshBasicMaterial color="#ff1a1a" transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <Bar from={[0, 0, 0]} to={[max, 0, 0]} width={0.06} color="#3ee6c4" opacity={0.8} />
-      <Text position={[0, -0.25, 0]} fontSize={0.16} color="#3ee6c4" outlineWidth={0.012} outlineColor="#141a24">min 0</Text>
-      <Text position={[max, -0.25, 0]} fontSize={0.16} color="#3ee6c4" outlineWidth={0.012} outlineColor="#141a24">{`max ${fmt(max * 1000)} mm`}</Text>
+      <BText position={[0, -0.25, 0]} fontSize={0.16} color="#3ee6c4" outlineWidth={0.012} outlineColor="#141a24">min 0</BText>
+      <BText position={[max, -0.25, 0]} fontSize={0.16} color="#3ee6c4" outlineWidth={0.012} outlineColor="#141a24">{`max ${fmt(max * 1000)} mm`}</BText>
       <lineSegments>
         <bufferGeometry onUpdate={(g) => g.setFromPoints(ticks)} />
         <lineBasicMaterial color="#c9d6e3" />
@@ -318,4 +319,9 @@ export function JointArcHandles({ id, offset, value, limits, label, k = 0.055, o
       </ScreenScale>
     </group>
   )
+}
+
+/** Text that always faces the camera (never mirrored when the scale is seen from the other side). */
+function BText({ position, ...rest }: ComponentProps<typeof Text>) {
+  return <Billboard position={position}><Text {...rest} /></Billboard>
 }
