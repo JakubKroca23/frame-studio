@@ -28,6 +28,21 @@ export interface DxfEntity {
   knots?: number[]
   controls?: DxfVec[]
   fits?: { x: number; y: number }[]
+  /** DIMENSION geometry: definition points and the stored measurement (code 42). */
+  dim?: DimDef
+}
+
+export interface DimDef {
+  /** Code 70 & 7: 0 rotated/linear, 1 aligned, 2 angular, 3 diameter, 4 radius. */
+  type: number
+  measurement: number | null
+  rawText: string
+  /** Code 50: rotation of a linear dimension in degrees (0 = horizontal). */
+  angle: number
+  p10: { x: number; y: number }
+  p13: { x: number; y: number }
+  p14: { x: number; y: number }
+  p15: { x: number; y: number }
 }
 
 export interface DxfBlock {
@@ -42,6 +57,8 @@ export interface DxfDb {
   version: string
   /** $INSUNITS, 4 = millimetres */
   units: number
+  /** $DIMLFAC, linear dimension scale factor (1 when absent). */
+  dimlfac?: number
   blocks: Map<string, DxfBlock>
   entities: DxfEntity[]
   layers: Set<string>

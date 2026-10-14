@@ -113,6 +113,9 @@ export default function App() {
               <Button variant="outline" onClick={() => void loadSample('volvo')} disabled={status === 'loading'}>
                 Vzor Volvo
               </Button>
+              <Button variant="outline" onClick={() => (window.location.hash = '#dxf3d')}>
+                Importovat DXF → 3D
+              </Button>
             </div>
             <input
               ref={fileRef}

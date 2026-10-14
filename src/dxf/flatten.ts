@@ -28,6 +28,8 @@ export interface FlattenOptions {
   curveTolerance?: number
   /** Skip line segments shorter than this. Circles and texts stay. */
   minSegment?: number
+  /** Emit tessellated circles as segments too (default true). Circles are always listed. */
+  circleSegments?: boolean
 }
 
 /**
@@ -96,7 +98,7 @@ export function flatten(db: DxfDb, options: FlattenOptions = {}): FlatDrawing {
         const circ: Circ = { layer, x, y, r, block: rootBlock }
         flat.circles.push(circ)
         flat.layers.set(layer, (flat.layers.get(layer) ?? 0) + 1)
-        if (r >= 15 && r < 2500) emitPoly(layer, tessellateCircle(x, y, r, worldTol), rootBlock)
+        if (options.circleSegments !== false && r >= 15 && r < 2500) emitPoly(layer, tessellateCircle(x, y, r, worldTol), rootBlock)
         break
       }
       case 'ARC': {

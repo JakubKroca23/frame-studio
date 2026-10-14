@@ -606,3 +606,67 @@ export function solidReport(geometry: THREE.BufferGeometry): {
   for (let face = 0; face < triangles; face++) shells.add(find(face))
   return { boundary, nonManifold, misoriented, shells: shells.size, volume: volume / 6 }
 }
+
+/* ------------------------------------------------------------------------------------------ */
+/* Generic orthographic-view intersection (any part, not just cabs).                          */
+/* Shares asRing/orient/toGeometry with the cab solid above.                                  */
+/* ------------------------------------------------------------------------------------------ */
+
+/** Axis a view is extruded along. Section coordinates: 'x' → (Y,Z), 'y' → (X,Z), 'z' → (X,Y). */
+export type PrismAxis = 'x' | 'y' | 'z'
+
+/** Closed ring as a manifold cross-section (positive fill), or null if degenerate. */
+export function ringSection(api: ManifoldToplevel, ring: readonly Pt[]): Section | null {
+  const r = asRing(ring)
+  return r ? new api.CrossSection([orient(r)], 'Positive') : null
+}
+
+/** Extrude a section between lo and hi along a model axis (see PrismAxis for the in-plane mapping). */
+export function prismAlong(section: Section, axis: PrismAxis, lo: number, hi: number): Solid {
+  const h = Math.max(hi - lo, 1e-6)
+  const raw = section.extrude(h)
+  let out: Solid
+  if (axis === 'z') out = raw.translate([0, 0, lo])
+  else if (axis === 'y') {
+    // (a, b, t) → rotate X +90 → (a, −t, b); shift so Y spans [lo, hi].
+    const r = raw.rotate([90, 0, 0])
+    out = r.translate([0, hi, 0])
+    r.delete()
+  } else {
+    // (a, b, t) → (t, a, b)
+    const r = raw.rotate([90, 0, 90])
+    out = r.translate([lo, 0, 0])
+    r.delete()
+  }
+  raw.delete()
+  return out
+}
+
+/** Three silhouettes intersected: front (X,Z) along Y, top (X,Y) along Z, side (Y,Z) along X. */
+export function silhouetteIntersection(
+  api: ManifoldToplevel,
+  views: { front: readonly Pt[]; top: readonly Pt[]; side: readonly Pt[] },
+  size: { x: number; y: number; z: number },
+  pad = 1,
+): Solid | null {
+  const trash: { delete(): void }[] = []
+  try {
+    const f = ringSection(api, views.front)
+    const t = ringSection(api, views.top)
+    const s = ringSection(api, views.side)
+    if (!f || !t || !s) return null
+    trash.push(f, t, s)
+    const pf = prismAlong(f, 'y', -pad, size.y + pad)
+    const pt = prismAlong(t, 'z', -pad, size.z + pad)
+    const ps = prismAlong(s, 'x', -pad, size.x + pad)
+    trash.push(pf, pt, ps)
+    return api.Manifold.intersection([pf, pt, ps])
+  } finally {
+    for (const o of trash) o.delete()
+  }
+}
+
+/** Manifold → indexed BufferGeometry, offset by origin. */
+export function solidGeometry(solid: Solid, origin = { x: 0, y: 0, z: 0 }): THREE.BufferGeometry {
+  return toGeometry(solid, origin)
+}

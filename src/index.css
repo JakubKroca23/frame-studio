@@ -1153,3 +1153,37 @@ body {
 .live-status.ok { color: #2a7a33; }
 .live-status.error { color: #b02a2a; }
 .live-status.info { color: #666; }
+
+/* ---- DXF → 3D ---- */
+.dxf3d .app-main { display: flex; flex-direction: column; min-height: 0; }
+.dxf3d-stage { display: grid; grid-template-rows: 1fr 240px; gap: 8px; height: 100%; min-height: 0; padding: 8px; }
+.dxf3d-viewport { position: relative; min-height: 280px; border-radius: 10px; overflow: hidden; background: #0e1116; border: 1px solid var(--line); }
+.dxf3d-viewport canvas { display: block; width: 100% !important; height: 100% !important; }
+.dxf3d-sheet { border-radius: 10px; border: 1px solid var(--line); background: #f7f4ee; overflow: hidden; }
+.dxf3d-svg { width: 100%; height: 100%; display: block; }
+.dxf3d-box { fill: transparent; stroke: #c9c0b0; stroke-width: 0.8; vector-effect: non-scaling-stroke; }
+.dxf3d-box.is-front { stroke: #c45c26; stroke-width: 1.6; fill: rgba(196, 92, 38, 0.08); }
+.dxf3d-box.is-top { stroke: #2a6f97; stroke-width: 1.6; fill: rgba(42, 111, 151, 0.08); }
+.dxf3d-box.is-side { stroke: #3a7a3a; stroke-width: 1.6; fill: rgba(58, 122, 58, 0.08); }
+.dxf3d-box.is-pickable { cursor: pointer; }
+.dxf3d-poly { fill: none; stroke: #4a453c; stroke-width: 0.7; vector-effect: non-scaling-stroke; }
+.dxf3d-poly.is-front { stroke: #c45c26; }
+.dxf3d-poly.is-top { stroke: #2a6f97; }
+.dxf3d-poly.is-side { stroke: #3a7a3a; }
+.dxf3d-label { fill: #4a453c; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.dxf3d-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dxf3d-table th, .dxf3d-table td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+.dxf3d-table tr.is-bad td { color: #b02a2a; background: rgba(176, 42, 42, 0.06); }
+.dxf3d-devs { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.dxf3d-devs li { padding: 4px 8px; border-radius: 6px; margin-bottom: 4px; }
+.dxf3d-devs .is-ok { background: rgba(42, 122, 51, 0.12); color: #1f5c26; }
+.dxf3d-devs .is-warn { background: rgba(196, 140, 38, 0.14); color: #7a5200; }
+.dxf3d-devs .is-bad { background: rgba(176, 42, 42, 0.12); color: #8a1c1c; }
+.dxf3d-islands { list-style: none; margin: 8px 0 0; padding: 0; max-height: 160px; overflow: auto; }
+.dxf3d-islands button { width: 100%; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; cursor: pointer; }
+.dxf3d-islands button:hover { background: rgba(0, 0, 0, 0.04); }
+.dxf3d-islands button.is-role { border-color: var(--line); background: #fff; }
+.dxf3d-islands button.is-pick { border-color: var(--rust); }
+.dxf3d-cand { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 4px; font: inherit; font-size: 12px; cursor: pointer; }
+.dxf3d-cand:hover { border-color: var(--rust); }
+.status.warn { color: #7a5200; }

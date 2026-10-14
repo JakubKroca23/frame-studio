@@ -11,7 +11,7 @@ interface Bag {
 }
 
 const NUM_CODES = new Set([
-  10, 11, 12, 13, 20, 21, 22, 23, 30, 31, 40, 41, 42, 43, 50, 51, 70, 71, 72, 73, 74,
+  10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 30, 31, 40, 41, 42, 43, 50, 51, 70, 71, 72, 73, 74,
 ])
 
 /**
@@ -120,6 +120,7 @@ export function parseDxf(text: string): DxfDb {
       if (code === 9) headerKey = value
       else if (headerKey === '$ACADVER' && code === 1) db.version = value
       else if (headerKey === '$INSUNITS' && code === 70) db.units = Number.parseInt(value, 10) || 0
+      else if (headerKey === '$DIMLFAC' && code === 40) db.dimlfac = Number.parseFloat(value) || 1
       else if (code === 0 && value === 'ENDSEC') {
         mode = 'none'
         headerKey = ''
@@ -288,6 +289,17 @@ function entityFromBag(bag: Bag): DxfEntity | null {
         text,
         x: num(bag, 11) ?? num(bag, 10) ?? 0,
         y: num(bag, 21) ?? num(bag, 20) ?? 0,
+        rotation: num(bag, 50) ?? 0,
+        dim: {
+          type: (num(bag, 70) ?? 0) & 7,
+          measurement: measurement ?? null,
+          rawText: explicit ?? '',
+          angle: num(bag, 50) ?? 0,
+          p10: { x: num(bag, 10) ?? 0, y: num(bag, 20) ?? 0 },
+          p13: { x: num(bag, 13) ?? 0, y: num(bag, 23) ?? 0 },
+          p14: { x: num(bag, 14) ?? 0, y: num(bag, 24) ?? 0 },
+          p15: { x: num(bag, 15) ?? 0, y: num(bag, 25) ?? 0 },
+        },
       }
     }
     case 'HATCH': {

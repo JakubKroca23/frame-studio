@@ -110,6 +110,20 @@ export function StartScreen() {
               })}
             </div>
           </section>
+
+          <section className="start-card">
+            <span className="start-num">3</span>
+            <h2>Importovat DXF → 3D</h2>
+            <p>
+              Libovolný DXF se třemi ortografickými pohledy: zjistí se měřítko z kót, přiřadí se pohledy (ISO-E / ISO-A) a
+              těleso vznikne průnikem siluet. Vhodné pro součásti, úhelníky, desky — i jako hrubý tvar u složitých sestav.
+            </p>
+            <div className="row">
+              <Button variant="outline" onClick={() => (window.location.hash = '#dxf3d')}>
+                Importovat DXF → 3D
+              </Button>
+            </div>
+          </section>
         </div>
       </main>
     </div>
