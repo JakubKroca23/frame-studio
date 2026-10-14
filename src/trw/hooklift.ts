@@ -117,24 +117,81 @@ export function bodyHookliftPlacement(b: ExtBody, frameRear: number) {
   return hookliftPlacement({ ...b, name: b.typeRaw ?? '' }, frameRear)
 }
 
+/** Length/height cut planes [m, model space] chosen in constant-cross-section rail zones (few vertices, no rigid parts). */
+export const CUTS: Record<string, { z: [number, number]; y: number; armY: number }> = {
+  'ult18z59.glb': { z: [1.7, 4.4], y: 0.07, armY: 1.0 },
+  'ultima21s56.glb': { z: [1.25, 4.55], y: 0.07, armY: 1.0 },
+}
+/** Pieces longer than this [m] are treated as prismatic beams and cut-and-shifted; shorter pieces are rigid. */
+export const LONG_PIECE_M = 1.2
+
 /**
- * Piecewise stretch of a model-space point [m] (in place): rear ends fixed, middle section scaled,
- * front/arm shifted; arm band stretched vertically for hook height; section height scaled by capacity.
+ * Cut-and-shift deformation (in place, model space, metres). Nothing is scaled:
+ * - length: the delta is split over the mesh's cut planes; vertices of long (beam) pieces beyond a plane
+ *   shift by d (lengthening extrudes the prismatic section across the plane; shortening collapses the
+ *   removed slice onto the plane); short rigid pieces move as a whole, or are hidden if they lie in a removed slice.
+ * - installation height h: same at a horizontal plane through the rails; pieces above move up/down rigidly.
+ * - hook height: same at a plane through the arm (arm pieces only).
+ * pos: xyz triplets; piece: piece id per vertex (null → one piece per vertex group); arm: 1 for arm/front vertices.
+ * Returns ids of hidden pieces.
  */
-export function makeHookliftDeform(p: HookliftParams, M: HookliftMesh = ULT18Z59) {
-  const mid = M.zFront - M.zRear
-  const fixedEnds = M.nativeLengthMm / 1000 - mid
-  const k = Math.max(0.3, (p.lengthMm / 1000 - fixedEnds) / mid)
-  const dz = (k - 1) * mid
+export function deformPieces(pos: Float32Array, piece: ArrayLike<number> | null, arm: ArrayLike<number>, p: HookliftParams, M: HookliftMesh = ULT18Z59): Set<number> {
+  const cuts = CUTS[M.file] ?? { z: [M.zRear, M.zFront], y: 0.07, armY: 1.0 }
+  const n = pos.length / 3
+  const pid = (i: number) => (piece ? piece[i] : arm[i])
+  // piece bounding boxes
+  const bb = new Map<number, { z0: number; z1: number; y0: number; y1: number }>()
+  for (let i = 0; i < n; i++) {
+    const id = pid(i), y = pos[i * 3 + 1], z = pos[i * 3 + 2]
+    const b = bb.get(id)
+    if (!b) bb.set(id, { z0: z, z1: z, y0: y, y1: y })
+    else { if (z < b.z0) b.z0 = z; if (z > b.z1) b.z1 = z; if (y < b.y0) b.y0 = y; if (y > b.y1) b.y1 = y }
+  }
+  const hidden = new Set<number>()
+  /** One cut along axis (1 = y, 2 = z) at plane c by d, restricted to pieces passing `use`. */
+  const cut = (axis: 1 | 2, c: number, d: number, use: (id: number, i: number) => boolean) => {
+    if (Math.abs(d) < 1e-6) return
+    const shift = new Map<number, number | 'cut'>()
+    for (const [id, b] of bb) {
+      const lo = axis === 2 ? b.z0 : b.y0, hi = axis === 2 ? b.z1 : b.y1
+      if (lo < c && hi > c && (axis === 1 || hi - lo > LONG_PIECE_M)) shift.set(id, 'cut')
+      else if (lo >= c || (lo + hi) / 2 > c) {
+        shift.set(id, d) // rigid piece beyond the plane: moved as a whole
+      } else {
+        if (d < 0 && (lo + hi) / 2 > c + d) hidden.add(id) // rigid piece inside the removed slice
+        shift.set(id, 0)
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      const id = pid(i)
+      if (!use(id, i)) continue
+      const s = shift.get(id)!
+      const k = i * 3 + axis
+      const v = pos[k]
+      if (s === 'cut') pos[k] = v > c ? v + d : d < 0 && v > c + d ? c + d : v
+      else pos[k] = v + s
+    }
+    for (const b of bb.values()) {
+      const key0 = axis === 2 ? 'z0' : 'y0', key1 = axis === 2 ? 'z1' : 'y1'
+      if (b[key0] > c) b[key0] += d
+      if (b[key1] > c) b[key1] += d
+    }
+  }
+  const all = () => true
+  const dLen = (p.lengthMm - M.nativeLengthMm) / 1000
+  const zc = [...cuts.z].sort((a, b) => b - a) // front cut first so the rear plane stays valid
+  for (const c of zc) cut(2, c, dLen / zc.length, all)
+  if (p.installHeightMm != null) cut(1, cuts.y, (p.installHeightMm - M.installHeightMm) / 1000, all)
   const dh = (p.hookHeightMm - M.hookHeightMm) / 1000
-  // section height: installation height h when known, else a mild capacity-based guess
-  const sy = p.installHeightMm != null ? Math.min(1.4, Math.max(0.6, p.installHeightMm / M.installHeightMm)) : Math.min(1.15, Math.max(0.85, Math.cbrt(p.capacityT / M.capacityT)))
+  if (dh) cut(1, cuts.armY + (p.installHeightMm != null ? (p.installHeightMm - M.installHeightMm) / 1000 : 0), dh, (_id, i) => arm[i] === 1)
+  return hidden
+}
+
+/** Point-wise convenience for a single vertex (one piece per call → treated as a rigid part). */
+export function makeHookliftDeform(p: HookliftParams, M: HookliftMesh = ULT18Z59) {
   return (v: { x: number; y: number; z: number }, isArm: boolean) => {
-    const z = v.z
-    v.z = z <= M.zRear ? z : z >= M.zFront ? z + dz : M.zRear + (z - M.zRear) * k
-    let y = v.y
-    if (isArm && dh !== 0) y = y <= M.armY0 ? y : y >= M.armY1 ? y + dh : y + (dh * (y - M.armY0)) / (M.armY1 - M.armY0)
-    // capacity: scale the low subframe section (rails/rollers) only, arm keeps its shape above it
-    v.y = y <= M.armY0 ? M.yMin + (y - M.yMin) * sy : y + (M.armY0 - M.yMin) * (sy - 1)
+    const a = new Float32Array([v.x, v.y, v.z])
+    deformPieces(a, null, [isArm ? 1 : 0], p, M)
+    v.x = a[0]; v.y = a[1]; v.z = a[2]
   }
 }

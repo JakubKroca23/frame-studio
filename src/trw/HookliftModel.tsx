@@ -1,7 +1,7 @@
 import { useGLTF } from '@react-three/drei'
 import { Component, Suspense, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
-import { makeHookliftDeform, ULT18Z59, type HookliftMesh, type HookliftParams } from './hooklift'
+import { deformPieces, ULT18Z59, type HookliftMesh, type HookliftParams } from './hooklift'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 const glbUrl = (m: HookliftMesh) => `${import.meta.env.BASE_URL}models/hooklift/${m.file}`
@@ -36,33 +36,49 @@ function Loaded({ xRear, frameTop, params, mesh = ULT18Z59 }: { xRear: number; f
   const gltf = useGLTF(glbUrl(mesh))
   const geoms = useMemo(() => {
     gltf.scene.updateMatrixWorld(true)
-    const deform = makeHookliftDeform(params, mesh)
-    const out: THREE.BufferGeometry[] = []
     const v = new THREE.Vector3()
+    const parts: { src: THREE.BufferGeometry; off: number; count: number }[] = []
     gltf.scene.traverse((o) => {
       const m = o as THREE.Mesh
-      if (!m.isMesh) return
+      if (m.isMesh) parts.push({ src: m.geometry, off: 0, count: m.geometry.getAttribute('position').count, m } as never)
+    })
+    const total = parts.reduce((a, p) => a + p.count, 0)
+    const pos = new Float32Array(total * 3), piece = new Float32Array(total), arm = new Uint8Array(total)
+    let off = 0
+    for (const part of parts as (typeof parts[number] & { m: THREE.Mesh })[]) {
       let isArm = false
-      for (let p: THREE.Object3D | null = m; p; p = p.parent) if (p.name === 'arm' || p.name === 'front') isArm = true
-      const src = m.geometry
-      const pos = src.getAttribute('position')
-      const arr = new Float32Array(pos.count * 3)
-      for (let i = 0; i < pos.count; i++) {
-        v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld)
-        deform(v, isArm)
-        arr[i * 3] = v.x
-        arr[i * 3 + 1] = v.y
-        arr[i * 3 + 2] = v.z
+      for (let p: THREE.Object3D | null = part.m; p; p = p.parent) if (p.name === 'arm' || p.name === 'front') isArm = true
+      const pa = part.src.getAttribute('position'), pc = part.src.getAttribute('_piece')
+      part.off = off
+      for (let i = 0; i < part.count; i++) {
+        v.fromBufferAttribute(pa, i).applyMatrix4(part.m.matrixWorld)
+        pos.set([v.x, v.y, v.z], (off + i) * 3)
+        piece[off + i] = pc ? pc.getX(i) : -1
+        arm[off + i] = isArm ? 1 : 0
       }
+      off += part.count
+    }
+    const hidden = deformPieces(pos, piece, arm, params, mesh)
+    const out: THREE.BufferGeometry[] = []
+    for (const part of parts) {
       const g = new THREE.BufferGeometry()
-      g.setAttribute('position', new THREE.BufferAttribute(arr, 3))
-      if (src.index) g.setIndex(src.index)
-      const n = src.getAttribute('normal')
+      g.setAttribute('position', new THREE.BufferAttribute(pos.slice(part.off * 3, (part.off + part.count) * 3), 3))
+      const idx = part.src.index
+      if (idx) {
+        const keep: number[] = []
+        for (let t = 0; t < idx.count; t += 3) {
+          const a = idx.getX(t)
+          if (hidden.has(piece[part.off + a])) continue
+          keep.push(a, idx.getX(t + 1), idx.getX(t + 2))
+        }
+        g.setIndex(keep)
+      }
+      const n = part.src.getAttribute('normal')
       if (n) {
         g.setAttribute('normal', n)
         out.push(g)
       } else out.push(toCreasedNormals(g, Math.PI / 6)) // mesh without normals (3MF source): keep CAD edges sharp
-    })
+    }
     return out
   }, [gltf, params, mesh])
   // model → scene: X = xRear - (z - zMin)·1000, Y = frameTop + (y - yMin)·1000, Z = x·1000 (rotation −90° about Y)

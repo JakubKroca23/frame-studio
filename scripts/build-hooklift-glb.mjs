@@ -4,6 +4,7 @@ await MeshoptEncoder.ready;
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({'draco3d.decoder':await draco3d.createDecoderModule(),'meshopt.encoder':MeshoptEncoder});
 const doc=await io.read('in.glb'); const scene=doc.getRoot().getDefaultScene();
 await doc.transform(dedup(), flatten());
+{ let pid=0; for(const n of scene.listChildren()){ const m=n.getMesh(); if(!m) continue; const id=pid++; for(const p of m.listPrimitives()){ const c=p.getAttribute('POSITION').getCount(); const a=new Float32Array(c).fill(id); p.setAttribute('_PIECE', doc.createAccessor().setType('SCALAR').setArray(a).setBuffer(doc.getRoot().listBuffers()[0])) } } }
 const g={}; for(const k of ['rear','rails','front','arm']){g[k]=doc.createNode(k); scene.addChild(g[k]);}
 for(const n of scene.listChildren()){ if(g[n.getName()]===n) continue; const b=getBounds(n); const cz=(b.min[2]+b.max[2])/2;
  const k = cz<0.6?'rear': cz<5.2?'rails': b.min[1]>0.45?'arm':'front'; scene.removeChild(n); g[k].addChild(n); }
