@@ -8,7 +8,7 @@ import { BODY_TYPE_LABEL, nearestAngle, stabilitySummary, type TrwExtended } fro
 export function TrwExtendedPanel({ ext, slewDeg, onSlew, showSectors, onShowSectors, liveDoc }: { liveDoc?: LiveDoc | null; ext: TrwExtended; slewDeg: number; onSlew: (deg: number) => void; showSectors?: boolean; onShowSectors?: (v: boolean) => void }) {
   const st = ext.stability
   const e = nearestAngle(st, slewDeg)
-  const live = useLiveStatus(ext.stability || ext.craneAccessories?.length ? liveDoc : null)
+  const live = useLiveStatus(liveDoc)
   const hl = pickHooklift(ext)
   // only the hooklift trw identifies is listed; other hooklift entries (other G lengths / duplicates) are hidden
   const acc = (ext.accessories ?? []).filter((a, i) => !isHookliftAccessory(a) || hl === i)
@@ -36,9 +36,7 @@ export function TrwExtendedPanel({ ext, slewDeg, onSlew, showSectors, onShowSect
           <strong>Příslušenství:</strong> {acc.map((a) => `${a.name}${a.massKg != null ? ` ${Math.round(a.massKg)} kg` : ''}`).join(', ')}
         </div>
       ) : null}
-      {st || liveDoc ? (
-        <div className={`live-status ${live.level}`} role="status">{live.text}</div>
-      ) : null}
+      <div className={`live-status ${live.level}`} role="status">{live.text}</div>
       {st ? (
         <div>
           <strong>Stabilita</strong>{' '}

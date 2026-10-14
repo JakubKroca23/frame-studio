@@ -61,3 +61,11 @@ t2('reads trw from-trw report shape', () => {
   const lines = rl2({ config: {}, report: { mapped: [{ target: 'a', label: 'Rozvor', value: 3900, status: 'ověřeno' }, { target: 'b', label: 'Převis', value: 1200, status: 'předpoklad' }], unmapped: [{ target: 'c', label: 'Hydraulika', reason: 'neznámý blok' }], notes: ['test'] } })
   e2(lines).toEqual(['nepřevzato: Hydraulika (neznámý blok)', 'předpoklad: Převis = 1200', 'poznámka: test'])
 })
+
+import { importBlockReason } from './fromTrw'
+describe('live status when the trw import fails', () => {
+  it('names the login requirement', () => {
+    expect(importBlockReason(new TrwAuthError('x'))).toBe('trw import vyžaduje přihlášení')
+    expect(importBlockReason(new Error('trw není dostupný'))).toContain('import z trw selhal')
+  })
+})

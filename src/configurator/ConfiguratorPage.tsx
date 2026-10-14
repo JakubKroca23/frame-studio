@@ -23,6 +23,9 @@ import { CsSimOverlay } from '../trw/CsSimOverlay'
 import { parseCsSimResult, type CsSimResult } from '../trw/csSimResult'
 import { CS_SIM_ORIGIN, TRW_ORIGIN, csSimLink, csSimMessageData, fetchTrwUrl, stripLinkParams, trwFromCsSim, type LinkRequest } from '../trw/links'
 import { TrwAuthError, liveDocOf, mapTrwExport } from '../trw/trwConfig'
+import { useLiveStatus } from '../trw/useLiveStatus'
+import { importBlockReason } from '../trw/fromTrw'
+import type { LiveDoc } from '../trw/stabilityLive'
 import { classifyFile, convertTrwFile, unwrapConfig } from '../trw/fromTrw'
 
 /** Cab shapes offered in the form: every make plus Mercedes-Benz (shape only, no chassis presets yet). */
@@ -104,6 +107,8 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
     link?.kind === 'invalid' ? { text: link.error, level: 'error' } : null,
   )
   const trwRef = useRef<TrwImport | null>(null)
+  /** Why the live stability client could not start because the trw import itself failed (null = import ok / none). */
+  const [liveBlock, setLiveBlock] = useState<string | null>(null)
   const trwFileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [showSectors, setShowSectors] = useState(true)
@@ -142,11 +147,13 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
         .then((result) => {
           if (cancelled) return
           choosePreset(result.preset, result)
+          setLiveBlock(null)
           setTrwSource(link.url)
           setLinkStatus({ text: 'Konfigurace načtena z trw.', level: 'ok' })
         })
         .catch((err) => {
           if (cancelled) return
+          setLiveBlock(importBlockReason(err))
           if (err instanceof TrwAuthError) setLinkStatus({ text: 'Nejste přihlášeni v trw.', level: 'error', login: true })
           else setLinkStatus({ text: err instanceof Error ? err.message : String(err), level: 'error' })
         })
@@ -200,6 +207,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
         setLinkStatus({ text: `Převádím ${file.name} v trw…`, level: 'info' })
         const result = await convertTrwFile(file)
         choosePreset(result.preset, result)
+        setLiveBlock(null)
         setLinkStatus({ text: `Projekt ${file.name} převeden (${result.report.length ? `${result.report.length} položek v hlášení` : 'bez hlášení'}).`, level: 'ok' })
       } else if (kind === 'trw-config') {
         const raw = JSON.parse(text!)
@@ -207,12 +215,14 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
         // a saved from-trw response ({config, document, …}) still carries the document for the live API
         const result = { ...mapped, liveDoc: mapped.liveDoc ?? liveDocOf(raw) }
         choosePreset(result.preset, result)
+        setLiveBlock(null)
         setLinkStatus({ text: `Konfigurace trw načtena ze ${file.name}.`, level: 'ok' })
       } else if (kind === 'cs-sim') {
         setSim(parseCsSimResult(JSON.parse(text!)))
         setLinkStatus({ text: `Výsledek CS Sim načten ze ${file.name}.`, level: 'ok' })
       } else setLinkStatus({ text: `${file.name}: nerozpoznaný soubor – očekáván .trw, export trw (trw/config@1) nebo výsledek CS Sim.`, level: 'error' })
     } catch (err) {
+      if (kind === 'trw-project') setLiveBlock(importBlockReason(err))
       setLinkStatus({ text: err instanceof Error ? err.message : String(err), level: 'error', login: err instanceof TrwAuthError })
     }
   }
@@ -446,6 +456,11 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
             <br />
             Hodnoty označené <span className="approx">≈</span> jsou odhad ({preset.approx.length}×), ostatní z podkladu {trw ? 'trw' : 'výrobce'}.
           </p>
+          {liveBlock ? (
+            <p className="live-status error" role="status">Živé spojení s trw: nespuštěno – {liveBlock}</p>
+          ) : trw && !trw.markers.extended ? (
+            <LiveStatusLine doc={trw.liveDoc} />
+          ) : null}
           {linkStatus ? (
             <p className={`status ${linkStatus.level === 'info' ? '' : linkStatus.level}`}>
               {linkStatus.text}
@@ -901,4 +916,9 @@ function AxleRow({
       </tr>
     </>
   )
+}
+
+function LiveStatusLine({ doc }: { doc: LiveDoc | null | undefined }) {
+  const live = useLiveStatus(doc)
+  return <p className={`live-status ${live.level}`} role="status">{live.text}</p>
 }

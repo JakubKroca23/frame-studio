@@ -130,3 +130,10 @@ export function classifyFile(name: string, text: string | null): DroppedKind {
   if (tag === TRW_SCHEMA || obj(unwrapConfig(data))?.schema === TRW_SCHEMA) return 'trw-config'
   return 'unknown'
 }
+
+/** Reason shown in the live status line when the trw import failed (no document → no live request). */
+export function importBlockReason(err: unknown): string {
+  if (err instanceof TrwAuthError) return 'trw import vyžaduje přihlášení'
+  return `import z trw selhal (${err instanceof Error ? err.message : String(err)})`
+}
+
