@@ -1,3 +1,4 @@
+import { TopBar } from '../components/TopBar'
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Bounds, Center, ContactShadows, Environment, OrbitControls } from '@react-three/drei'
@@ -186,21 +187,7 @@ export function Dxf3dPage() {
 
   return (
     <div className="app dxf3d">
-      <header className="app-header">
-        <div className="brand">
-          <h1>DXF → 3D</h1>
-          <span>tři ortografické pohledy → těleso průnikem siluet</span>
-        </div>
-        <div className="row" style={{ alignItems: 'center' }}>
-          <span className="muted">{fileName ?? 'žádný výkres'}</span>
-          <a className="head-link" href="#">
-            Úvod
-          </a>
-          <a className="head-link" href="#vykres">
-            Podvozek
-          </a>
-        </div>
-      </header>
+      <TopBar page="dxf3d" />
 
       <aside className="app-side">
         <div

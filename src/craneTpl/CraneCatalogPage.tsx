@@ -1,3 +1,4 @@
+import { TopBar } from '../components/TopBar'
 import { useEffect, useState } from 'react'
 import { CRANE_CATALOG, CRANE_DEFS } from '../trw/craneKinematics'
 import { CraneStage, ReportTable, fmtMm, usePose } from './CraneStage'
@@ -19,16 +20,7 @@ function Inner({ defKey, setKey, def, entry }: { defKey: string; setKey: (k: str
   const ev = entry?.variants.find((v) => v.id === variant.id)
   return (
     <div className="app dxf3d">
-      <header className="app-header">
-        <div className="brand">
-          <h1>Jeřáby HIAB</h1>
-          <span>šablona 142 / 408 upravená na rozměry z výkresů</span>
-        </div>
-        <div className="row" style={{ alignItems: 'center' }}>
-          <a className="head-link" href="#dxf3d">DXF → 3D</a>
-          <a className="head-link" href="#">Úvod</a>
-        </div>
-      </header>
+      <TopBar page="jeraby" />
       <aside className="app-side">
         <section className="block">
           <h2>Model</h2>

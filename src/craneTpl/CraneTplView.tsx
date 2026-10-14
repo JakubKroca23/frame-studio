@@ -1,3 +1,4 @@
+import { TopBar } from '../components/TopBar'
 import { useEffect, useMemo, useState } from 'react'
 import type { CraneSheet } from './sheet'
 import { adaptFromSheet } from './template'
@@ -12,18 +13,9 @@ export function CraneTplView({ sheet, fileName }: { sheet: CraneSheet; fileName:
   useEffect(() => { (window as unknown as { __tpl?: unknown }).__tpl = { template: adapted.template, variant: variant.id, report: adapted.report, scales: adapted.scales } }, [adapted, variant])
   return (
     <div className="app dxf3d">
-      <header className="app-header">
-        <div className="brand">
-          <h1>DXF → 3D · jeřáb ze šablony</h1>
-          <span>{sheet.title || fileName}</span>
-        </div>
-        <div className="row" style={{ alignItems: 'center' }}>
-          <a className="head-link" href="#jeraby">Katalog jeřábů</a>
-          <a className="head-link" href="#dxf3d" onClick={() => window.location.reload()}>Jiný výkres</a>
-          <a className="head-link" href="#">Úvod</a>
-        </div>
-      </header>
+      <TopBar page="dxf3d" />
       <aside className="app-side">
+        <p className="muted" style={{ margin: "8px 12px 0" }}>Výkres: {sheet.title || fileName}</p>
         <section className="block">
           <h2>Šablona</h2>
           <p style={{ margin: 0 }}>

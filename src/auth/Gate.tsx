@@ -1,3 +1,4 @@
+import { SessionCtx } from '../components/TopBar'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Button } from '../components/ui/button'
 import { checkGate, loginWithPassword, logout, type GateState } from './trwGate'
@@ -36,12 +37,8 @@ export function Gate({ children }: { children: ReactNode }) {
     )
   }
   return (
-    <>
+    <SessionCtx.Provider value={{ loggedIn: state.loggedIn, logout: () => { void logout().then(recheck) } }}>
       {children}
-      {state.loggedIn ? (
-        <button type="button" className="gate-logout" onClick={async () => { await logout(); await recheck() }}
-          style={{ position: 'fixed', right: 8, bottom: 8, zIndex: 1000, fontSize: 11, opacity: 0.7 }}>Odhlásit</button>
-      ) : null}
-    </>
+    </SessionCtx.Provider>
   )
 }

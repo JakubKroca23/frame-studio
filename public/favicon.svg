@@ -1,24 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -33.0 132 132" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="-6" y="-33.0" width="132" height="132" rx="18" fill="#141A24"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round">
   <defs>
-    <linearGradient id="fsg" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="114" y2="0">
-      <stop offset="0" stop-color="#3EE6C4"/><stop offset=".5" stop-color="#1F6FE0"/><stop offset="1" stop-color="#FF6A2B"/>
-    </linearGradient>
-    <linearGradient id="fst" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="114" y2="0">
-      <stop offset="0" stop-color="#3EE6C4"/><stop offset=".45" stop-color="#2FC3D0"/><stop offset=".7" stop-color="#F6A04A"/><stop offset="1" stop-color="#FF6A2B"/>
-    </linearGradient>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="14" y1="0" x2="58" y2="0"><stop offset="0" stop-color="#3EE6C4"/><stop offset=".5" stop-color="#1F6FE0"/><stop offset="1" stop-color="#FF6A2B"/></linearGradient>
   </defs>
-  <!-- cab -->
-  <path d="M6 46V36l6-9 6-3h14v22" stroke="#3EE6C4" stroke-width="2.6"/>
-  <path d="M15 31l4-4h9v8H14z" stroke="#3EE6C4" stroke-width="1.8"/>
-  <path d="M20 22c3-4 8-6 14-6" stroke="#3EE6C4" stroke-width="1.8"/>
+  <rect width="64" height="64" rx="14" fill="#141A24"/>
+  <!-- truss frame -->
+  <path d="M18 16h32v20H18zM34 16v20M18 36l16-20M34 16l16 20" stroke="url(#g)" stroke-width="2" opacity=".85"/>
+  <!-- cab hint -->
+  <path d="M5 42v-8l4-6h9" stroke="#3EE6C4" stroke-width="2"/>
   <!-- chassis -->
-  <path d="M30 46h82" stroke="#1F6FE0" stroke-width="2.6"/>
-  <!-- truss -->
-  <path d="M38 14h74v26H38zM38 27h74M57 14v26M76 14v26M95 14v26M38 27l19-13M95 14l17 13M95 40l17-13M57 40l19-13" stroke="url(#fst)" stroke-width="2.6"/>
-  <g fill="#141A24" stroke="#c9d6e3" stroke-width="1.2">
-    <circle cx="38" cy="14" r="1.8"/><circle cx="57" cy="14" r="1.8"/><circle cx="95" cy="14" r="1.8"/><circle cx="112" cy="14" r="1.8"/>
-    <circle cx="38" cy="40" r="1.8"/><circle cx="76" cy="40" r="1.8"/><circle cx="112" cy="40" r="1.8"/>
-  </g>
-  <!-- wheels -->
-  <path d="M10 52a7 7 0 0 1 14 0M80 52a7 7 0 0 1 14 0" stroke="url(#fsg)" stroke-width="2.6"/>
+  <path d="M5 42h54" stroke="#1F6FE0" stroke-width="2.2"/>
+  <!-- crane hint -->
+  <path d="M57 42V31M54 31h6M57 31l-6-11 7-3" stroke="#FF6A2B" stroke-width="2.2"/><circle cx="51" cy="20" r="1.4" fill="#FF6A2B"/>
+  <!-- F (white outline) -->
+  <path d="M14 54V20h15v5h-9v8h8v5h-8v16z" stroke="#fff" stroke-width="2.2" fill="#141A24"/>
+  <!-- S (teal) -->
+  <path d="M48 25c-2-3-5-4-8-4-4 0-7 2.5-7 6 0 8 15 5 15 13 0 4-3.5 7-8 7-3.5 0-6.5-1.5-8.5-4.5" stroke="#3EE6C4" stroke-width="5"/>
 </svg>

@@ -1,3 +1,5 @@
+import { takePendingProject } from '../openProject'
+import { TopBar } from '../components/TopBar'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { Button } from '../components/ui/button'
@@ -228,6 +230,13 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
   }
   const openFileRef = useRef(openFile)
   openFileRef.current = openFile
+  // "Otevřít" in the top bar / start page queues a .trw / .json for us
+  useEffect(() => {
+    const take = () => { const f = takePendingProject(); if (f) void openFileRef.current(f) }
+    take()
+    window.addEventListener('fs-open-project', take)
+    return () => window.removeEventListener('fs-open-project', take)
+  }, [])
 
   // Drag & drop of .trw / .json anywhere on the window.
   useEffect(() => {
@@ -362,21 +371,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
           Pusťte soubor .trw, export trw nebo výsledek CS Sim
         </div>
       ) : null}
-      <header className="app-header">
-        <div className="brand">
-          <h1>Nový podvozek</h1>
-          <span>konfigurátor podle katalogových listů výrobců</span>
-        </div>
-        <div className="row" style={{ alignItems: 'center' }}>
-          <span className="muted">{cfg.name}</span>
-          <a className="head-link" href="#">
-            Úvod
-          </a>
-          <a className="head-link" href="#vykres">
-            Nahrát výkres
-          </a>
-        </div>
-      </header>
+      <TopBar page="novy" actions={[{ icon: 'save', label: exporting ? 'Exportuji GLB…' : 'Export GLB (3D model)', onClick: () => void saveGlb(), disabled: exporting }]} />
 
       <aside className="app-side">
         <section className="block" style={{ marginTop: 0 }}>

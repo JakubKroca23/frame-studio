@@ -1,135 +1,25 @@
-import { useRef, useState, type DragEvent } from 'react'
-import { Button } from './components/ui/button'
-import { MAKES, PRESETS } from './presets'
-import { useApp } from './state'
-
-const FEATURED = ['volvo-fh-4x2-tractor', 'scania-r-6x2-rigid', 'man-tgs-8x4-tipper', 'daf-xf-4x2-tractor']
+import { TopBar, useOpenAny } from './components/TopBar'
 
 export function StartScreen() {
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [over, setOver] = useState(false)
-  const { loadFile, loadSample, status } = useApp()
-
-  function openDrawing(file: File) {
-    window.location.hash = '#vykres'
-    void loadFile(file)
-  }
-
-  function onDrop(event: DragEvent) {
-    event.preventDefault()
-    setOver(false)
-    const file = event.dataTransfer.files[0]
-    if (file) openDrawing(file)
-  }
-
+  const { input, open } = useOpenAny()
   return (
     <div className="start">
-      <header className="app-header">
-        <div className="brand">
-          <img className="brand-mark" src="/logo-mark.svg" alt="" width="52" height="28" />
-          <h1 className="wordmark">FRAME <b>STUDIO</b></h1>
-          <span>z 2D výkresu nebo z parametrů do 3D rámu</span>
+      <TopBar page="start" />
+      <main className="start-main start-hero-wrap">
+        <img className="start-mark" src="/fs-mark.svg" alt="" width="120" height="120" />
+        <h1 className="start-title">FRAME <span>STUDIO</span></h1>
+        <ul className="start-about">
+          <li>3D konfigurátor nástaveb a rámů nákladních podvozků – Volvo, Scania, MAN, DAF podle katalogových listů výrobců.</li>
+          <li>Hákové nosiče a jeřáby HIAB s kloubovým pohybem ramen a výsuvů, katalog jeřábů odvozený z výkresů.</li>
+          <li>Živá stabilita a zatížení náprav z trw / TrailerWIN – otevřete .trw projekt a konfigurace se propojí.</li>
+          <li>Import výkresů: DXF/DWG podvozku → 3D rám, DXF se třemi pohledy → 3D díl.</li>
+        </ul>
+        <div className="start-cta">
+          <a className="cta-primary" href="#novy">Vytvořit nový projekt</a>
+          <button type="button" className="cta-secondary" onClick={open}>Otevřít existující</button>
         </div>
-      </header>
-      <main className="start-main">
-        <img className="start-hero" src="/frame-studio-logo.jpg" alt="Frame Studio" width="1024" height="572" />
-        <p className="empty-kicker">Jak chcete začít?</p>
-        <div className="start-choices">
-          <section
-            className={over ? 'start-card over' : 'start-card'}
-            onDragOver={(event) => {
-              event.preventDefault()
-              setOver(true)
-            }}
-            onDragLeave={() => setOver(false)}
-            onDrop={onDrop}
-          >
-            <span className="start-num">1</span>
-            <h2>Nahrát výkres</h2>
-            <p>
-              DXF nebo DWG podvozku (Scania ICD, Volvo BEP, DAF…), případně archiv .dxf.gz, .tgz či .zip. Z bokorysu a půdorysu vznikne rám,
-              nápravy, kabina a výbava; detekci před generováním zkontrolujete.
-            </p>
-            <div className="row">
-              <Button onClick={() => fileRef.current?.click()}>Nahrát výkres</Button>
-              <Button
-                variant="outline"
-                disabled={status === 'loading'}
-                onClick={() => {
-                  window.location.hash = '#vykres'
-                  void loadSample('scania')
-                }}
-              >
-                Vzor Scania
-              </Button>
-              <Button
-                variant="outline"
-                disabled={status === 'loading'}
-                onClick={() => {
-                  window.location.hash = '#vykres'
-                  void loadSample('volvo')
-                }}
-              >
-                Vzor Volvo
-              </Button>
-            </div>
-            <p className="muted">Soubor můžete také přetáhnout na tuto kartu.</p>
-            <input
-              ref={fileRef}
-              hidden
-              type="file"
-              accept=".dxf,.dwg,.gz,.tgz,.zip,application/dxf,application/acad,application/gzip,application/zip"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) openDrawing(file)
-                event.target.value = ''
-              }}
-            />
-          </section>
-
-          <section className="start-card is-new">
-            <span className="start-num">2</span>
-            <h2>Vytvořit nový</h2>
-            <p>
-              Podvozek z parametrů: výrobce, řada, uspořádání náprav, rozvor, převisy, rám, zatížení náprav, pneumatiky, kabina a výbava.
-              Předlohy {MAKES.map((make) => make.name).join(', ')} podle katalogových listů výrobců, vše dál upravitelné, živě ve 3D.
-            </p>
-            <div className="row">
-              <Button variant="rust" onClick={() => (window.location.hash = '#novy')}>
-                Vytvořit nový
-              </Button>
-            </div>
-            <div className="start-presets">
-              {FEATURED.map((id) => {
-                const preset = PRESETS.find((item) => item.id === id)
-                if (!preset) return null
-                return (
-                  <a key={id} href={`#novy/${id}`} className="start-preset">
-                    <strong>{MAKES.find((make) => make.id === preset.make)?.name}</strong>
-                    <span>{preset.label}</span>
-                  </a>
-                )
-              })}
-            </div>
-          </section>
-
-          <section className="start-card">
-            <span className="start-num">3</span>
-            <h2>Importovat DXF → 3D</h2>
-            <p>
-              Libovolný DXF se třemi ortografickými pohledy: zjistí se měřítko z kót, přiřadí se pohledy (ISO-E / ISO-A) a
-              těleso vznikne průnikem siluet. Vhodné pro součásti, úhelníky, desky — i jako hrubý tvar u složitých sestav.
-            </p>
-            <div className="row">
-              <Button variant="outline" onClick={() => (window.location.hash = '#dxf3d')}>
-                Importovat DXF → 3D
-              </Button>
-              <Button variant="outline" onClick={() => (window.location.hash = '#jeraby')}>
-                Jeřáby HIAB
-              </Button>
-            </div>
-          </section>
-        </div>
+        <p className="muted start-hint">Otevřít lze .trw projekt, export trw (.json) nebo výkres DXF / DWG.</p>
+        {input}
       </main>
     </div>
   )
