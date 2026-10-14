@@ -2,7 +2,7 @@ import { useGLTF } from '@react-three/drei'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { setLiveCrane } from './liveCrane'
-import { CraneDimensions, LinearScale, Protractor, TelescopeArrows } from './CraneGizmos'
+import { CraneDimensions, JointArcHandles, LinearScale, Protractor, TelescopeArrows } from './CraneGizmos'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
@@ -123,9 +123,9 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   // test / capture hooks: select a joint, screen position of a named handle
   const { camera, scene, size } = useThree()
   useEffect(() => {
-    const w = window as unknown as { __craneSel?: (k: JointKey | null) => void; __screenOf?: (n: string) => [number, number] | null }
+    const w = window as unknown as { __craneSel?: (k: JointKey | null) => void; __screenOf?: (n: string, lx?: number, ly?: number) => [number, number] | null }
     w.__craneSel = setSel
-    w.__screenOf = (n) => { const o = scene.getObjectByName(n); if (!o) return null; const v = new THREE.Vector3(); o.getWorldPosition(v).project(camera); return [(v.x + 1) / 2 * size.width, (1 - v.y) / 2 * size.height] }
+    w.__screenOf = (n, lx = 0, ly = 0) => { const o = scene.getObjectByName(n); if (!o) return null; o.updateWorldMatrix(true, false); const v = o.localToWorld(new THREE.Vector3(lx, ly, 0)).project(camera); return [(v.x + 1) / 2 * size.width, (1 - v.y) / 2 * size.height] }
   })
   const setOne = (key: JointKey, val: number) => onJoints(setJoint(jr.current, key, key === 'ext' ? val : nearestEquivalent(val, jr.current[key]), variant))
   const pick = (key: JointKey) => ({ onPointerDown: (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setSel(key) }, onClick: (e: ThreeEvent<MouseEvent>) => e.stopPropagation() })
@@ -145,9 +145,12 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
       </mesh>
       {sel === 'slew' && (
         <group position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <Suspense fallback={null}><Protractor offset={180} value={joints.slew} limits={lim('slew')} radius={2.2} label={JOINT_NAMES.slew} onAngle={(d) => setOne('slew', d)} /></Suspense>
+          <Suspense fallback={null}><Protractor offset={180} value={joints.slew} limits={lim('slew')} radius={1.1} /></Suspense>
         </group>
       )}
+      <group position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <Suspense fallback={null}><JointArcHandles id="slew" offset={180} value={joints.slew} limits={lim('slew')} label={JOINT_NAMES.slew} onGrab={() => setSel('slew')} onAngle={(d) => setOne('slew', d)} /></Suspense>
+      </group>
       <group rotation={[0, -Math.PI / 2, 0]}>{meshes('base')}</group>
       <group name="trw-crane-slew" rotation={[0, -Math.PI / 2 + joints.slew * rad, 0]}>
         {meshes('column')}
@@ -155,9 +158,12 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
         <mesh name="crane-joint-a1" position={[lat, P1.h, P1.r]} material={jointMat} {...pick('a1')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
         {sel === 'a1' && (
           <group position={[lat + 0.25, P1.h, P1.r]} rotation={[0, -Math.PI / 2, 0]}>
-            <Suspense fallback={null}><Protractor offset={0} value={joints.a1} limits={lim('a1')} radius={1.4} label={JOINT_NAMES.a1} onAngle={(d) => setOne('a1', d)} /></Suspense>
+            <Suspense fallback={null}><Protractor offset={0} value={joints.a1} limits={lim('a1')} radius={0.7} /></Suspense>
           </group>
         )}
+        <group position={[lat + 0.25, P1.h, P1.r]} rotation={[0, -Math.PI / 2, 0]}>
+          <Suspense fallback={null}><JointArcHandles id="a1" offset={0} value={joints.a1} limits={lim('a1')} label={JOINT_NAMES.a1} onGrab={() => setSel('a1')} onAngle={(d) => setOne('a1', d)} /></Suspense>
+        </group>
         <group position={[0, P1.h, P1.r]} rotation={[-(joints.a1 - A1_CAD) * rad, 0, 0]}>
           <group position={[0, -P1.h, -P1.r]}>{meshes('main')}</group>
           <group position={[0, P2.h - P1.h, P2.r - P1.r]}>
@@ -166,10 +172,13 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
             <group position={[lat + 0.25, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
               {/* frame rotates with the main boom: absolute = φ + a1 − A1_CAD, so rel = φ − A1_CAD */}
               <group>
-                <Suspense fallback={null}><Protractor offset={A1_CAD} value={joints.rel} limits={lim('rel')} radius={1.4} label={JOINT_NAMES.rel} onAngle={(d) => setOne('rel', d)} /></Suspense>
+                <Suspense fallback={null}><Protractor offset={A1_CAD} value={joints.rel} limits={lim('rel')} radius={0.7} /></Suspense>
               </group>
             </group>
           )}
+          <group position={[lat + 0.25, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+            <Suspense fallback={null}><JointArcHandles id="rel" offset={A1_CAD} value={joints.rel} limits={lim('rel')} label={JOINT_NAMES.rel} onGrab={() => setSel('rel')} onAngle={(d) => setOne('rel', d)} /></Suspense>
+          </group>
           <group rotation={[-(joints.rel - REL_CAD) * rad, 0, 0]}>
             <group position={[0, -P2.h, -P2.r]}>
               {meshes('outer')}
@@ -183,13 +192,11 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
             <mesh ref={tipRef} name="crane-tip-handle" position={[lat, tipLocal.h, tipLocal.r]} material={handleMat} {...pick('ext')}>
               <sphereGeometry args={[0.18, 20, 14]} />
             </mesh>
-            {sel === 'ext' && (
-              <group position={[lat + 0.3, tipLocal.h, tipLocal.r]} rotation={[0, -Math.PI / 2, 0]}>
-                <group rotation={[0, 0, Math.atan2(U.h, U.r)]}>
-                  <Suspense fallback={null}><TelescopeArrows value={joints.ext} max={lim('ext')[1]} onValue={(m) => setOne('ext', m)} /></Suspense>
-                </group>
+            <group position={[lat + 0.3, tipLocal.h, tipLocal.r]} rotation={[0, -Math.PI / 2, 0]}>
+              <group rotation={[0, 0, Math.atan2(U.h, U.r)]}>
+                <Suspense fallback={null}><TelescopeArrows value={joints.ext} max={lim('ext')[1]} size={1} k={0.04} onValue={(m) => setOne('ext', m)} /></Suspense>
               </group>
-            )}
+            </group>
             <group position={[0, -P2.h, -P2.r]}>
               <mesh name="crane-joint-ext" position={[lat, extBase.h + 0.25, extBase.r]} rotation={[-Math.atan2(U.h, U.r), 0, 0]} material={jointMat} {...pick('ext')}>
                 <boxGeometry args={[0.18, 0.18, 0.4]} />

@@ -1,6 +1,6 @@
 import { Html, Text } from '@react-three/drei'
-import { useThree, type ThreeEvent } from '@react-three/fiber'
-import { useMemo, useRef, useState } from 'react'
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
 
 const rad = Math.PI / 180
@@ -72,10 +72,9 @@ export interface ProtractorProps {
 }
 
 /** Circular protractor: ticks every 5°, labels every 10°, limits shaded, needle + live value; the angle changes only by dragging the arrow handle. */
-export function Protractor({ offset, value, limits, radius: R, label, onAngle }: ProtractorProps) {
+export function Protractor({ offset, value, limits, radius: R }: Omit<ProtractorProps, 'label' | 'onAngle'> & Partial<ProtractorProps>) {
   const ref = useRef<THREE.Group>(null)
-  const drag = useLocalPlaneDrag((p) => onAngle(Math.atan2(p.y, p.x) / rad - offset))
-  const ticks = useMemo(() => {
+    const ticks = useMemo(() => {
     const pts: THREE.Vector3[] = []
     for (let d = 0; d < 360; d += 5) {
       const a = (d + offset) * rad, l = d % 10 === 0 ? 0.12 : 0.06
@@ -113,15 +112,7 @@ export function Protractor({ offset, value, limits, radius: R, label, onAngle }:
       </lineSegments>
       <Bar from={[0, 0, 0]} to={[Math.cos(offset * rad) * R, Math.sin(offset * rad) * R, 0]} width={R * 0.008} color="#c9d6e3" opacity={0.6} />
       <Bar from={[0, 0, 0]} to={[Math.cos(a) * R * 0.86, Math.sin(a) * R * 0.86, 0]} width={R * 0.012} color="#E53935" opacity={0.7} />
-      {/* the ONLY way to change the angle: drag this arrow around the ring */}
-      <group position={[Math.cos(a) * R * 0.94, Math.sin(a) * R * 0.94, 0.004]} rotation={[0, 0, a - Math.PI / 2]}>
-        <ArrowHandle size={R * 0.45} name="crane-angle-arrow" label={`${label}: táhněte šipkou po kruhu`}
-          onDown={(e) => drag.start(e, ref.current!)} onMove={drag.move} onUp={drag.end} />
-      </group>
       {labels}
-      <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[Math.cos(a) * R * 1.95, Math.sin(a) * R * 1.95, 0]} center zIndexRange={[20, 10]}>
-        <div className="crane-gizmo-label">{label}: {fmt(value, 1)}°</div>
-      </Html>
     </group>
   )
 }
@@ -135,20 +126,20 @@ const hitDisc = new THREE.CircleGeometry(0.75, 24)
 const setCursor = (c: string) => { document.body.style.cursor = c }
 
 /** Big arrow (points along local +Y) with a large invisible touch hit area, hover highlight and grab cursor. */
-export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap }: { size: number; name: string; label: string; onDown: (e: ThreeEvent<PointerEvent>) => void; onMove: (e: ThreeEvent<PointerEvent>) => void; onUp: (e: ThreeEvent<PointerEvent>) => void; onTap?: () => void }) {
+export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap, geom = arrowShape, hit = hitDisc, outline = 1.25 }: { geom?: THREE.BufferGeometry; hit?: THREE.BufferGeometry; outline?: number; size: number; name: string; label: string; onDown: (e: ThreeEvent<PointerEvent>) => void; onMove: (e: ThreeEvent<PointerEvent>) => void; onUp: (e: ThreeEvent<PointerEvent>) => void; onTap?: () => void }) {
   const [hover, setHover] = useState(false)
   const [active, setActive] = useState(false)
   const down0 = useRef<{ x: number; y: number } | null>(null)
-  const color = active ? '#ff8a80' : hover ? '#ff5252' : '#E53935'
+  const color = active ? '#ff8a80' : hover ? '#ff5c5c' : '#FF1A1A'
   return (
     <group scale={size}>
-      <mesh geometry={arrowShape} raycast={() => null} renderOrder={999}>
+      <mesh geometry={geom} raycast={() => null} renderOrder={999}>
         <meshBasicMaterial color={color} side={THREE.DoubleSide} depthTest={false} transparent opacity={0.95} />
       </mesh>
-      <mesh geometry={arrowShape} scale={1.25} position={[0, 0, -0.01]} raycast={() => null} renderOrder={998}>
+      <mesh geometry={outline === 1.25 ? geom : outlineOf(geom)} scale={outline === 1.25 ? 1.25 : 1} position={[0, 0, -0.01]} raycast={() => null} renderOrder={998}>
         <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} depthTest={false} transparent opacity={0.85} />
       </mesh>
-      <mesh name={name} geometry={hitDisc} userData={{ label }}
+      <mesh name={name} geometry={hit} userData={{ label }}
         onPointerOver={(e) => { e.stopPropagation(); setHover(true); setCursor('grab') }}
         onPointerOut={() => { setHover(false); if (!active) setCursor('') }}
         onPointerDown={(e) => { down0.current = { x: e.clientX, y: e.clientY }; setActive(true); setCursor('grabbing'); onDown(e) }}
@@ -162,7 +153,7 @@ export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap }: 
 }
 
 /** Two arrows along local +X at the boom tip: drag along the axis = continuous extension, tap = ±step. */
-export function TelescopeArrows({ value, max, step = 0.1, size = 0.75, onValue }: { value: number; max: number; step?: number; size?: number; onValue: (m: number) => void }) {
+export function TelescopeArrows({ value, max, step = 0.1, size = 0.75, k, onValue }: { value: number; max: number; step?: number; size?: number; k?: number; onValue: (m: number) => void }) {
   const ref = useRef<THREE.Group>(null)
   const start = useRef<{ x: number; v: number } | null>(null)
   const clamp = (m: number) => Math.min(max, Math.max(0, m))
@@ -174,6 +165,7 @@ export function TelescopeArrows({ value, max, step = 0.1, size = 0.75, onValue }
   const finish = (e: ThreeEvent<PointerEvent>) => { start.current = null; drag.end(e) }
   return (
     <group ref={ref} name="crane-ext-arrows">
+      <ScreenScale k={k ?? 0}>
       <group position={[size * 0.9, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
         <ArrowHandle size={size} name="crane-ext-out" label="Vysunout" onDown={begin} onMove={drag.move} onUp={finish} onTap={() => onValue(clamp(value + step))} />
       </group>
@@ -183,6 +175,7 @@ export function TelescopeArrows({ value, max, step = 0.1, size = 0.75, onValue }
       <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, -size * 1.9, 0]} center zIndexRange={[20, 10]}>
         <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm / {fmt(max * 1000)} mm</div>
       </Html>
+      </ScreenScale>
     </group>
   )
 }
@@ -239,6 +232,76 @@ export function CraneDimensions({ column, tip, height, reach, loadText }: { colu
       <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[tx, y + 1300, tz]} center zIndexRange={[19, 10]}>
         <div className="crane-dim-label crane-dim-load">{loadText}</div>
       </Html>
+    </group>
+  )
+}
+
+/** Keeps children at a constant on-screen size: local scale = camera distance · k / parent world scale. */
+export function ScreenScale({ k, children }: { k: number; children: ReactNode }) {
+  const ref = useRef<THREE.Group>(null)
+  const v = useMemo(() => new THREE.Vector3(), []), ws = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({ camera }) => {
+    const g = ref.current
+    if (!g || !g.parent || !k) return
+    g.getWorldPosition(v)
+    g.parent.getWorldScale(ws)
+    const d = (camera as THREE.OrthographicCamera).isOrthographicCamera ? 1000 / (camera as THREE.OrthographicCamera).zoom : v.distanceTo(camera.position)
+    g.scale.setScalar(Math.max(1e-6, (d * k) / ws.x))
+  })
+  return <group ref={ref}>{children}</group>
+}
+
+/** Curved arrow along the unit circle from 0 to `sweep` (radians), arrowhead at the end, band r 0.86..1.14. */
+function arcArrowGeom(sweep: number, w = 0.14, head = 0.3) {
+  const sh = new THREE.Shape(), n = 16, end = sweep - Math.sign(sweep) * 0.32
+  for (let i = 0; i <= n; i++) { const t = (end * i) / n; const p = [Math.cos(t) * (1 + w), Math.sin(t) * (1 + w)]; if (i === 0) sh.moveTo(p[0], p[1]); else sh.lineTo(p[0], p[1]) }
+  sh.lineTo(Math.cos(end) * (1 + head), Math.sin(end) * (1 + head))
+  sh.lineTo(Math.cos(sweep), Math.sin(sweep))
+  sh.lineTo(Math.cos(end) * (1 - head), Math.sin(end) * (1 - head))
+  for (let i = n; i >= 0; i--) { const t = (end * i) / n; sh.lineTo(Math.cos(t) * (1 - w), Math.sin(t) * (1 - w)) }
+  return new THREE.ShapeGeometry(sh)
+}
+const ARC_SWEEP = 1.0
+const arcCW = arcArrowGeom(-ARC_SWEEP), arcCCW = arcArrowGeom(ARC_SWEEP)
+const arcCWo = arcArrowGeom(-ARC_SWEEP - 0.06, 0.22, 0.4), arcCCWo = arcArrowGeom(ARC_SWEEP + 0.06, 0.22, 0.4)
+const arcHit = (sgn: number) => new THREE.RingGeometry(0.55, 1.5, 12, 1, sgn > 0 ? -0.1 : -ARC_SWEEP - 0.1, ARC_SWEEP + 0.2)
+const arcHitCW = arcHit(-1), arcHitCCW = arcHit(1)
+const outlines = new Map<THREE.BufferGeometry, THREE.BufferGeometry>([[arcCW, arcCWo], [arcCCW, arcCCWo]])
+function outlineOf(g: THREE.BufferGeometry) { return outlines.get(g) ?? g }
+
+/**
+ * Always-visible joint handle: two curved arrows on a circle pointing away from each other (↺ ↻) around the
+ * current angle; dragging either rotates the joint by the pointer's angular delta, clamped to the limits.
+ * Lies in local XY like the Protractor (φ = atan2(y, x), value = φ − offset). Constant screen size.
+ */
+export function JointArcHandles({ id, offset, value, limits, label, k = 0.055, onAngle, onGrab }: { id: string; offset: number; value: number; limits: [number, number]; label: string; k?: number; onAngle: (deg: number) => void; onGrab?: () => void }) {
+  const ref = useRef<THREE.Group>(null)
+  const start = useRef<{ phi: number; v: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const clamp = (d: number) => Math.min(limits[1], Math.max(limits[0], d))
+  const drag = useLocalPlaneDrag((p) => {
+    const phi = Math.atan2(p.y, p.x) / rad
+    if (!start.current) { start.current = { phi, v: value }; return }
+    let dd = phi - start.current.phi
+    dd = ((dd + 540) % 360) - 180
+    start.current.phi = phi
+    start.current.v = clamp(start.current.v + dd)
+    onAngle(start.current.v)
+  })
+  const begin = (e: ThreeEvent<PointerEvent>) => { start.current = null; setDragging(true); onGrab?.(); drag.start(e, ref.current!) }
+  const finish = (e: ThreeEvent<PointerEvent>) => { start.current = null; setDragging(false); drag.end(e) }
+  const a = (value + offset) * rad
+  return (
+    <group ref={ref} name={`crane-arc-${id}`}>
+      <ScreenScale k={k}>
+        <group rotation={[0, 0, a]}>
+          <ArrowHandle size={1} name={`crane-arc-${id}-ccw`} label={`${label}: táhněte šipkou`} geom={arcCCW} hit={arcHitCCW} outline={1} onDown={begin} onMove={drag.move} onUp={finish} onTap={() => onAngle(clamp(value + 1))} />
+          <ArrowHandle size={1} name={`crane-arc-${id}-cw`} label={`${label}: táhněte šipkou`} geom={arcCW} hit={arcHitCW} outline={1} onDown={begin} onMove={drag.move} onUp={finish} onTap={() => onAngle(clamp(value - 1))} />
+          <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[-2.1, 0, 0]} center zIndexRange={[20, 10]}>
+            <div className={dragging ? 'crane-gizmo-label is-active' : 'crane-gizmo-label'}>{label}: {fmt(value, 1)}°</div>
+          </Html>
+        </group>
+      </ScreenScale>
     </group>
   )
 }
