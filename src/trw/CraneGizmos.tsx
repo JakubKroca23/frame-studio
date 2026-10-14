@@ -26,38 +26,52 @@ export function Bar({ from, to, width, color, opacity = 1 }: { from: [number, nu
 }
 const fmt = (n: number, d = 0) => n.toLocaleString('cs-CZ', { maximumFractionDigits: d, minimumFractionDigits: d })
 
-/** Drag helper: intersects the pointer ray with the local XY plane of `obj`, returns the hit in obj-local coords. */
+/**
+ * Drag helper: intersects the pointer ray with the local XY plane of `obj` as it was at pointerdown and returns the
+ * hit in that frozen frame. Freezing matters: the handle usually moves with the value it edits (telescope arrow rides
+ * on the boom tip), so re-reading its live matrix each move fed the result back into the projection → flicker.
+ * Updates are coalesced to one per animation frame.
+ */
 export function useLocalPlaneDrag(onLocal: (p: THREE.Vector3) => void) {
   const controls = useThree((s) => s.controls) as { enabled: boolean } | null
-  const active = useRef<THREE.Object3D | null>(null)
-  const toLocal = (e: ThreeEvent<PointerEvent>, obj: THREE.Object3D) => {
-    obj.updateWorldMatrix(true, false)
-    const n = new THREE.Vector3(0, 0, 1).transformDirection(obj.matrixWorld)
-    const o = new THREE.Vector3().setFromMatrixPosition(obj.matrixWorld)
-    const hit = new THREE.Vector3()
-    if (!e.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(n, o), hit)) return null
-    return obj.worldToLocal(hit)
+  const st = useRef<{ inv: THREE.Matrix4; plane: THREE.Plane; target: Element | null; raf: number; last: THREE.Vector3 | null } | null>(null)
+  const cb = useRef(onLocal)
+  cb.current = onLocal
+  const hit = (e: ThreeEvent<PointerEvent>) => {
+    const s = st.current!, h = new THREE.Vector3()
+    return e.ray.intersectPlane(s.plane, h) ? h.applyMatrix4(s.inv) : null
   }
+  const flush = () => { const s = st.current; if (!s) return; s.raf = 0; if (s.last) { const p = s.last; s.last = null; cb.current(p) } }
   return {
     start(e: ThreeEvent<PointerEvent>, obj: THREE.Object3D) {
       e.stopPropagation()
-      active.current = obj
+      obj.updateWorldMatrix(true, false)
+      const m = obj.matrixWorld.clone()
+      const n = new THREE.Vector3(0, 0, 1).transformDirection(m), o = new THREE.Vector3().setFromMatrixPosition(m)
+      const target = (e.target as unknown as Element | null) ?? null
+      st.current = { inv: m.clone().invert(), plane: new THREE.Plane().setFromNormalAndCoplanarPoint(n, o), target, raf: 0, last: null }
       if (controls) controls.enabled = false
-      ;(e.target as unknown as Element | null)?.setPointerCapture?.(e.pointerId)
-      const p = toLocal(e, obj)
-      if (p) onLocal(p)
+      target?.setPointerCapture?.(e.pointerId)
+      const p = hit(e)
+      if (p) cb.current(p)
     },
     move(e: ThreeEvent<PointerEvent>) {
-      if (!active.current) return
+      const s = st.current
+      if (!s) return
       e.stopPropagation()
-      const p = toLocal(e, active.current)
-      if (p) onLocal(p)
+      const p = hit(e)
+      if (!p) return
+      s.last = p
+      if (!s.raf) s.raf = requestAnimationFrame(flush)
     },
     end(e: ThreeEvent<PointerEvent>) {
-      if (!active.current) return
-      active.current = null
+      const s = st.current
+      if (!s) return
+      if (s.raf) cancelAnimationFrame(s.raf)
+      if (s.last) cb.current(s.last)
+      st.current = null
       if (controls) controls.enabled = true
-      ;(e.target as unknown as Element | null)?.releasePointerCapture?.(e.pointerId)
+      s.target?.releasePointerCapture?.(e.pointerId)
     },
   }
 }
@@ -161,7 +175,7 @@ export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap, ge
       </mesh>
       <mesh name={name} geometry={hit} userData={{ label }}
         onPointerOver={(e) => { e.stopPropagation(); setHover(true); setCursor('grab') }}
-        onPointerOut={() => { setHover(false); if (!active) setCursor('') }}
+        onPointerOut={() => { if (active) return; setHover(false); setCursor('') }}
         onPointerDown={(e) => { down0.current = { x: e.clientX, y: e.clientY }; setActive(true); setCursor('grabbing'); onDown(e) }}
         onPointerMove={onMove}
         onPointerUp={(e) => { const d = down0.current; down0.current = null; setActive(false); setCursor(hover ? 'grab' : ''); onUp(e); if (d && onTap && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4) onTap() }}
