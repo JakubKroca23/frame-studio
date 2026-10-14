@@ -1,12 +1,44 @@
 import { useMemo, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Environment, OrbitControls } from '@react-three/drei'
+import { Environment, Html, OrbitControls } from '@react-three/drei'
+import * as THREE from 'three'
 import { TopBar } from '../components/TopBar'
 import { HOOKLIFT_CATALOG, type HookliftSpec } from '../trw/hookliftCatalog'
 import { HookliftModel } from '../trw/HookliftModel'
 import { hookliftPlacement } from '../trw/hooklift'
 
 const fmt = (v: number | null) => (v == null ? '—' : v.toLocaleString('cs-CZ'))
+
+type V3 = [number, number, number]
+/** Dimension line with end ticks and a value label (mm). */
+function Dim({ a, b, tick, label, testid }: { a: V3; b: V3; tick: V3; label: string; testid: string }) {
+  const geo = useMemo(() => {
+    const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), T = new THREE.Vector3(...tick)
+    return new THREE.BufferGeometry().setFromPoints([A, B, A.clone().sub(T), A.clone().add(T), B.clone().sub(T), B.clone().add(T)])
+  }, [a, b, tick])
+  const mid: V3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]
+  return (
+    <group>
+      <lineSegments geometry={geo} renderOrder={10}><lineBasicMaterial color="#3ee6c4" depthTest={false} transparent /></lineSegments>
+      <Html position={mid} center zIndexRange={[20, 10]} style={{ pointerEvents: 'none' }}>
+        <div className="crane-gizmo-label ml-dim" data-testid={testid}>{label}</div>
+      </Html>
+    </group>
+  )
+}
+
+/** Catalogue dimensions on the model (only values the datasheet has). Model: rear at +SL/2, hook end at −SL/2, frame top y=0. */
+function CatalogDims({ spec }: { spec: HookliftSpec }) {
+  const SL = spec.subframeLengthMm, xr = SL / 2, z = 1400
+  const d: { a: V3; b: V3; tick: V3; label: string; id: string }[] = [
+    { a: [-xr, -350, z], b: [xr, -350, z], tick: [0, 120, 0], label: `SL ${fmt(SL)} mm`, id: 'sl' },
+    { a: [xr - spec.gLengthMm, -750, z], b: [xr, -750, z], tick: [0, 120, 0], label: `G ${fmt(spec.gLengthMm)} mm`, id: 'g' },
+    { a: [xr - spec.gLengthMm - 300, 0, z], b: [xr - spec.gLengthMm - 300, spec.hookHeightMm, z], tick: [120, 0, 0], label: `HH ${fmt(spec.hookHeightMm)} mm`, id: 'hh' },
+    { a: [xr + 400, 0, z], b: [xr + 400, spec.installHeightMm, z], tick: [120, 0, 0], label: `h ${fmt(spec.installHeightMm)} mm`, id: 'h' },
+    { a: [xr + 300, spec.installHeightMm + 150, -spec.bodyWidthMm / 2], b: [xr + 300, spec.installHeightMm + 150, spec.bodyWidthMm / 2], tick: [0, 120, 0], label: `BW ${fmt(spec.bodyWidthMm)} mm`, id: 'bw' },
+  ]
+  return <group name="ml-dims">{d.filter((x) => x.a.concat(x.b).every(Number.isFinite)).map((x) => <Dim key={x.id} a={x.a} b={x.b} tick={x.tick} label={x.label} testid={`ml-dim-${x.id}`} />)}</group>
+}
 
 /** #multilift[/name] — the Hiab MULTILIFT datasheet catalogue (parametric hooklift model), open one in the configurator. */
 export function MultiliftPage() {
@@ -65,6 +97,7 @@ export function MultiliftPage() {
           <group position={[-spec.subframeLengthMm / 2, 0, 0]}>
             <HookliftModel key={spec.name} xRear={spec.subframeLengthMm} frameTop={0} params={params} mesh={mesh} fallback={null} />
           </group>
+          <CatalogDims spec={spec} />
           <OrbitControls makeDefault target={[0, 900, 0]} />
         </Canvas>
       </main>

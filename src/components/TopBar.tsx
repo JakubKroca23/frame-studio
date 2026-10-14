@@ -12,7 +12,7 @@ const P: Record<string, ReactNode> = {
   drawing: <><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 17l3-3 2 2 3-4" /></>,
   cube: <><path d="M12 2 3 7v10l9 5 9-5V7z" /><path d="m3 7 9 5 9-5M12 12v10" /></>,
   hooklift: <><path d="M2 18h14l2-3h4" /><path d="M6 18v-4l9-7 3 4" /><path d="M18 11v4M16 7h3v3" /><circle cx="6" cy="20" r="1.5" /><circle cx="15" cy="20" r="1.5" /></>,
-  crane: <><path d="M4 21h8M8 21V9l4-4 8 3" /><path d="M20 8v5M18 13h4M8 13l8-6" /></>,
+  crane: <><path d="M12 2v6" /><circle cx="12" cy="9.5" r="1.5" /><path d="M12 11v3.5a4 4 0 1 1-4-4" /><path d="M8 10.5 6.5 9" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
   panel: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></>,
   save: <><path d="M12 3v12M7 10l5 5 5-5" /><path d="M5 21h14" /></>,
