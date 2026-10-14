@@ -7,6 +7,7 @@ import type { ChassisModel, ChassisParams } from '../model/types'
 import { buildChassisGroup, disposeGroup } from '../mesh/build'
 import { recallPose, rememberPose } from './cameraMemory'
 import { Button } from '../components/ui/button'
+import { Surroundings } from './Environment'
 
 export function Viewport({
   model,
@@ -30,13 +31,16 @@ export function Viewport({
     <section className="viewport">
       <Canvas
         shadows
-        camera={{ position: [4200, 2600, 6800], fov: 38, near: 15, far: 250000 }}
-        gl={{ antialias: true, logarithmicDepthBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
+        frameloop="demand"
+        dpr={[1, 1.5]}
+        // near/far ratio kept moderate (no log depth buffer needed): mm units, scene ≲ 100 m
+        camera={{ position: [4200, 2600, 6800], fov: 38, near: 60, far: 160000 }}
+        gl={{ antialias: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         onCreated={({ gl }) => {
-          gl.shadowMap.type = THREE.PCFSoftShadowMap
+          gl.shadowMap.type = THREE.PCFShadowMap
         }}
       >
-        <color attach="background" args={['#8e989f']} />
+        <color attach="background" args={['#b4c3cf']} />
         <StudioLights />
         <hemisphereLight args={['#d5dbe0', '#2a3036', 0.38]} />
         <ambientLight intensity={0.16} />
@@ -44,8 +48,8 @@ export function Viewport({
           castShadow
           position={[2500, 9000, 5200]}
           intensity={3.4}
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
           shadow-camera-near={200}
           shadow-camera-far={28000}
           shadow-camera-left={-9000}
@@ -56,25 +60,22 @@ export function Viewport({
           shadow-normalBias={2}
         />
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[4000, -6, 0]} receiveShadow>
-          <planeGeometry args={[36000, 14000]} />
-          <meshStandardMaterial color="#5c656c" roughness={0.92} metalness={0.04} />
-        </mesh>
+        <Surroundings />
         {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} fit={fit} /> : null}
         {children}
         <Grid
           args={[40000, 40000]}
-          position={[3000, 0, 0]}
+          position={[3000, 3, 0]}
           cellSize={500}
           cellThickness={0.5}
-          cellColor="#7d878e"
+          cellColor="#868b8e"
           sectionSize={2000}
           sectionThickness={1}
-          sectionColor="#667078"
-          fadeDistance={28000}
+          sectionColor="#767c80"
+          fadeDistance={22000}
           infiniteGrid
         />
-        <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI * 0.49} />
+        <OrbitControls makeDefault enableDamping={false} maxPolarAngle={Math.PI * 0.485} minDistance={400} maxDistance={70000} />
         <GizmoHelper alignment="bottom-right" margin={[64, 64]}>
           <GizmoViewport axisColors={['#c24e28', '#7d9a78', '#d7d2c8']} labelColor="#111" />
         </GizmoHelper>
@@ -207,17 +208,25 @@ interface OrbitLike {
 
 function StudioLights() {
   const gl = useThree((s) => s.gl)
+  const invalidate = useThree((s) => s.invalidate)
   const scene = useThree((s) => s.scene)
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl)
     const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
     scene.environment = env
+    // materials compiled before the env map / shadow setup existed keep a stale program (seen as an
+    // over-bright, shadowless ground) – recompile once and request a frame (frameloop="demand")
+    scene.traverse((o) => {
+      const m = (o as THREE.Mesh).material
+      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true))
+    })
+    invalidate()
     return () => {
       scene.environment = null
       env.dispose()
       pmrem.dispose()
     }
-  }, [gl, scene])
+  }, [gl, scene, invalidate])
   return null
 }
 
@@ -241,11 +250,13 @@ function CameraBridge({
   const camera = useThree((s) => s.camera)
   const controls = useThree((s) => s.controls) as { target: THREE.Vector3; update: () => void } | null
   const scene = useThree((s) => s.scene)
+  const gl = useThree((s) => s.gl)
   useEffect(() => {
-    if (!import.meta.env.DEV || !controls) return
+    if (!controls || !(import.meta.env.DEV || location.search.includes('bench'))) return
     // Dev-only hook so headless screenshots can frame the model precisely.
     const hook = {
       scene,
+      gl,
       camera,
       pose: () => ({ position: camera.position.toArray(), target: controls.target.toArray() }),
       look(position: [number, number, number], target: [number, number, number]) {
@@ -256,7 +267,7 @@ function CameraBridge({
       },
     }
     ;(window as unknown as { __frameStudio?: typeof hook }).__frameStudio = hook
-  }, [camera, controls, scene])
+  }, [camera, controls, scene, gl])
   useEffect(() => {
     setView.current = (view) => {
       if (!controls) return

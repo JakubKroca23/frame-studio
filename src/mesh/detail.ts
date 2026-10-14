@@ -287,7 +287,7 @@ function addMudguards(parent: THREE.Group, x: number, z: number, radius: number,
   }
 }
 
-const studGeo = new THREE.CylinderGeometry(11, 11, 28, 16)
+const studGeo = new THREE.CylinderGeometry(11, 11, 28, 8)
 studGeo.userData.shared = true
 
 function makeWheel(radius: number, width: number, x: number, y: number, z: number, outward: number) {
@@ -352,7 +352,7 @@ function tireGeo(radius: number, width: number) {
     v(bead - 8, -half * 0.22),
     v(bead, -half * 0.5),
   ]
-  const geo = new THREE.LatheGeometry(pts, 96)
+  const geo = new THREE.LatheGeometry(pts, 64)
   geo.computeVertexNormals()
   geo.userData.shared = true
   tireCache.set(key, geo)
@@ -382,7 +382,7 @@ function rimBarrel(radius: number, width: number) {
     v(flange * 0.9, -half * 0.86),
     v(flange, -half),
   ]
-  const geo = new THREE.LatheGeometry(pts, 64)
+  const geo = new THREE.LatheGeometry(pts, 48)
   geo.computeVertexNormals()
   geo.userData.shared = true
   rimCache.set(key, geo)
@@ -432,7 +432,7 @@ function hubCap(radius: number) {
   const r = radius * 0.13
   const v = (x: number, y: number) => new THREE.Vector2(x, y)
   const pts = [v(0.01, r * 0.85), v(r * 0.72, r * 0.7), v(r, r * 0.15), v(r * 0.92, -r * 0.15), v(0.01, -r * 0.15)]
-  const geo = new THREE.LatheGeometry(pts, 32)
+  const geo = new THREE.LatheGeometry(pts, 24)
   geo.computeVertexNormals()
   geo.userData.shared = true
   capCache.set(key, geo)

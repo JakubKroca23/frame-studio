@@ -1,9 +1,28 @@
-import { Html, Line, Text } from '@react-three/drei'
+import { Html, Text } from '@react-three/drei'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
 const rad = Math.PI / 180
+
+// Lines as thin boxes with shared geometry + cached materials: re-rendering them while dragging only
+// updates a transform (drei <Line> recompiled its LineMaterial shader on every prop update → stutter).
+const unitBox = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
+const barMats = new Map<string, THREE.MeshBasicMaterial>()
+const barMat = (color: string, opacity: number) => {
+  const k = `${color}|${opacity}`
+  let m = barMats.get(k)
+  if (!m) barMats.set(k, (m = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 })))
+  return m
+}
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0)
+export function Bar({ from, to, width, color, opacity = 1 }: { from: [number, number, number]; to: [number, number, number]; width: number; color: string; opacity?: number }) {
+  _a.set(...from)
+  _b.set(...to).sub(_a)
+  const len = Math.max(_b.length(), 1e-6)
+  const q = new THREE.Quaternion().setFromUnitVectors(_up, _b.normalize())
+  return <mesh geometry={unitBox} material={barMat(color, opacity)} position={from} quaternion={q} scale={[width, len, width]} raycast={() => null} />
+}
 const fmt = (n: number, d = 0) => n.toLocaleString('cs-CZ', { maximumFractionDigits: d, minimumFractionDigits: d })
 
 /** Drag helper: intersects the pointer ray with the local XY plane of `obj`, returns the hit in obj-local coords. */
@@ -102,8 +121,8 @@ export function Protractor({ offset, value, limits, radius: R, label, onAngle }:
         <bufferGeometry onUpdate={(g) => g.setFromPoints(ticks)} />
         <lineBasicMaterial color="#10233f" />
       </lineSegments>
-      <Line points={[[0, 0, 0], [Math.cos(offset * rad) * R, Math.sin(offset * rad) * R, 0]]} color="#10233f" lineWidth={1} dashed dashSize={0.08} gapSize={0.06} />
-      <Line points={[[0, 0, 0], [Math.cos(a) * R * 1.08, Math.sin(a) * R * 1.08, 0]]} color="#f2a900" lineWidth={4} />
+      <Bar from={[0, 0, 0]} to={[Math.cos(offset * rad) * R, Math.sin(offset * rad) * R, 0]} width={R * 0.008} color="#10233f" opacity={0.6} />
+      <Bar from={[0, 0, 0]} to={[Math.cos(a) * R * 1.08, Math.sin(a) * R * 1.08, 0]} width={R * 0.025} color="#f2a900" />
       {labels}
       <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[Math.cos(a) * R * 1.2, Math.sin(a) * R * 1.2, 0]} center zIndexRange={[20, 10]}>
         <div className="crane-gizmo-label">{label}: {fmt(value, 1)}°</div>
@@ -136,12 +155,12 @@ export function LinearScale({ value, max, onValue }: { value: number; max: numbe
         <planeGeometry args={[Math.max(value, 0.001), 0.22]} />
         <meshBasicMaterial color="#3a8de0" transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      <Line points={[[0, 0, 0], [max, 0, 0]]} color="#10233f" lineWidth={1.5} />
+      <Bar from={[0, 0, 0]} to={[max, 0, 0]} width={0.02} color="#10233f" />
       <lineSegments>
         <bufferGeometry onUpdate={(g) => g.setFromPoints(ticks)} />
         <lineBasicMaterial color="#10233f" />
       </lineSegments>
-      <Line points={[[value, -0.1, 0], [value, 0.45, 0]]} color="#f2a900" lineWidth={4} />
+      <Bar from={[value, -0.1, 0]} to={[value, 0.45, 0]} width={0.04} color="#f2a900" />
       {labels}
       <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[value, -0.35, 0]} center zIndexRange={[20, 10]}>
         <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm</div>
@@ -155,11 +174,11 @@ export function CraneDimensions({ column, tip, height, reach, loadText }: { colu
   const [cx, cz] = column, [tx, tz] = tip, y = height * 1000, g = 15
   return (
     <group name="crane-dimensions">
-      <Line points={[[tx, g, tz], [tx, y, tz]]} color="#0a7c3a" lineWidth={2.5} dashed={false} />
-      <Line points={[[tx - 150, g, tz], [tx + 150, g, tz]]} color="#0a7c3a" lineWidth={2.5} />
-      <Line points={[[cx, g, cz], [tx, g, tz]]} color="#7a3db8" lineWidth={2.5} />
-      <Line points={[[cx, g, cz], [cx, y, cz]]} color="#7a3db8" lineWidth={1} dashed dashSize={150} gapSize={100} />
-      <Line points={[[cx, y, cz], [tx, y, tz]]} color="#7a3db8" lineWidth={1} dashed dashSize={150} gapSize={100} />
+      <Bar from={[tx, g, tz]} to={[tx, y, tz]} width={30} color="#0a7c3a" />
+      <Bar from={[tx - 150, g, tz]} to={[tx + 150, g, tz]} width={30} color="#0a7c3a" />
+      <Bar from={[cx, g, cz]} to={[tx, g, tz]} width={30} color="#7a3db8" />
+      <Bar from={[cx, g, cz]} to={[cx, y, cz]} width={14} color="#7a3db8" opacity={0.45} />
+      <Bar from={[cx, y, cz]} to={[tx, y, tz]} width={14} color="#7a3db8" opacity={0.45} />
       <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[tx, y / 2, tz]} center zIndexRange={[19, 10]}>
         <div className="crane-dim-label crane-dim-h">↕ {fmt(height, 2)} m</div>
       </Html>

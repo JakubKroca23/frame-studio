@@ -35,7 +35,36 @@ export function CraneArticulated(props: ArticulatedProps) {
   )
 }
 
-function Loaded({ x, frameTop, joints, variant, onJoints }: ArticulatedProps) {
+function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoints }: ArticulatedProps) {
+  // Live joints are local state, so a pointer move re-renders only the crane subtree. The page (panel,
+  // stability, chassis) gets the value throttled (~8×/s) and on release.
+  const [joints, setLive] = useState(propJoints)
+  const sent = useRef<CraneJoints | null>(null)
+  const pending = useRef<CraneJoints | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const same = (a: CraneJoints | null, b: CraneJoints) => !!a && a.slew === b.slew && a.a1 === b.a1 && a.rel === b.rel && a.ext === b.ext
+  useEffect(() => {
+    if (!same(sent.current, propJoints)) setLive(propJoints)
+  }, [propJoints])
+  const flush = () => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+    if (pending.current) { sent.current = pending.current; propOnJoints(pending.current); pending.current = null }
+  }
+  const raf = useRef(0)
+  const latest = useRef<CraneJoints | null>(null)
+  const onJoints = (j: CraneJoints) => {
+    // coalesce pointer moves to one render per animation frame
+    latest.current = j
+    if (!raf.current) raf.current = requestAnimationFrame(() => { raf.current = 0; if (latest.current) setLive(latest.current) })
+    pending.current = j
+    if (!timer.current) timer.current = setTimeout(flush, 120)
+  }
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); cancelAnimationFrame(raf.current) }, [])
+  useEffect(() => {
+    window.addEventListener('pointerup', flush)
+    return () => window.removeEventListener('pointerup', flush)
+  })
   const gltf = useGLTF(`${import.meta.env.BASE_URL}models/crane/${ARTICULATED_GLB}`)
   const groups = useMemo(() => {
     gltf.scene.updateMatrixWorld(true)
