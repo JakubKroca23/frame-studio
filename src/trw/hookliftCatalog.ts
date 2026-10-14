@@ -170,21 +170,47 @@ const clean = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').
 /** "ULTIMA 18Z" → "ULT18Z"; "ULT18Z59" and "ULTIMA18Z59" both normalise to "ULT18Z59". */
 const key = (s: string) => clean(s).replace(/^.*?ULT(?:IMA)?(?=\d)/, "ULT")
 
+export interface HookliftMatch {
+  spec: HookliftSpec
+  /** true = trw names the exact model (series + G code); false = only the series, model auto-picked by length. */
+  exact: boolean
+}
+
+/** Bare model codes without "ULTIMA": "14S51", "14S.51", "Multilift 14 S-51", "21SL.49" → "ULT14S51"… (series must exist). */
+function bareKey(name: string): string | null {
+  const u = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+  const m = /(?:^|[^0-9.])(\d{2})\s*(SL|S|Z)\s*[.\-/ ]?\s*(\d{2}S?)(?![0-9])/.exec(u)
+  if (m) return `ULT${m[1]}${m[2]}${m[3]}`
+  const ser = /(?:^|[^0-9.])(\d{2})\s*(SL|S|Z)(?![A-Z0-9])/.exec(u)
+  if (ser && /HOOK|HAK|MULTILIFT|ABROLL|NOSIC|HIAB/.test(clean(u))) return `ULT${ser[1]}${ser[2]}`
+  return null
+}
+
 /**
- * Fuzzy lookup by name: "ULT18Z59 DIN", "Multilift Ultima 18Z.59", "ULTIMA 21 SL 53"…
- * With series but no G code, picks the model whose subframe length is closest to `lengthHintMm`.
+ * Fuzzy lookup by name: "ULT18Z59 DIN", "Multilift Ultima 18Z.59", "ULTIMA 21 SL 53", "14S51"…
+ * With series but no G code, picks the model whose subframe length is closest to `lengthHintMm` (exact = false).
  */
-export function findHookliftSpec(name: string | null | undefined, lengthHintMm?: number | null): HookliftSpec | null {
-  if (!name || !/ULT/.test(clean(name))) return null
-  const k = key(name)
-  // longest series key first so "ULT21SL" wins over a hypothetical "ULT21S"
+export function findHookliftMatch(name: string | null | undefined, lengthHintMm?: number | null): HookliftMatch | null {
+  if (!name) return null
+  const k = /ULT(IMA)?\d/.test(clean(name)) ? key(name) : bareKey(name)
+  if (!k) return null
+  // longest series key first so "ULT21SL" wins over "ULT21S"
   const series = [...new Set(HOOKLIFT_CATALOG.map((c) => c.series))].sort((a, b) => key(b).length - key(a).length)
   const sr = series.find((x) => k.startsWith(key(x)))
   if (!sr) return null
   const inSeries = HOOKLIFT_CATALOG.filter((c) => c.series === sr)
   const rest = k.slice(key(sr).length)
   const g = /^(\d{2})(S?)/.exec(rest)
-  if (g) return inSeries.find((c) => String(c.gCode) === g[1] + g[2]) ?? inSeries.find((c) => String(c.gCode) === g[1]) ?? null
-  if (lengthHintMm == null) return null
-  return inSeries.reduce((a, c) => (Math.abs(c.subframeLengthMm - lengthHintMm) < Math.abs(a.subframeLengthMm - lengthHintMm) ? c : a))
+  if (g) {
+    const spec = inSeries.find((c) => String(c.gCode) === g[1] + g[2]) ?? inSeries.find((c) => String(c.gCode) === g[1])
+    return spec ? { spec, exact: true } : null
+  }
+  if (lengthHintMm == null) return { spec: inSeries[0], exact: false }
+  return { spec: inSeries.reduce((a, c) => (Math.abs(c.subframeLengthMm - lengthHintMm) < Math.abs(a.subframeLengthMm - lengthHintMm) ? c : a)), exact: false }
+}
+
+export function findHookliftSpec(name: string | null | undefined, lengthHintMm?: number | null): HookliftSpec | null {
+  const m = findHookliftMatch(name, lengthHintMm)
+  // keep the previous contract: series without a length hint is not a match
+  return m && (m.exact || lengthHintMm != null) ? m.spec : null
 }

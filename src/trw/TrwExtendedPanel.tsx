@@ -1,9 +1,15 @@
+import { hookliftPlacement, isHookliftAccessory, pickHooklift } from './hooklift'
 import { BODY_TYPE_LABEL, nearestAngle, stabilitySummary, type TrwExtended } from './trwExtended'
 
 /** Panel summary of body / accessories / stability with the slew angle slider. */
 export function TrwExtendedPanel({ ext, slewDeg, onSlew }: { ext: TrwExtended; slewDeg: number; onSlew: (deg: number) => void }) {
   const st = ext.stability
   const e = nearestAngle(st, slewDeg)
+  const hl = pickHooklift(ext)
+  // only the hooklift trw identifies is listed; other hooklift entries (other G lengths / duplicates) are hidden
+  const acc = (ext.accessories ?? []).filter((a, i) => !isHookliftAccessory(a) || hl === i)
+  const hlSrc = hl === 'body' && ext.body ? { ...ext.body, name: ext.body.typeRaw ?? '' } : typeof hl === 'number' ? ext.accessories![hl] : null
+  const hlInfo = hlSrc ? hookliftPlacement(hlSrc, Math.max(ext.body?.xTo ?? 0, 8000)) : null
   const overall = st?.pass === false ? '#d62828' : st?.pass === true ? '#2a9d3a' : '#888'
   return (
     <div className="source-note">
@@ -15,9 +21,15 @@ export function TrwExtendedPanel({ ext, slewDeg, onSlew }: { ext: TrwExtended; s
           {ext.body.massKg ? ` · ${Math.round(ext.body.massKg)} kg` : ''}
         </div>
       ) : null}
-      {ext.accessories?.length ? (
+      {hlInfo?.spec ? (
         <div>
-          <strong>Příslušenství:</strong> {ext.accessories.map((a) => `${a.name}${a.massKg != null ? ` ${Math.round(a.massKg)} kg` : ''}`).join(', ')}
+          <strong>Hákový nosič:</strong> {hlInfo.spec.name} · délka {hlInfo.params.lengthMm} mm · výška háku {hlInfo.params.hookHeightMm} mm · {hlInfo.params.capacityT} t
+          {!hlInfo.exact ? <em> – trw udává jen řadu, automaticky vybrán model podle délky</em> : null}
+        </div>
+      ) : null}
+      {acc.length ? (
+        <div>
+          <strong>Příslušenství:</strong> {acc.map((a) => `${a.name}${a.massKg != null ? ` ${Math.round(a.massKg)} kg` : ''}`).join(', ')}
         </div>
       ) : null}
       {st ? (

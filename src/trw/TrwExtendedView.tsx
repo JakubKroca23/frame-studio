@@ -1,16 +1,17 @@
 import { Html, Line } from '@react-three/drei'
 import type { ReactNode } from 'react'
-import { bodyHookliftPlacement, hookliftPlacement, isHookliftAccessory } from './hooklift'
+import { bodyHookliftPlacement, hookliftPlacement, isHookliftAccessory, pickHooklift } from './hooklift'
 import { HookliftModel } from './HookliftModel'
 import { BODY_TYPE_LABEL, nearestAngle, type ExtAccessory, type ExtBody, type ExtStability, type TrwExtended } from './trwExtended'
 
 /** 3D view of the extended trw blocks (X rearward from axle 1, Y up, Z lateral = trw y). */
 export function TrwExtendedView({ ext, frameTop, slewDeg, frameRear }: { ext: TrwExtended; frameTop: number; slewDeg: number; frameRear?: number }) {
   const rear = frameRear ?? Math.max(ext.body?.xTo ?? 0, 8000)
+  const hl = pickHooklift(ext)
   return (
     <group name="trw-extended">
-      {ext.body ? <Body body={ext.body} frameTop={frameTop} frameRear={rear} /> : null}
-      {(ext.accessories ?? []).map((a, i) => (a.isOutrigger ? <ExtraOutrigger key={i} a={a} frameTop={frameTop} /> : isHookliftAccessory(a) ? <HookliftAccessory key={i} a={a} frameTop={frameTop} frameRear={rear} /> : <Accessory key={i} a={a} frameTop={frameTop} />))}
+      {ext.body && !(ext.body.type === 'hooklift' && hl !== 'body') ? <Body body={ext.body} frameTop={frameTop} frameRear={rear} /> : null}
+      {(ext.accessories ?? []).map((a, i) => (a.isOutrigger ? <ExtraOutrigger key={i} a={a} frameTop={frameTop} /> : isHookliftAccessory(a) ? (hl === i ? <HookliftAccessory key={i} a={a} frameTop={frameTop} frameRear={rear} /> : null) : <Accessory key={i} a={a} frameTop={frameTop} />))}
       {ext.stability ? <Stability st={ext.stability} slewDeg={slewDeg} frameTop={frameTop} /> : null}
     </group>
   )
@@ -26,25 +27,25 @@ function Box({ pos, size, color, opacity = 0.55 }: { pos: [number, number, numbe
 }
 
 function HookliftAccessory({ a, frameTop, frameRear }: { a: ExtAccessory; frameTop: number; frameRear: number }) {
-  const { xRear, params, spec, mesh } = hookliftPlacement(a, frameRear)
+  const { xRear, params, spec, exact, mesh } = hookliftPlacement(a, frameRear)
   const xFront = xRear - params.lengthMm
   const fallback = <Body body={{ type: 'hooklift', typeRaw: a.name, xFrom: xFront, xTo: xRear, length: params.lengthMm, width: null, height: null, sideHeight: null, massKg: null, cog: { x: null, y: null, z: null } }} frameTop={frameTop} frameRear={frameRear} simple />
   return (
     <group name={`trw-accessory-${a.name}`}>
       <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} fallback={fallback} />
-      <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${a.name}${spec && !a.name.includes(spec.name) ? ` (${spec.name})` : ''} · ${a.massKg != null ? `${Math.round(a.massKg)} kg` : spec ? `${spec.massKg} kg (katalog)` : '? kg'}`} bg="rgba(110,50,140,0.9)" />
+      <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${a.name}${spec && !a.name.includes(spec.name) ? ` (${spec.name})` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''} · ${a.massKg != null ? `${Math.round(a.massKg)} kg` : spec ? `${spec.massKg} kg (katalog)` : '? kg'}`} bg="rgba(110,50,140,0.9)" />
     </group>
   )
 }
 
 function Body({ body, frameTop, frameRear, simple }: { body: ExtBody; frameTop: number; frameRear: number; simple?: boolean }) {
   if (body.type === 'hooklift' && !simple) {
-    const { xRear, params, spec, mesh } = bodyHookliftPlacement(body, frameRear)
+    const { xRear, params, spec, exact, mesh } = bodyHookliftPlacement(body, frameRear)
     const xFront = xRear - params.lengthMm
     return (
       <group name="trw-body">
         <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} fallback={<Body body={{ ...body, xFrom: xFront, xTo: xRear }} frameTop={frameTop} frameRear={frameRear} simple />} />
-        <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${BODY_TYPE_LABEL.hooklift}${spec ? ` ${spec.name}` : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
+        <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${BODY_TYPE_LABEL.hooklift}${spec ? ` ${spec.name}` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
       </group>
     )
   }

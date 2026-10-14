@@ -7,7 +7,7 @@
  * Scene (configurator) coordinates: mm, X rearward from axle 1, Y up, Z lateral → X = xRear - (z - zMin)·1000.
  */
 import type { ExtAccessory, ExtBody } from './trwExtended'
-import { findHookliftSpec, type HookliftSpec } from './hookliftCatalog'
+import { findHookliftMatch, type HookliftSpec } from './hookliftCatalog'
 
 export const ULT18Z59 = {
   name: 'MULTILIFT ULT18Z59 DIN',
@@ -80,7 +80,7 @@ const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
 export function isHookliftAccessory(a: Pick<ExtAccessory, 'name' | 'kind' | 'isOutrigger'>): boolean {
   if (a.isOutrigger) return false
-  return HOOK_RE.test(norm(`${a.kind ?? ''} ${a.name}`))
+  return HOOK_RE.test(norm(`${a.kind ?? ''} ${a.name}`)) || !!findHookliftMatch(a.name)?.exact
 }
 
 /** Capacity [t] from a name like "ULT18Z59", "Multilift XR21S", "hákový nosič 20 t". */
@@ -99,7 +99,10 @@ export function hookliftPlacement(src: { xFrom: number | null; xTo: number | nul
   const name = src.name ?? src.typeRaw ?? ''
   let xRear = src.xTo ?? null
   let length = src.length ?? (src.xFrom != null && src.xTo != null ? src.xTo - src.xFrom : null)
-  const spec: HookliftSpec | null = findHookliftSpec(name, length)
+  const match = findHookliftMatch(name, length)
+  // series-only names need a length to pick a model; without one the ULT18Z59 defaults apply
+  const spec: HookliftSpec | null = match && (match.exact || length != null) ? match.spec : null
+  const exact = !!match?.exact
   if (xRear == null && src.xFrom != null && length != null) xRear = src.xFrom + length
   if (xRear == null) xRear = frameRear
   if (spec) length = spec.subframeLengthMm
@@ -110,7 +113,7 @@ export function hookliftPlacement(src: { xFrom: number | null; xTo: number | nul
     capacityT: spec?.capacityT ?? capacityFromName(name) ?? ULT18Z59.capacityT,
     installHeightMm: spec?.installHeightMm ?? ULT18Z59.installHeightMm,
   }
-  return { xRear, params, spec, mesh: meshForSeries(spec?.series) }
+  return { xRear, params, spec, exact, mesh: meshForSeries(spec?.series) }
 }
 
 export function bodyHookliftPlacement(b: ExtBody, frameRear: number) {
@@ -194,4 +197,17 @@ export function makeHookliftDeform(p: HookliftParams, M: HookliftMesh = ULT18Z59
     deformPieces(a, null, [isArm ? 1 : 0], p, M)
     v.x = a[0]; v.y = a[1]; v.z = a[2]
   }
+}
+
+/**
+ * trw may list several hooklift entries (body + accessories, or several G lengths of one series).
+ * Only ONE is shown: the first naming an exact model (series + G code), else the first one.
+ * Returns 'body', an accessory index, or null when there is no hooklift.
+ */
+export function pickHooklift(ext: { body?: ExtBody | null; accessories?: ExtAccessory[] }): 'body' | number | null {
+  const cands: { id: 'body' | number; name: string }[] = []
+  if (ext.body?.type === 'hooklift') cands.push({ id: 'body', name: ext.body.typeRaw ?? '' })
+  ;(ext.accessories ?? []).forEach((a, i) => { if (isHookliftAccessory(a)) cands.push({ id: i, name: a.name }) })
+  if (!cands.length) return null
+  return (cands.find((c) => findHookliftMatch(c.name)?.exact) ?? cands[0]).id
 }

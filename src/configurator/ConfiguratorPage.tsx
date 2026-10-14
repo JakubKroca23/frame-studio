@@ -15,7 +15,7 @@ import { TrwExtendedPanel } from '../trw/TrwExtendedPanel'
 import { TrwExtendedView } from '../trw/TrwExtendedView'
 import { craneModelFor, type CranePose } from '../trw/CraneModel'
 import { CranePanel } from '../trw/CranePanel'
-import { parseX142Variant, straightPose, type CraneJoints } from '../trw/craneKinematics'
+import { parseX142Variant, x142VariantMatch, straightPose, type CraneJoints } from '../trw/craneKinematics'
 import type { TrwImport } from '../trw/trwConfig'
 import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
@@ -499,7 +499,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
                 </div>
               ) : null}
               {trw.markers.crane && craneModelFor(trw.markers.crane.name) && cranePose === 'unfolded' ? (
-                <CranePanel joints={craneJoints} variant={parseX142Variant(trw.markers.crane.name)} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} />
+                <CranePanel joints={craneJoints} variant={parseX142Variant(trw.markers.crane.name)} exact={x142VariantMatch(trw.markers.crane.name).exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} />
               ) : null}
               {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} /> : null}
               <ul className="hints">

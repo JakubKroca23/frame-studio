@@ -4,7 +4,7 @@ import { LIMITS, loadAt, variantBoom, type CraneJoints, type CraneVariant } from
 const G = 9.81
 
 /** Joint sliders (fallback to tip dragging) + live readout of the tip (Czech). */
-export function CranePanel({ joints, variant, craneX, frameTop, onJoints }: { joints: CraneJoints; variant: CraneVariant; craneX: number; frameTop: number; onJoints: (j: CraneJoints) => void }) {
+export function CranePanel({ joints, variant, exact = true, craneX, frameTop, onJoints }: { joints: CraneJoints; variant: CraneVariant; exact?: boolean; craneX: number; frameTop: number; onJoints: (j: CraneJoints) => void }) {
   const r = craneReadout(joints, variant, craneX, frameTop)
   const load = loadAt(variant.id, r.reach)
   const stroke = variantBoom(variant).stroke
@@ -18,7 +18,7 @@ export function CranePanel({ joints, variant, craneX, frameTop, onJoints }: { jo
   return (
     <div className="crane-panel" style={{ margin: '6px 0' }}>
       <div style={{ fontSize: 12, marginBottom: 4 }}>
-        HIAB X-HiPro 142 {variant.id} · táhněte modrou kouli na špičce výložníku, nebo použijte posuvníky
+        HIAB X-HiPro 142 {variant.id}{!exact ? <em> (trw neuvádí variantu, automaticky zvolena {variant.id})</em> : null} · táhněte modrou kouli na špičce výložníku, nebo použijte posuvníky
       </div>
       {slider('Natočení', 'slew', LIMITS.slew[0], LIMITS.slew[1], 1, '°')}
       {slider('Hlavní výložník', 'a1', LIMITS.a1[0], LIMITS.a1[1], 0.5, '°')}

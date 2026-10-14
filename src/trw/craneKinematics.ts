@@ -59,6 +59,12 @@ export const LIMITS = { a1: [-10, 80] as [number, number], rel: [-170, 30] as [n
 
 export interface CraneJoints { slew: number; a1: number; rel: number; ext: number }
 
+/** Variant + whether trw named it (false = only "X-HiPro 142", E-4 picked automatically). */
+export function x142VariantMatch(name: string | null | undefined): { variant: CraneVariant; exact: boolean } {
+  const exact = /\b(ES|E)\s*-?\s*([1-5])\b/i.test((name ?? '').replace(/142/, ' '))
+  return { variant: parseX142Variant(name), exact }
+}
+
 export function parseX142Variant(name: string | null | undefined): CraneVariant {
   const m = /\b(ES|E)\s*-?\s*([1-5])\b/i.exec((name ?? '').replace(/142/, ' '))
   const id = m ? `${m[1].toUpperCase()}-${m[2]}` : 'E-4'
