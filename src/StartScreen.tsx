@@ -30,7 +30,7 @@ export function StartScreen() {
     <div className="start">
       <TopBar page="start" />
       <main className="start-main start-page">
-        <h1 className="start-title">CONTSYSTEM <span>STUDIO</span></h1>
+        <h1 className="start-title">CS <span>STUDIO</span></h1>
         <div className="feature-grid">
           {FEATURES.map((f) => (
             <a key={f.title} className="feature-card" href={f.href}>
@@ -41,7 +41,7 @@ export function StartScreen() {
           ))}
         </div>
         <p className="start-lead">
-          Contsystem Studio je pracovní prostor pro návrh nástaveb nákladních vozidel: z parametrů nebo z výkresu postaví 3D podvozek s rámem,
+          CS Studio je pracovní prostor pro návrh nástaveb nákladních vozidel: z parametrů nebo z výkresu postaví 3D podvozek s rámem,
           osadí hákový nosič nebo jeřáb a propojí ho s výpočtem stability a zatížení náprav v trw.
         </p>
         <div className="start-cta">

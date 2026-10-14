@@ -22,11 +22,14 @@ export function Icon({ name }: { name: keyof typeof P | string }) {
   return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{P[name]}</svg>
 }
 
-export type BarAction = { icon: string; label: string; onClick?: () => void; href?: string; active?: boolean; disabled?: boolean; external?: boolean }
-export function IconButton({ icon, label, onClick, href, active, disabled, external }: BarAction) {
+const SHORT: Record<string, string> = { plus: 'Nový', open: 'Otevřít', drawing: 'Výkres', cube: 'DXF→3D', crane: 'Jeřáby', hooklift: 'Multilift', save: 'Export', panel: 'Panel', link: 'trw', logout: 'Odhlásit' }
+export type BarAction = { icon: string; label: string; short?: string; onClick?: () => void; href?: string; active?: boolean; disabled?: boolean; external?: boolean }
+export function IconButton({ icon, label, short, onClick, href, active, disabled, external }: BarAction) {
   const cls = active ? 'icon-btn is-active' : 'icon-btn'
-  if (href) return <a className={cls} href={href} title={label} aria-label={label} aria-current={active ? 'page' : undefined} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}><Icon name={icon} /></a>
-  return <button type="button" className={cls} title={label} aria-label={label} aria-pressed={active} disabled={disabled} onClick={onClick}><Icon name={icon} /></button>
+  const txt = short ?? SHORT[icon]
+  const inner = <><Icon name={icon} />{txt ? <span className="icon-btn-text">{txt}</span> : null}</>
+  if (href) return <a className={cls} href={href} title={label} aria-label={label} aria-current={active ? 'page' : undefined} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}>{inner}</a>
+  return <button type="button" className={cls} title={label} aria-label={label} aria-pressed={active} disabled={disabled} onClick={onClick}>{inner}</button>
 }
 
 /** Hidden file input + open(): drawings → #vykres, .trw/.json → configurator. */
@@ -52,14 +55,14 @@ export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykre
   const session = useContext(SessionCtx)
   return (
     <header className="app-header topbar">
-      <a className="topbar-logo" href="#" title="Úvod" aria-label="Úvod – Contsystem Studio"><img src="/cs-mark.svg" alt="Contsystem Studio" width="40" height="40" /></a>
+      <a className="topbar-logo" href="#" title="Úvod" aria-label="Úvod – CS Studio"><img src="/cs-mark.svg" alt="CS Studio" width="40" height="40" /></a>
       <nav className="topbar-actions" aria-label="Hlavní ovládání">
         <IconButton icon="plus" label="Nový projekt (konfigurátor)" href="#novy" active={page === 'novy'} />
         <IconButton icon="open" label="Otevřít projekt nebo výkres (.trw, .json, DXF, DWG)" onClick={open} />
         <IconButton icon="drawing" label="Výkres podvozku → 3D rám" href="#vykres" active={page === 'vykres'} />
         <IconButton icon="cube" label="Import DXF → 3D" href="#dxf3d" active={page === 'dxf3d'} />
-        <IconButton icon="hooklift" label="Nástavby Multilift (hákové nosiče)" href="#multilift" active={page === 'multilift'} />
         <IconButton icon="crane" label="Jeřáby HIAB" href="#jeraby" active={page === 'jeraby'} />
+        <IconButton icon="hooklift" label="Nástavby Multilift (hákové nosiče)" href="#multilift" active={page === 'multilift'} />
         {actions.length ? <span className="topbar-sep" aria-hidden="true" /> : null}
         {actions.map((a) => <IconButton key={a.label} {...a} />)}
         <span className="topbar-grow" />

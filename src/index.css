@@ -1291,3 +1291,8 @@ body.hide-side .app-side { display: none !important; }
 .start-page .start-lead { margin-bottom: 4px; }
 .start-page .start-cta { margin-bottom: 40px; }
 .crane-gizmo-label { color: #e6edf5 !important; background: rgba(20, 26, 36, 0.92) !important; border: 1px solid #3ee6c4 !important; font-weight: 650; }
+
+.icon-btn:has(.icon-btn-text) { width: auto; padding: 0 10px 0 8px; gap: 6px; }
+.icon-btn-text { font-size: 13px; font-weight: 550; white-space: nowrap; }
+@media (max-width: 1100px) { .icon-btn-text { display: none; } .icon-btn:has(.icon-btn-text) { width: 40px; padding: 0; } }
+@media (max-width: 720px) { .icon-btn:has(.icon-btn-text) { width: 36px; } }

@@ -30,7 +30,8 @@ export function HookliftModel(props: { xRear: number; frameTop: number; params: 
   )
 }
 
-const material = new THREE.MeshStandardMaterial({ color: '#c9d2ef', metalness: 0.35, roughness: 0.55, side: THREE.DoubleSide })
+const edgeMat = new THREE.LineBasicMaterial({ color: '#5b6573', transparent: true, opacity: 0.55 })
+const material = new THREE.MeshStandardMaterial({ color: '#1e1e1e', metalness: 0.3, roughness: 0.5, emissive: '#0b0d10', side: THREE.DoubleSide })
 
 function Loaded({ xRear, frameTop, params, mesh = ULT18Z59 }: { xRear: number; frameTop: number; params: HookliftParams; mesh?: HookliftMesh }) {
   const gltf = useGLTF(glbUrl(mesh))
@@ -81,11 +82,15 @@ function Loaded({ xRear, frameTop, params, mesh = ULT18Z59 }: { xRear: number; f
     }
     return out
   }, [gltf, params, mesh])
+  const edges = useMemo(() => geoms.map((g) => new THREE.EdgesGeometry(g, 35)), [geoms])
   // model → scene: X = xRear - (z - zMin)·1000, Y = frameTop + (y - yMin)·1000, Z = x·1000 (rotation −90° about Y)
   return (
     <group name="trw-hooklift-model" position={[xRear + mesh.zMin * 1000, frameTop - mesh.yMin * 1000, 0]} rotation={[0, -Math.PI / 2, 0]} scale={1000}>
       {geoms.map((g, i) => (
-        <mesh key={i} geometry={g} material={material} castShadow receiveShadow />
+        <group key={i}>
+          <mesh geometry={g} material={material} castShadow receiveShadow />
+          <lineSegments geometry={edges[i]} material={edgeMat} />
+        </group>
       ))}
     </group>
   )
