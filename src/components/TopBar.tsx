@@ -11,6 +11,7 @@ const P: Record<string, ReactNode> = {
   open: <><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1" /><path d="M3 7v11a2 2 0 0 0 2 2h13l3-8H7l-3 8" /></>,
   drawing: <><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 17l3-3 2 2 3-4" /></>,
   cube: <><path d="M12 2 3 7v10l9 5 9-5V7z" /><path d="m3 7 9 5 9-5M12 12v10" /></>,
+  hooklift: <><path d="M2 18h14l2-3h4" /><path d="M6 18v-4l9-7 3 4" /><path d="M18 11v4M16 7h3v3" /><circle cx="6" cy="20" r="1.5" /><circle cx="15" cy="20" r="1.5" /></>,
   crane: <><path d="M4 21h8M8 21V9l4-4 8 3" /><path d="M20 8v5M18 13h4M8 13l8-6" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
   panel: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></>,
@@ -46,7 +47,7 @@ export function useOpenAny() {
 const togglePanels = () => document.body.classList.toggle('hide-side')
 
 /** Top bar on every screen: logo only, then icon buttons (global + page actions). */
-export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykres' | 'dxf3d' | 'jeraby'; actions?: BarAction[] }) {
+export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykres' | 'dxf3d' | 'jeraby' | 'multilift'; actions?: BarAction[] }) {
   const { input, open } = useOpenAny()
   const session = useContext(SessionCtx)
   return (
@@ -57,6 +58,7 @@ export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykre
         <IconButton icon="open" label="Otevřít projekt nebo výkres (.trw, .json, DXF, DWG)" onClick={open} />
         <IconButton icon="drawing" label="Výkres podvozku → 3D rám" href="#vykres" active={page === 'vykres'} />
         <IconButton icon="cube" label="Import DXF → 3D" href="#dxf3d" active={page === 'dxf3d'} />
+        <IconButton icon="hooklift" label="Nástavby Multilift (hákové nosiče)" href="#multilift" active={page === 'multilift'} />
         <IconButton icon="crane" label="Jeřáby HIAB" href="#jeraby" active={page === 'jeraby'} />
         {actions.length ? <span className="topbar-sep" aria-hidden="true" /> : null}
         {actions.map((a) => <IconButton key={a.label} {...a} />)}

@@ -1,3 +1,5 @@
+import { hookliftPlacement } from '../trw/hooklift'
+import { HookliftModel } from '../trw/HookliftModel'
 import { takePendingProject } from '../openProject'
 import { TopBar } from '../components/TopBar'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -71,7 +73,8 @@ function setAt<T>(obj: T, path: Path, value: unknown): T {
 
 const fmtT = (kg: number) => `${(kg / 1000).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} t`
 
-export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: string; link?: LinkRequest }) {
+export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }: { initialPreset?: string; link?: LinkRequest; hooklift?: string | null }) {
+  const [hooklift, setHooklift] = useState<string | null>(hookliftInit ?? null)
   const start = presetById(initialPreset ?? '') ?? PRESETS[0]
   const [preset, setPreset] = useState<ChassisPreset>(start)
   const [cfg, setCfg] = useState<ChassisConfig>(() => cloneConfig(start.config))
@@ -469,6 +472,12 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
               ) : null}
             </p>
           ) : null}
+          {hooklift ? (
+            <p className="status ok" data-testid="cfg-hooklift">
+              Nástavba Multilift {hooklift} (katalog, parametrický model na konci rámu).{' '}
+              <a href={`#multilift/${encodeURIComponent(hooklift)}`}>Jiný model</a> · <button type="button" className="link-btn" onClick={() => setHooklift(null)}>Odebrat</button>
+            </p>
+          ) : null}
           <TrwImportPanel onImport={(result) => choosePreset(result.preset, result)} />
           <div className="row" style={{ marginTop: 4 }}>
             <Button size="sm" variant="outline" onClick={() => trwFileRef.current?.click()}>
@@ -730,6 +739,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
+        {hooklift && !trw?.markers.extended ? <CatalogHooklift name={hooklift} frameTop={built.frame.topHeight} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} /> : null}
         {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={((slewDeg % 360) + 360) % 360} craneX={trw.markers.crane?.x ?? null} sectorRadius={trw.markers.crane && craneModelFor(trw.markers.crane.name) ? craneVariantMatch(trw.markers.crane.name)!.variant.hydMaxMm : 8000} showSectors={showSectors} liveDoc={trw.liveDoc} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>
@@ -743,6 +753,12 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
 }
 
 /** Crane from the CS Sim load case; outriggers from the trw import if present, else at the crane (odhad). */
+/** Multilift from the catalogue (#novy?hooklift=…): rear roller at the frame end, datasheet SL / HH / h. */
+function CatalogHooklift({ name, frameTop, frameRear }: { name: string; frameTop: number; frameRear: number }) {
+  const { xRear, params, mesh } = hookliftPlacement({ name, xFrom: null, xTo: null, length: null, height: null }, frameRear)
+  return <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} fallback={null} />
+}
+
 function simMarkers(sim: CsSimResult, trw: TrwImport | null): TrwImport['markers'] {
   const x = sim.load.craneX
   const spread = sim.load.spread ?? 0
