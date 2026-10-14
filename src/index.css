@@ -1305,3 +1305,16 @@ body.hide-side .app-side { display: none !important; }
 .door-btn:hover, .door-btn:focus-visible { transform: translate(-50%, -54%) scale(1.04); background: rgba(62, 230, 196, 0.92); border-color: #3ee6c4; color: #0b1118; outline: none; }
 .door-btn:hover span, .door-btn:focus-visible span { color: #0b1118; }
 @media (max-width: 720px) { .start-hero { height: 62vh; margin-top: -48px; } .door-btn { padding: 7px 9px; } .door-btn strong { font-size: 12px; } .door-btn span { display: none; } .door-btn { white-space: normal; max-width: 28vw; text-align: center; } }
+
+.start-v3-main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 0; overflow: hidden; }
+.start-v3 .start-hero { height: auto; min-height: 0; margin: 0; width: auto; }
+.start-v3-side { display: flex; flex-direction: column; gap: 14px; padding: 14px; overflow: auto; border-left: 1px solid var(--line); }
+.start-v3-side .feature-card { text-align: left; }
+.cfg-btn { border-color: rgba(255, 255, 255, 0.5); }
+.cfg-btn.is-hot { background: rgba(62, 230, 196, 0.92); border-color: #3ee6c4; color: #0b1118; transform: translate(-50%, -54%) scale(1.04); }
+.cfg-btn.is-hot span { color: #0b1118; }
+@media (max-width: 860px) {
+  .start-v3-main { display: block; overflow: auto; }
+  .start-v3 .start-hero { height: 64vh; }
+  .start-v3-side { border-left: 0; display: grid; grid-template-columns: 1fr; }
+}
