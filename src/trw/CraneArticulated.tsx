@@ -2,12 +2,12 @@ import { useGLTF } from '@react-three/drei'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { setLiveCrane } from './liveCrane'
-import { CraneDimensions, LinearScale, Protractor } from './CraneGizmos'
+import { CraneDimensions, LinearScale, Protractor, TelescopeArrows } from './CraneGizmos'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
 import { adaptGroups } from '../craneTpl/adaptMesh'
-import { defOf, extFraction, templateSectionStrokes, forwardKinematics, inverseKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, slewFromAzimuth, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
+import { defOf, extFraction, templateSectionStrokes, forwardKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
 
 const material = new THREE.MeshStandardMaterial({ color: '#c8231b', metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide })
 const handleMat = new THREE.MeshStandardMaterial({ color: '#1f6fd1', emissive: '#0b3a7a', transparent: true, opacity: 0.85 })
@@ -110,36 +110,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const extPos = (k: number) => ({ r: Ud.r * dl + U.r * joints.ext * frac(k), h: Ud.h * dl + U.h * joints.ext * frac(k) })
   const tipLocal = { r: D2.r + Ud.r * dl + U.r * joints.ext, h: D2.h + Ud.h * dl + U.h * joints.ext }
 
-  // ---- tip drag (IK) ----
-  const camera = useThree((s) => s.camera)
-  const controls = useThree((s) => s.controls) as { enabled: boolean } | null
-  const drag = useRef<{ plane: THREE.Plane } | null>(null)
   const tipRef = useRef<THREE.Mesh>(null)
-  const down = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation()
-    const p = new THREE.Vector3()
-    tipRef.current!.getWorldPosition(p)
-    const nrm = new THREE.Vector3()
-    camera.getWorldDirection(nrm)
-    drag.current = { plane: new THREE.Plane().setFromNormalAndCoplanarPoint(nrm, p) }
-    if (controls) controls.enabled = false
-    ;(e.target as unknown as Element | null)?.setPointerCapture?.(e.pointerId)
-  }
-  const move = (e: ThreeEvent<PointerEvent>) => {
-    if (!drag.current) return
-    e.stopPropagation()
-    const hit = new THREE.Vector3()
-    if (!e.ray.intersectPlane(drag.current.plane, hit)) return
-    const dx = (hit.x - x) / 1000, dz = hit.z / 1000, h = (hit.y - frameTop) / 1000
-    const slew = slewFromAzimuth(dx, dz, joints.slew, def.limits.slew)
-    onJoints(inverseKinematics({ r: Math.hypot(dx, dz), h }, variant, slew))
-  }
-  const up = (e: ThreeEvent<PointerEvent>) => {
-    if (!drag.current) return
-    drag.current = null
-    if (controls) controls.enabled = true
-    ;(e.target as unknown as Element | null)?.releasePointerCapture?.(e.pointerId)
-  }
 
   // ---- joint handles / protractors ----
   const [sel, setSel] = useState<JointKey | null>(null)
@@ -149,6 +120,13 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
     return () => window.removeEventListener('keydown', k)
   }, [])
   const jr = useRef(joints); jr.current = joints
+  // test / capture hooks: select a joint, screen position of a named handle
+  const { camera, scene, size } = useThree()
+  useEffect(() => {
+    const w = window as unknown as { __craneSel?: (k: JointKey | null) => void; __screenOf?: (n: string) => [number, number] | null }
+    w.__craneSel = setSel
+    w.__screenOf = (n) => { const o = scene.getObjectByName(n); if (!o) return null; const v = new THREE.Vector3(); o.getWorldPosition(v).project(camera); return [(v.x + 1) / 2 * size.width, (1 - v.y) / 2 * size.height] }
+  })
   const setOne = (key: JointKey, val: number) => onJoints(setJoint(jr.current, key, key === 'ext' ? val : nearestEquivalent(val, jr.current[key]), variant))
   const pick = (key: JointKey) => ({ onPointerDown: (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setSel(key) }, onClick: (e: ThreeEvent<MouseEvent>) => e.stopPropagation() })
   const lim = (k: JointKey) => jointLimits(k, variant)
@@ -201,9 +179,17 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
                 </group>
               ))}
             </group>
-            <mesh ref={tipRef} name="crane-tip-handle" position={[lat, tipLocal.h, tipLocal.r]} material={handleMat} onPointerDown={down} onPointerMove={move} onPointerUp={up}>
+            {/* tip marker only (no IK drag: angles change only via the ring arrows, the telescope via its arrows) */}
+            <mesh ref={tipRef} name="crane-tip-handle" position={[lat, tipLocal.h, tipLocal.r]} material={handleMat} {...pick('ext')}>
               <sphereGeometry args={[0.18, 20, 14]} />
             </mesh>
+            {sel === 'ext' && (
+              <group position={[lat + 0.3, tipLocal.h, tipLocal.r]} rotation={[0, -Math.PI / 2, 0]}>
+                <group rotation={[0, 0, Math.atan2(U.h, U.r)]}>
+                  <Suspense fallback={null}><TelescopeArrows value={joints.ext} max={lim('ext')[1]} onValue={(m) => setOne('ext', m)} /></Suspense>
+                </group>
+              </group>
+            )}
             <group position={[0, -P2.h, -P2.r]}>
               <mesh name="crane-joint-ext" position={[lat, extBase.h + 0.25, extBase.r]} rotation={[-Math.atan2(U.h, U.r), 0, 0]} material={jointMat} {...pick('ext')}>
                 <boxGeometry args={[0.18, 0.18, 0.4]} />
@@ -211,7 +197,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
               {sel === 'ext' && (
                 <group position={[lat + 0.2, extBase.h + 0.35, extBase.r]} rotation={[0, -Math.PI / 2, 0]}>
                   <group rotation={[0, 0, Math.atan2(U.h, U.r)]}>
-                    <Suspense fallback={null}><LinearScale value={joints.ext} max={lim('ext')[1]} onValue={(m) => setOne('ext', m)} /></Suspense>
+                    <Suspense fallback={null}><LinearScale value={joints.ext} max={lim('ext')[1]} /></Suspense>
                   </group>
                 </group>
               )}
