@@ -1,6 +1,7 @@
 import { useGLTF } from '@react-three/drei'
 import { Component, Suspense, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
+import CATALOG from './outriggerCatalog.json'
 
 /**
  * HIAB auxiliary stabilizer (přídavné podpěry) – retracted housing + legs.
@@ -10,9 +11,10 @@ import * as THREE from 'three'
  * šířka 457.3): housing + výsuvná ramena prodloužena o 60 mm uprostřed, patky/válce/úchyty posunuty tuhě,
  * průřez rozšířen 426 → 457.3.
  */
+const byKey = (k: string) => CATALOG.entries.find((e) => e.key === k)!
 export const AUX_STAB = {
-  '5m': { file: 'hiab-aux-stab-5m.glb', retracted: 2490, extended: 5041 },
-  '6m': { file: 'hiab-aux-stab-6m.glb', retracted: 2550, extended: 5980 },
+  '5m': { file: byKey('hiab-aux-5m').file, retracted: byKey('hiab-aux-5m').retractedMm, extended: byKey('hiab-aux-5m').extendedMm },
+  '6m': { file: byKey('hiab-aux-6m').file, retracted: byKey('hiab-aux-6m').retractedMm, extended: byKey('hiab-aux-6m').extendedMm },
 } as const
 export type AuxStabKind = keyof typeof AUX_STAB
 

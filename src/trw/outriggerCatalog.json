@@ -1,0 +1,16 @@
+{
+ "note": "Katalog přídavných podpěr HIAB (aux. stabilizers). Kóty jen z výkresů (mm); null = výkres neuvádí. Postup viz LESSONS.md.",
+ "entries": [
+  { "key": "hiab-aux-5m", "name": "HIAB přídavné podpěry 5 m", "drawing": "556-2066 rev.2", "file": "hiab-aux-stab-5m.glb", "source": "3D model HIAB",
+    "retractedMm": 2490, "extendedMm": 5041, "columnSpacingMm": 2266, "widthMm": 426, "widthS9520Mm": 466, "beamHeightMm": 358, "footSpacingMm": 147,
+    "fmaxInnerKg": 18000, "fmaxOuterKg": 14000,
+    "underChassis": { "A": [433,433,483,533], "B": [783,883,933,983], "C": [260,360,310,260], "D": [275,375,325,275] },
+    "underSubframe": { "E": [657,722,757,807], "F": [1107,1172,1207,1257] } },
+  { "key": "hiab-aux-6m", "name": "HIAB přídavné podpěry 6 m", "drawing": "556-2067 rev.2", "file": "hiab-aux-stab-6m.glb", "source": "odvozeno z hiab-aux-5m (scripts/outrigger/mk_variant.py)",
+    "retractedMm": 2550, "extendedMm": 5980, "columnSpacingMm": 2326, "widthMm": 457.3, "widthS9520Mm": 492, "beamHeightMm": 345, "footSpacingMm": 172,
+    "fmaxInnerKg": 26000, "fmaxOuterKg": 17800,
+    "underChassis": { "A": [438,438,488,538], "B": [788,888,938,988], "C": [255,355,305,255], "D_I1470": [308,408,358,308], "D_I1000": [255,355,305,255] },
+    "underSubframe": { "E": [662,727,762,812], "F": [1112,1177,1212,1262] },
+    "modelDeviations": { "beamHeightMm": "model 5m výška (358) ponechána", "footSpacingMm": "ponecháno 147", "extendedMm": "model jen zasunutý" } }
+ ]
+}

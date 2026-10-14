@@ -1,0 +1,9 @@
+---
+description: Odvozování 3D variant (podpěry, jeřáby) z šablony podle výkresu
+globs: src/trw/*Catalog.json, public/models/**, scripts/outrigger/**
+---
+- Postupuj podle LESSONS.md „Varianta 3D modelu z šablony + výkresu“.
+- Nevymýšlej kóty; každá hodnota v katalogu musí mít zdroj ve výkresu, jinak null.
+- Roztahuj jen díly, které se mezi variantami liší; ostatní tuze posuň.
+- Nová varianta = záznam v katalogu + GLB v public/models/<typ>/ + test výběru.
+- Výkresy firmy necommituj.
