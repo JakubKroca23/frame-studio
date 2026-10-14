@@ -77,7 +77,7 @@ export default function App() {
     <div className={reviewing ? 'app is-review' : 'app'}>
       <header className="app-header">
         <div className="brand">
-          <h1>Podvozek</h1>
+          <h1>Frame Studio</h1>
           <span>z 2D výkresu do 3D rámu</span>
         </div>
         <div className="row" style={{ alignItems: 'center' }}>

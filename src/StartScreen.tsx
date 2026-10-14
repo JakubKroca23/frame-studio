@@ -26,7 +26,7 @@ export function StartScreen() {
     <div className="start">
       <header className="app-header">
         <div className="brand">
-          <h1>Podvozek</h1>
+          <h1>Frame Studio</h1>
           <span>z 2D výkresu nebo z parametrů do 3D rámu</span>
         </div>
       </header>

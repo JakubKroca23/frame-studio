@@ -1,0 +1,9 @@
+{
+  "name": "Frame Studio",
+  "short_name": "Frame Studio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f1ec",
+  "theme_color": "#c8231b",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
