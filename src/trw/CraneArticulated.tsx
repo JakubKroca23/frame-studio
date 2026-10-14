@@ -6,7 +6,8 @@ import { CraneDimensions, LinearScale, Protractor } from './CraneGizmos'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
-import { defOf, forwardKinematics, inverseKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, slewFromAzimuth, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
+import { adaptGroups } from '../craneTpl/adaptMesh'
+import { defOf, extFraction, forwardKinematics, inverseKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, slewFromAzimuth, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
 
 const material = new THREE.MeshStandardMaterial({ color: '#c8231b', metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide })
 const handleMat = new THREE.MeshStandardMaterial({ color: '#1f6fd1', emissive: '#0b3a7a', transparent: true, opacity: 0.85 })
@@ -75,7 +76,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const ed = def.geom.extDir ?? D2
   const U = { r: ed.r / Math.hypot(ed.r, ed.h), h: ed.h / Math.hypot(ed.r, ed.h) }
   const gltf = useGLTF(`${import.meta.env.BASE_URL}models/crane/${def.file}`)
-  const groups = useMemo(() => {
+  const raw = useMemo(() => {
     gltf.scene.updateMatrixWorld(true)
     const out: Record<string, THREE.BufferGeometry[]> = {}
     gltf.scene.traverse((o) => {
@@ -94,15 +95,17 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
     })
     return out
   }, [gltf])
-  const meshes = (g: string) => (groups[g] ?? []).map((geo, i) => <mesh key={`${g}${i}`} geometry={geo} material={material} castShadow receiveShadow />)
-
   const { l2 } = variantBoom(variant)
   const dl = l2 - mesh.l2 // variant retracted length vs. the mesh variant
   const n = variant.extensions, S = def.meshExtSections
-  // S telescopes in the mesh, extending equally. A variant with n < S shows only the first n (the n-th carries the hook);
-  // n > S spreads the stroke over the S meshes.
-  const shown = Math.min(n, S)
-  const frac = (k: number) => (n <= S ? k / n : k / S)
+  const groups = useMemo(() => adaptGroups(raw, def, def.adapt ? dl : 0, n, Ud, U), [raw, def, dl, n]) // eslint-disable-line react-hooks/exhaustive-deps
+  const meshes = (g: string) => (groups[g] ?? []).map((geo, i) => <mesh key={`${g}${i}`} geometry={geo} material={material} castShadow receiveShadow />)
+
+  // S telescopes in the mesh. A variant with n < S shows only the first n (the n-th carries the hook); n > S adds
+  // copies of the innermost section (adaptGroups). Stroke split per def.extStrokes (408: measured) or equal.
+  void S
+  const shown = n
+  const frac = (k: number) => extFraction(def, n, k)
   const extPos = (k: number) => ({ r: Ud.r * dl + U.r * joints.ext * frac(k), h: Ud.h * dl + U.h * joints.ext * frac(k) })
   const tipLocal = { r: D2.r + Ud.r * dl + U.r * joints.ext, h: D2.h + Ud.h * dl + U.h * joints.ext }
 

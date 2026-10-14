@@ -327,7 +327,7 @@ function rawExtents(entities: readonly DxfEntity[]): Box2 {
 }
 
 /** "1:20"-like group values anywhere in the file (title blocks are often ACAD_TABLE cells). */
-function rawScaleStrings(text: string): string[] {
+export function rawScaleStrings(text: string): string[] {
   const out: string[] = []
   const re = /\n\s*([^\n]{0,40}?\b1\s?:\s?\d{1,4})\s*\r?\n/g
   let m: RegExpExecArray | null
@@ -340,7 +340,7 @@ function rawScaleStrings(text: string): string[] {
 }
 
 /** DIMENSION entities from model space and inserted blocks, transformed to world coordinates. */
-function collectDimEntities(db: DxfDb): DxfEntity[] {
+export function collectDimEntities(db: DxfDb): DxfEntity[] {
   const out: DxfEntity[] = []
   type Xf = (x: number, y: number) => [number, number]
   const visit = (entities: readonly DxfEntity[], xf: Xf, depth: number, stack: Set<string>, rotDeg: number) => {

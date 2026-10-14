@@ -1,5 +1,6 @@
 import { analyzeDxf } from '../pipeline/analyze'
 import { analyzeDxf3d } from '../dxf3d/analyze'
+import { readCraneSheet } from '../craneTpl/sheet'
 import { buildSolid } from '../dxf3d/build'
 import { buildViewSet } from '../dxf3d/views'
 import type { Dxf3dAnalysis, ViewAssignment, ViewSet } from '../dxf3d/types'
@@ -61,6 +62,13 @@ self.onmessage = (event: MessageEvent<{ text?: string; dwg?: ArrayBuffer; mode?:
           self.postMessage({ progress: 'Čtu DWG…' })
           const { dwgBytesToDxf } = await import('../io/dwg')
           text = await dwgBytesToDxf(new Uint8Array(event.data.dwg))
+        }
+        // HIAB crane sheet → template flow (articulated sample model adapted to the drawing), no silhouette envelope
+        self.postMessage({ progress: 'Hledám výkres jeřábu…' })
+        const crane = readCraneSheet(text)
+        if (crane.isCrane) {
+          self.postMessage({ ok: true, mode: 'dxf3d', crane, analysis: null, views: null, mesh: null, deviations: [] })
+          return
         }
         const analysis = analyzeDxf3d(text, (stage) => self.postMessage({ progress: stage }))
         let views: ViewSet | null = null

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import type { CraneSheet } from '../craneTpl/sheet'
 import type { Dxf3dAnalysis, ViewAssignment, ViewDeviation, ViewSet } from './types'
 
 export interface Dxf3dResult {
@@ -10,6 +11,8 @@ export interface Dxf3dResult {
   watertight: boolean
   holesCut: number
   deviations: ViewDeviation[]
+  /** HIAB crane sheet: the template flow replaces the silhouette solid (analysis is then empty) */
+  crane?: CraneSheet
 }
 
 type Progress = (message: string) => void
@@ -70,7 +73,9 @@ export async function runDxf3d(text: string, onProgress?: Progress, timeoutMs = 
     views?: ViewSet | null
     mesh?: { positions: Float32Array; indices: Uint32Array; volume: number; watertight: boolean; holesCut: number } | null
     deviations?: ViewDeviation[]
+    crane?: CraneSheet
   }>({ mode: 'dxf3d', text }, [], onProgress, timeoutMs)
+  if (raw.ok && raw.crane) return { analysis: null as unknown as Dxf3dAnalysis, views: null, geometry: null, volume: 0, watertight: false, holesCut: 0, deviations: [], crane: raw.crane }
   if (!raw.ok || !raw.analysis) throw new Error(raw.error || 'DXF → 3D selhalo.')
   return {
     analysis: raw.analysis,

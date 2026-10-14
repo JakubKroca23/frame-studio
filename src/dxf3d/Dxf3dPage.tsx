@@ -10,6 +10,8 @@ import { ROLE_LABEL, fmt } from './views'
 import { geometryFrom, rebuildDxf3d, runDxf3d, type Dxf3dResult } from './runWorker'
 import type { Projection, ViewAssignment } from './types'
 import { fixtureDxf, FIXTURES } from './fixtures'
+import { CraneTplView } from '../craneTpl/CraneTplView'
+import type { CraneSheet } from '../craneTpl/sheet'
 
 type RolePick = 'front' | 'top' | 'side' | null
 
@@ -41,6 +43,7 @@ export function Dxf3dPage() {
     try {
       const next = await runDxf3d(text, setProgress)
       setResult(next)
+      if (next.crane) return
       setAssignment(next.analysis.assignment)
       if (next.analysis.assignment) {
         setManual({
@@ -79,6 +82,7 @@ export function Dxf3dPage() {
           views?: Dxf3dResult['views']
           mesh?: { positions: Float32Array; indices: Uint32Array; volume: number; watertight: boolean; holesCut: number } | null
           deviations?: Dxf3dResult['deviations']
+          crane?: CraneSheet
         }>((resolve, reject) => {
           const timer = window.setTimeout(() => {
             worker.terminate()
@@ -100,6 +104,10 @@ export function Dxf3dPage() {
           }
           worker.postMessage({ mode: 'dxf3d', dwg }, [dwg])
         })
+        if (raw.ok && raw.crane) {
+          setResult({ analysis: null as unknown as Dxf3dResult['analysis'], views: null, geometry: null, volume: 0, watertight: false, holesCut: 0, deviations: [], crane: raw.crane })
+          return
+        }
         if (!raw.ok || !raw.analysis) throw new Error(raw.error || 'DWG → 3D selhalo.')
         const g = geometryFrom(raw.mesh ?? null)
         setResult({
@@ -174,6 +182,7 @@ export function Dxf3dPage() {
 
   const analysis = result?.analysis
   const views = result?.views
+  if (result?.crane) return <CraneTplView sheet={result.crane} fileName={fileName} />
 
   return (
     <div className="app dxf3d">

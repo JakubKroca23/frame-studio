@@ -12,7 +12,8 @@
  * ASSUMED (not in the drawings): joint limits, telescopes extend equally, slewing range centred on forward.
  */
 
-export type CraneModelKey = '142' | '408'
+/** '142' | '408' or a derived template key ('tpl142-1' …, see src/craneTpl). */
+export type CraneModelKey = string
 export type CraneVariant = { id: string; family: 'E' | 'ES'; extensions: number; minOutreachMm: number; hydMaxMm: number; manMaxMm: number; model?: CraneModelKey }
 
 /** Table "1-3, OUTREACH" from drawings 464-0807 (E/ES 1-3) and 464-0808 (E/ES 4-5). */
@@ -105,6 +106,13 @@ export interface CraneDef {
   unfolded?: Omit<CraneJoints, 'slew'>
   /** label for missing load data */
   noLoadText: string
+  /**
+   * Relative stroke of each telescope (ext1…extN), measured on a sample model; absent = all equal.
+   * Scaled to the variant stroke; a variant with fewer sections uses the first n.
+   */
+  extStrokes?: number[]
+  /** derived from a template + drawing (src/craneTpl): mesh adaptation of the template parts */
+  adapt?: { dh: number; baseX: number; template: string }
 }
 
 /**
@@ -138,6 +146,9 @@ export const CRANE_DEFS: CraneDef[] = [
     // ASSUMED limits (no drawing yet); must contain the measured folded pose (a1 −49.6°, rel −167°). Slewing: continuous.
     limits: { a1: [-52, 80], rel: [-170, 30], slew: [-360, 360] },
     // hydMax from the Hiab datasheet; E-4…E-7: retracted length ASSUMED equal to the E-8 (no drawing), no manual extension
+    // per-telescope stroke [m] from the extended 408 E-8 GLB (all 8 real sections, straight): extended overlap of each
+    // section vs. the folded GLB; ext5/ext6/ext8 retracted overlap ASSUMED 90 mm (those were clones in the folded GLB).
+    extStrokes: [1.505, 1.824, 1.825, 1.999, 2.1, 2.2, 2.3, 2.296],
     variants: [
       ...([[4, 11600], [5, 13800], [6, 16100], [7, 18500]] as const).map(([n, hyd]) => ({ id: `E-${n}`, family: 'E' as const, extensions: n, minOutreachMm: X408_MIN_OUT, hydMaxMm: hyd, manMaxMm: hyd, model: '408' as const })),
       { id: 'E-8', family: 'E', extensions: 8, minOutreachMm: X408_MIN_OUT, hydMaxMm: 20900, manMaxMm: 22400, model: '408' },
@@ -169,6 +180,22 @@ export function craneDefFor(name: string | null | undefined): CraneDef | null {
   return CRANE_DEFS.find((d) => d.key === '408' && d.match.test(name)) ?? CRANE_DEFS.find((d) => d.match.test(name)) ?? null
 }
 export const defOf = (v: CraneVariant): CraneDef => CRANE_DEFS.find((d) => d.key === (v.model ?? '142'))!
+
+/** Add / replace a derived crane definition (template + drawing). */
+export function registerCraneDef(def: CraneDef) {
+  const i = CRANE_DEFS.findIndex((d) => d.key === def.key)
+  if (i >= 0) CRANE_DEFS[i] = def
+  else CRANE_DEFS.push(def)
+}
+
+/** Cumulative extension fraction of telescope k (1-based) of n sections. */
+export function extFraction(def: CraneDef, n: number, k: number): number {
+  const s = def.extStrokes
+  if (!s || s.length < n) return k / n
+  const used = s.slice(0, n)
+  const tot = used.reduce((a, b) => a + b, 0)
+  return used.slice(0, k).reduce((a, b) => a + b, 0) / tot
+}
 
 /** Variant of a crane + whether trw named it exactly. */
 export function craneVariantMatch(name: string | null | undefined): { def: CraneDef; variant: CraneVariant; exact: boolean } | null {

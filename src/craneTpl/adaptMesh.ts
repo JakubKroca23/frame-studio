@@ -1,0 +1,66 @@
+import * as THREE from 'three'
+import type { CraneDef } from '../trw/craneKinematics'
+
+/** Shrink factor of the cross-section for every telescope added beyond the template's sections. */
+export const CLONE_SHRINK = 0.86
+
+function map(geo: THREE.BufferGeometry, f: (v: THREE.Vector3) => void): THREE.BufferGeometry {
+  const g = geo.clone()
+  const pa = g.getAttribute('position') as THREE.BufferAttribute
+  const v = new THREE.Vector3()
+  for (let i = 0; i < pa.count; i++) { v.fromBufferAttribute(pa, i); f(v); pa.setXYZ(i, v.x, v.y, v.z) }
+  pa.needsUpdate = true
+  g.computeVertexNormals()
+  return g
+}
+
+/**
+ * Per-part adaptation of the template mesh (mesh frame: x lateral, y = h, z = r; base in its own raw frame).
+ * - def.adapt.dh: column + cyl1 stretched vertically, booms lifted
+ * - def.adapt.baseX: base scaled along the stabiliser beam
+ * - dl: retracted outer-boom length of the variant vs. the template → outer boom stretched linearly from the knuckle
+ * - n > template sections: extra telescopes = copies of the innermost one, cross-section shrunk by CLONE_SHRINK per step
+ * Without def.adapt only the extension clones are added (the shipped models stay untouched).
+ */
+export function adaptGroups(groups: Record<string, THREE.BufferGeometry[]>, def: CraneDef, dl: number, n: number, ud: { r: number; h: number }, u: { r: number; h: number }): Record<string, THREE.BufferGeometry[]> {
+  const out: Record<string, THREE.BufferGeometry[]> = { ...groups }
+  const a = def.adapt
+  if (a) {
+    const p1h = def.geom.p1.h - a.dh
+    const sy = (p1h + a.dh) / p1h
+    if (a.baseX !== 1) out.base = (groups.base ?? []).map((g) => map(g, (v) => { v.x *= a.baseX }))
+    if (a.dh) {
+      for (const k of ['column', 'cyl1']) if (groups[k]) out[k] = groups[k].map((g) => map(g, (v) => { if (v.y > 0) v.y *= sy }))
+      for (const k of Object.keys(groups)) if (k === 'main' || k === 'outer' || /^ext\d+$/.test(k)) out[k] = groups[k].map((g) => map(g, (v) => { v.y += a.dh }))
+    }
+    if (Math.abs(dl) > 1e-4 && out.outer) {
+      const P2 = def.geom.p2, l2 = Math.hypot(def.geom.tipRetracted.r - P2.r, def.geom.tipRetracted.h - P2.h)
+      out.outer = out.outer.map((g) => map(g, (v) => {
+        const t = Math.min(1, Math.max(0, ((v.z - P2.r) * ud.r + (v.y - P2.h) * ud.h) / l2))
+        v.z += ud.r * dl * t
+        v.y += ud.h * dl * t
+      }))
+    }
+  }
+  const S = def.meshExtSections
+  const last = out[`ext${S}`]
+  if (n > S && last?.length) {
+    const c = new THREE.Vector3(), tmp = new THREE.Vector3()
+    let cnt = 0
+    for (const g of last) { const pa = g.getAttribute('position'); for (let i = 0; i < pa.count; i++) { c.add(tmp.fromBufferAttribute(pa, i)); cnt++ } }
+    c.divideScalar(Math.max(1, cnt))
+    for (let k = S + 1; k <= n; k++) {
+      const f = CLONE_SHRINK ** (k - S)
+      out[`ext${k}`] = last.map((g) => map(g, (v) => {
+        // along-axis component kept, perpendicular (lateral x and the in-plane normal) scaled about the centroid axis
+        const dz = v.z - c.z, dy = v.y - c.y
+        const along = dz * u.r + dy * u.h
+        const nz = dz - along * u.r, ny = dy - along * u.h
+        v.x = c.x + (v.x - c.x) * f
+        v.z = c.z + along * u.r + nz * f
+        v.y = c.y + along * u.h + ny * f
+      }))
+    }
+  }
+  return out
+}
