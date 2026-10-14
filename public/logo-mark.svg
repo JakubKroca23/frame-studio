@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 64" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <linearGradient id="fsg" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="114" y2="0">
+      <stop offset="0" stop-color="#3EE6C4"/><stop offset=".5" stop-color="#1F6FE0"/><stop offset="1" stop-color="#FF6A2B"/>
+    </linearGradient>
+    <linearGradient id="fst" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="114" y2="0">
+      <stop offset="0" stop-color="#3EE6C4"/><stop offset=".45" stop-color="#2FC3D0"/><stop offset=".7" stop-color="#F6A04A"/><stop offset="1" stop-color="#FF6A2B"/>
+    </linearGradient>
+  </defs>
+  <!-- cab -->
+  <path d="M6 46V36l6-9 6-3h14v22" stroke="#3EE6C4" stroke-width="2.6"/>
+  <path d="M15 31l4-4h9v8H14z" stroke="#3EE6C4" stroke-width="1.8"/>
+  <path d="M20 22c3-4 8-6 14-6" stroke="#3EE6C4" stroke-width="1.8"/>
+  <!-- chassis -->
+  <path d="M30 46h82" stroke="#1F6FE0" stroke-width="2.6"/>
+  <!-- truss -->
+  <path d="M38 14h74v26H38zM38 27h74M57 14v26M76 14v26M95 14v26M38 27l19-13M95 14l17 13M95 40l17-13M57 40l19-13" stroke="url(#fst)" stroke-width="2.6"/>
+  <g fill="#141A24" stroke="#c9d6e3" stroke-width="1.2">
+    <circle cx="38" cy="14" r="1.8"/><circle cx="57" cy="14" r="1.8"/><circle cx="95" cy="14" r="1.8"/><circle cx="112" cy="14" r="1.8"/>
+    <circle cx="38" cy="40" r="1.8"/><circle cx="76" cy="40" r="1.8"/><circle cx="112" cy="40" r="1.8"/>
+  </g>
+  <!-- wheels -->
+  <path d="M10 52a7 7 0 0 1 14 0M80 52a7 7 0 0 1 14 0" stroke="url(#fsg)" stroke-width="2.6"/>
+</svg>

@@ -26,11 +26,13 @@ export function StartScreen() {
     <div className="start">
       <header className="app-header">
         <div className="brand">
-          <h1>Frame Studio</h1>
+          <img className="brand-mark" src="/logo-mark.svg" alt="" width="52" height="28" />
+          <h1 className="wordmark">FRAME <b>STUDIO</b></h1>
           <span>z 2D výkresu nebo z parametrů do 3D rámu</span>
         </div>
       </header>
       <main className="start-main">
+        <img className="start-hero" src="/frame-studio-logo.jpg" alt="Frame Studio" width="1024" height="572" />
         <p className="empty-kicker">Jak chcete začít?</p>
         <div className="start-choices">
           <section

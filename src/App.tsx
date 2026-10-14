@@ -77,7 +77,8 @@ export default function App() {
     <div className={reviewing ? 'app is-review' : 'app'}>
       <header className="app-header">
         <div className="brand">
-          <h1>Frame Studio</h1>
+          <img className="brand-mark" src="/logo-mark.svg" alt="" width="52" height="28" />
+          <h1 className="wordmark">FRAME <b>STUDIO</b></h1>
           <span>z 2D výkresu do 3D rámu</span>
         </div>
         <div className="row" style={{ alignItems: 'center' }}>
