@@ -1,9 +1,10 @@
 import { useGLTF } from '@react-three/drei'
 import { Component, Suspense, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
-import { makeHookliftDeform, ULT18Z59, type HookliftParams } from './hooklift'
+import { makeHookliftDeform, ULT18Z59, type HookliftMesh, type HookliftParams } from './hooklift'
+import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
-export const HOOKLIFT_GLB = `${import.meta.env.BASE_URL}models/hooklift/ult18z59.glb`
+const glbUrl = (m: HookliftMesh) => `${import.meta.env.BASE_URL}models/hooklift/${m.file}`
 
 class Boundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -19,7 +20,7 @@ class Boundary extends Component<{ fallback: ReactNode; children: ReactNode }, {
 }
 
 /** Lazy-loaded ULT18Z59 CAD model, stretched to params; rear end at xRear, underside at frameTop. */
-export function HookliftModel(props: { xRear: number; frameTop: number; params: HookliftParams; fallback: ReactNode }) {
+export function HookliftModel(props: { xRear: number; frameTop: number; params: HookliftParams; mesh?: HookliftMesh; fallback: ReactNode }) {
   return (
     <Boundary fallback={props.fallback}>
       <Suspense fallback={props.fallback}>
@@ -31,11 +32,11 @@ export function HookliftModel(props: { xRear: number; frameTop: number; params: 
 
 const material = new THREE.MeshStandardMaterial({ color: '#c9d2ef', metalness: 0.35, roughness: 0.55, side: THREE.DoubleSide })
 
-function Loaded({ xRear, frameTop, params }: { xRear: number; frameTop: number; params: HookliftParams }) {
-  const gltf = useGLTF(HOOKLIFT_GLB)
+function Loaded({ xRear, frameTop, params, mesh = ULT18Z59 }: { xRear: number; frameTop: number; params: HookliftParams; mesh?: HookliftMesh }) {
+  const gltf = useGLTF(glbUrl(mesh))
   const geoms = useMemo(() => {
     gltf.scene.updateMatrixWorld(true)
-    const deform = makeHookliftDeform(params)
+    const deform = makeHookliftDeform(params, mesh)
     const out: THREE.BufferGeometry[] = []
     const v = new THREE.Vector3()
     gltf.scene.traverse((o) => {
@@ -57,15 +58,16 @@ function Loaded({ xRear, frameTop, params }: { xRear: number; frameTop: number; 
       g.setAttribute('position', new THREE.BufferAttribute(arr, 3))
       if (src.index) g.setIndex(src.index)
       const n = src.getAttribute('normal')
-      if (n) g.setAttribute('normal', n)
-      else g.computeVertexNormals()
-      out.push(g)
+      if (n) {
+        g.setAttribute('normal', n)
+        out.push(g)
+      } else out.push(toCreasedNormals(g, Math.PI / 6)) // mesh without normals (3MF source): keep CAD edges sharp
     })
     return out
-  }, [gltf, params])
+  }, [gltf, params, mesh])
   // model → scene: X = xRear - (z - zMin)·1000, Y = frameTop + (y - yMin)·1000, Z = x·1000 (rotation −90° about Y)
   return (
-    <group name="trw-hooklift-model" position={[xRear + ULT18Z59.zMin * 1000, frameTop - ULT18Z59.yMin * 1000, 0]} rotation={[0, -Math.PI / 2, 0]} scale={1000}>
+    <group name="trw-hooklift-model" position={[xRear + mesh.zMin * 1000, frameTop - mesh.yMin * 1000, 0]} rotation={[0, -Math.PI / 2, 0]} scale={1000}>
       {geoms.map((g, i) => (
         <mesh key={i} geometry={g} material={material} castShadow receiveShadow />
       ))}

@@ -13,7 +13,7 @@ describe('hooklift', () => {
     expect(capacityFromName('Hákový nosič')).toBeNull()
   })
   it('placement defaults + range', () => {
-    expect(hookliftPlacement({ xFrom: null, xTo: null, length: null, height: null }, 8000)).toEqual({ xRear: 8000, spec: null, params: { lengthMm: ULT18Z59.lengthMm, hookHeightMm: 1570, capacityT: 18, installHeightMm: 250 } })
+    expect(hookliftPlacement({ xFrom: null, xTo: null, length: null, height: null }, 8000)).toMatchObject({ xRear: 8000, spec: null, params: { lengthMm: ULT18Z59.lengthMm, hookHeightMm: 1570, capacityT: 18, installHeightMm: 250 } })
     expect(hookliftPlacement({ xFrom: 2000, xTo: 7500, length: null, height: null, name: 'hákový nosič 20 t' }, 8000).params).toMatchObject({ lengthMm: 5500, capacityT: 20 })
   })
   it('deform keeps rear, stretches to length, raises hook', () => {

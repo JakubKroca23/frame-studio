@@ -33,7 +33,39 @@ export const ULT18Z59 = {
   /** Vertical stretch band of the arm [m] for hook height changes. */
   armY0: 0.6,
   armY1: 1.6,
+  file: 'ult18z59.glb',
 } as const
+
+export type HookliftMesh = { [K in keyof typeof ULT18Z59]: (typeof ULT18Z59)[K] extends number ? number : string }
+
+/** MULTILIFT ULTIMA 21S.56 CAD (FreeCAD 3MF, mm → m; same axes as ULT18Z59). Sliding (S) arm, no articulated jib. */
+export const ULTIMA21S56: HookliftMesh = {
+  name: 'MULTILIFT ULTIMA 21S.56',
+  lengthMm: 6563,
+  nativeLengthMm: 6563,
+  installHeightMm: 250,
+  massKg: 2500,
+  hookHeightMm: 1570,
+  capacityT: 21,
+  widthMm: 1238,
+  heightMm: 1996,
+  zMin: -0.1,
+  zMax: 6.463,
+  zRear: 0.8,
+  zFront: 4.75,
+  yMin: 0,
+  armY0: 0.6,
+  armY1: 1.45,
+  file: 'ultima21s56.glb',
+}
+
+/**
+ * Mesh per series: sliding-arm series (21S, 21SL) → ULTIMA 21S.56 mesh; articulated Z-arm series and
+ * 18S (as requested) → ULT18Z59 mesh.
+ */
+export function meshForSeries(series: string | null | undefined): HookliftMesh {
+  return series && /^ULTIMA 21S/.test(series) ? ULTIMA21S56 : ULT18Z59
+}
 
 export interface HookliftParams {
   lengthMm: number
@@ -78,7 +110,7 @@ export function hookliftPlacement(src: { xFrom: number | null; xTo: number | nul
     capacityT: spec?.capacityT ?? capacityFromName(name) ?? ULT18Z59.capacityT,
     installHeightMm: spec?.installHeightMm ?? ULT18Z59.installHeightMm,
   }
-  return { xRear, params, spec }
+  return { xRear, params, spec, mesh: meshForSeries(spec?.series) }
 }
 
 export function bodyHookliftPlacement(b: ExtBody, frameRear: number) {
@@ -89,8 +121,7 @@ export function bodyHookliftPlacement(b: ExtBody, frameRear: number) {
  * Piecewise stretch of a model-space point [m] (in place): rear ends fixed, middle section scaled,
  * front/arm shifted; arm band stretched vertically for hook height; section height scaled by capacity.
  */
-export function makeHookliftDeform(p: HookliftParams) {
-  const M = ULT18Z59
+export function makeHookliftDeform(p: HookliftParams, M: HookliftMesh = ULT18Z59) {
   const mid = M.zFront - M.zRear
   const fixedEnds = M.nativeLengthMm / 1000 - mid
   const k = Math.max(0.3, (p.lengthMm / 1000 - fixedEnds) / mid)

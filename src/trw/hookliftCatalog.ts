@@ -1,6 +1,6 @@
 /**
  * Hooklift catalog from Hiab MULTILIFT datasheets (DIN versions): ULTIMA 18 (BD-ULTIMA18-EN-DIN_191010),
- * ULTIMA 21SL (BD-ULTIMA21SL-EN-DIN_191010). All lengths in mm, masses in kg.
+ * ULTIMA 21SL (BD-ULTIMA21SL-EN-DIN_191010), ULTIMA 21 = 21S + 21Z (Hiab ULTIMA 21 technical information, DIN). All lengths in mm, masses in kg.
  * Merged table cells in the PDF (one value spanning several G-lengths) are expanded to each model.
  */
 export interface HookliftSpec {
@@ -11,7 +11,7 @@ export interface HookliftSpec {
   /** Datasheet the values come from. */
   source: string
   /** G-length code (46…61) – nominal hook-to-rear-roller distance in dm. */
-  gCode: number
+  gCode: number | string
   capacityT: number
   vehicleGvwT: number
   axles: number
@@ -56,7 +56,7 @@ export interface SeriesTable {
   capacityT: number
   vehicleGvwT: number
   axles: number
-  gCodes: readonly number[]
+  gCodes: readonly (number | string)[]
   massKg: Col
   tippingAngleDeg: Col
   bodyLengthM: readonly (readonly [number, number])[]
@@ -114,6 +114,24 @@ export const HOOKLIFT_CATALOG: HookliftSpec[] = [
     horizontalMovementMm: 1100, installHeightMm: 195, tunnelHeightMm: 105, hookHeightMm: 1570, bodyWidthMm: 1070,
     rearRollerOffsetMm: 110, maxPressureMPa: 30, oilFlowLpm: 80,
   }),
+  ...defineSeries({
+    series: 'ULTIMA 21S', source: 'Hiab MULTILIFT ULTIMA 21 technical information (DIN)', capacityT: 21, vehicleGvwT: 26, axles: 3,
+    gCodes: [46, 51, 53, 56, '56S', 59, 61, 63],
+    massKg: [2290, 2380, 2470, 2500, 2500, 2530, 2550, 2590], tippingAngleDeg: [50, 49, 53, 53, 49, 53, 49, 46],
+    bodyLengthM: [[3.9, 5.6], [4.2, 6.1], [4.5, 6.4], [4.5, 6.6], [4.7, 6.6], [4.6, 6.9], [4.8, 7.1], [5.1, 7.3]],
+    subframeLengthMm: [5333, 5933, 6563, 6563, 6283, 6563, 6733, 6883], cogBMm: [2450, 2700, 2850, 2950, 2950, 3000, 3150, 3300],
+    gLengthMm: [4580, 5080, 5360, 5560, 5580, 5860, 6080, 6310], horizontalMovementMm: [900, 1100, 1100, 1300, 1100, 1450, 1450, 1450],
+    installHeightMm: 250, tunnelHeightMm: 125, hookHeightMm: 1570, bodyWidthMm: 1070, maxPressureMPa: 30, oilFlowLpm: 100,
+  }),
+  ...defineSeries({
+    series: 'ULTIMA 21Z', source: 'Hiab MULTILIFT ULTIMA 21 technical information (DIN)', capacityT: 21, vehicleGvwT: 26, axles: 3,
+    gCodes: [51, 53, 56, 59, 61],
+    massKg: [2690, 2720, 2770, 2810, 2840], tippingAngleDeg: [53, 49, 49, 52, 49],
+    bodyLengthM: [[3.0, 6.1], [3.3, 6.3], [3.6, 6.6], [3.8, 7.0], [4.1, 7.1]],
+    subframeLengthMm: [5753, 5983, 6283, 6583, 6783], cogBMm: [2800, 2950, 3150, 3350, 3500], gLengthMm: [5080, 5310, 5610, 5880, 6110],
+    horizontalMovementMm: null, installHeightMm: 250, tunnelHeightMm: 125, hookHeightMm: 1570, bodyWidthMm: 1070,
+    minWorkingHeightMm: [2625, 2720, 2800, 3066, 3066], maxPressureMPa: 30, oilFlowLpm: 100,
+  }),
 ]
 
 const clean = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '')
@@ -132,8 +150,9 @@ export function findHookliftSpec(name: string | null | undefined, lengthHintMm?:
   const sr = series.find((x) => k.startsWith(key(x)))
   if (!sr) return null
   const inSeries = HOOKLIFT_CATALOG.filter((c) => c.series === sr)
-  const g = /^(\d{2})/.exec(k.slice(key(sr).length))
-  if (g) return inSeries.find((c) => c.gCode === Number(g[1])) ?? null
+  const rest = k.slice(key(sr).length)
+  const g = /^(\d{2})(S?)/.exec(rest)
+  if (g) return inSeries.find((c) => String(c.gCode) === g[1] + g[2]) ?? inSeries.find((c) => String(c.gCode) === g[1]) ?? null
   if (lengthHintMm == null) return null
   return inSeries.reduce((a, c) => (Math.abs(c.subframeLengthMm - lengthHintMm) < Math.abs(a.subframeLengthMm - lengthHintMm) ? c : a))
 }
