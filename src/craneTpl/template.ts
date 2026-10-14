@@ -4,7 +4,7 @@
  * reuses the template mesh with per-part adaptation (column height, base / stabiliser width, outer boom length per
  * variant, number of telescopes). Articulation, IK and gizmos run unchanged on the derived def.
  */
-import { CRANE_DEFS, X142_LOADS, registerCraneDef, type CraneDef, type CraneVariant } from '../trw/craneKinematics'
+import { CRANE_DEFS, X142_LOADS, registerCraneDef, templateSectionStrokes, type CraneDef, type CraneVariant } from '../trw/craneKinematics'
 import type { CraneSheet, KeyDim } from './sheet'
 
 /** Template quantities measured on the sample meshes [mm] — see scripts/crane/408x/README.md for the 408. */
@@ -39,7 +39,7 @@ const TOL = 0.02 // adapt a part only when the drawing differs from the template
 export function pickTemplate(s: CraneSheet): { key: '142' | '408'; reason: string } {
   const n = s.model ? Number.parseInt(s.model, 10) : NaN
   if (n === 142 || n === 408) return { key: String(n) as '142' | '408', reason: `stejný model (${n}) ve výkresu` }
-  if (Number.isFinite(n)) { const k = Math.abs(n - 142) <= Math.abs(n - 408) ? '142' : '408'; return { key: k, reason: `nejbližší velikostní třída k ${n}` } }
+  if (Number.isFinite(n)) { const k = n >= 220 ? '408' : '142'; return { key: k, reason: `velikostní třída ${n} → ${k === '408' ? 'velké jeřáby (≥ 22 t·m) → 408' : 'střední jeřáby → 142'}` } }
   const ext = Math.max(0, ...s.variants.map((v) => v.extensions))
   return ext > 5 ? { key: '408', reason: `${ext} výsuvů → rodina 408` } : { key: '142', reason: `${ext || '?'} výsuvů → rodina 142` }
 }
@@ -92,7 +92,7 @@ export function adaptFromSheet(s: CraneSheet, register = true): Adapted {
     variants,
     defaultVariantId: variants.find((v) => v.id === tpl.defaultVariantId)?.id ?? variants[variants.length - 1].id,
     loads: key === '142' && s.model === '142' ? X142_LOADS : null,
-    adapt: { dh, baseX, template: key },
+    adapt: { dh, baseX, template: key, secStroke: templateSectionStrokes(tpl) },
   }
   if (register) registerCraneDef(def)
   return { template: key, templateReason: reason, def, variants, scales: { dh, baseX }, report }

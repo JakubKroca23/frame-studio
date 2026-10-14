@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { CraneDef } from '../trw/craneKinematics'
+import { extFraction, type CraneDef } from '../trw/craneKinematics'
 
 /** Shrink factor of the cross-section for every telescope added beyond the template's sections. */
 export const CLONE_SHRINK = 0.86
@@ -22,7 +22,7 @@ function map(geo: THREE.BufferGeometry, f: (v: THREE.Vector3) => void): THREE.Bu
  * - n > template sections: extra telescopes = copies of the innermost one, cross-section shrunk by CLONE_SHRINK per step
  * Without def.adapt only the extension clones are added (the shipped models stay untouched).
  */
-export function adaptGroups(groups: Record<string, THREE.BufferGeometry[]>, def: CraneDef, dl: number, n: number, ud: { r: number; h: number }, u: { r: number; h: number }): Record<string, THREE.BufferGeometry[]> {
+export function adaptGroups(groups: Record<string, THREE.BufferGeometry[]>, def: CraneDef, dl: number, n: number, ud: { r: number; h: number }, u: { r: number; h: number }, stroke = 0): Record<string, THREE.BufferGeometry[]> {
   const out: Record<string, THREE.BufferGeometry[]> = { ...groups }
   const a = def.adapt
   if (a) {
@@ -61,6 +61,25 @@ export function adaptGroups(groups: Record<string, THREE.BufferGeometry[]>, def:
         v.y = c.y + along * u.h + ny * f
       }))
     }
+  }
+  // telescopes whose variant stroke exceeds the template's: lengthen along the axis towards the knuckle (outer end
+  // fixed, so the retracted tip stays put and the extended sections still overlap)
+  const ss = a?.secStroke
+  if (ss && stroke > 0) for (let k = 1; k <= n; k++) {
+    const need = stroke * (extFraction(def, n, k) - extFraction(def, n, k - 1))
+    const have = ss[Math.min(k, ss.length) - 1]
+    const f = need / have
+    const gs = out[`ext${k}`]
+    if (!gs?.length || f <= 1.02) continue
+    let hi = -Infinity
+    const t = new THREE.Vector3()
+    for (const g of gs) { const pa = g.getAttribute('position'); for (let i = 0; i < pa.count; i++) { t.fromBufferAttribute(pa, i); hi = Math.max(hi, t.z * u.r + t.y * u.h) } }
+    out[`ext${k}`] = gs.map((g) => map(g, (v) => {
+      const al = v.z * u.r + v.y * u.h
+      const d = (al - hi) * (f - 1)
+      v.z += d * u.r
+      v.y += d * u.h
+    }))
   }
   return out
 }

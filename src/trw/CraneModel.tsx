@@ -3,7 +3,7 @@ import { Suspense, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
-import { CRANE_DEFS, craneDefFor } from './craneKinematics'
+import { CRANE_DEFS, craneVariantMatch } from './craneKinematics'
 
 /**
  * Hiab X-HiPro 142 E-4 in transport (folded) position, from the user's DXF (3DFACE, mm → m).
@@ -19,7 +19,7 @@ export const CRANE_MODELS = CRANE_DEFS.map((d) => ({ re: d.match, file: d.folded
 export type CranePose = 'folded' | 'unfolded'
 
 export function craneModelFor(name: string | null | undefined) {
-  const d = craneDefFor(name)
+  const d = craneVariantMatch(name)?.def ?? null
   return d ? CRANE_MODELS.find((m) => m.def === d) ?? null : null
 }
 

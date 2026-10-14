@@ -1,0 +1,2659 @@
+{
+ "generated": "src/craneTpl/catalog.local.test.ts",
+ "skipped": [
+  "eX.262 EP: eX.262 HIPRO GD-EP-466-4146_drw.dxf — ve výkresu není tabulka dosahů 1-3 OUTREACH (1:16.67, není výkres jeřábu HIAB) → přeskočeno"
+ ],
+ "entries": [
+  {
+   "key": "ex142-bbs",
+   "model": "142",
+   "template": "142",
+   "name": "HIAB eX 142 HiPro B/BS",
+   "match": "(^|\\D)142(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "BS-3",
+   "variants": [
+    {
+     "id": "B-1",
+     "boom": "B",
+     "extensions": 1,
+     "minOutreachMm": 4873,
+     "hydMaxMm": 6774,
+     "manMaxMm": 8808,
+     "sheet": "eX. 142 HIPRO GD-B-BS 464-0805.dxf"
+    },
+    {
+     "id": "B-2",
+     "boom": "B",
+     "extensions": 2,
+     "minOutreachMm": 4958,
+     "hydMaxMm": 8809,
+     "manMaxMm": 10993,
+     "sheet": "eX. 142 HIPRO GD-B-BS 464-0805.dxf"
+    },
+    {
+     "id": "B-3",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 5043,
+     "hydMaxMm": 10993,
+     "manMaxMm": 13178,
+     "sheet": "eX. 142 HIPRO GD-B-BS 464-0805.dxf"
+    },
+    {
+     "id": "BS-1",
+     "boom": "BS",
+     "extensions": 1,
+     "minOutreachMm": 4573,
+     "hydMaxMm": 6474,
+     "manMaxMm": 8508,
+     "sheet": "eX. 142 HIPRO GD-B-BS 464-0805.dxf"
+    },
+    {
+     "id": "BS-2",
+     "boom": "BS",
+     "extensions": 2,
+     "minOutreachMm": 4658,
+     "hydMaxMm": 8509,
+     "manMaxMm": 10693,
+     "sheet": "eX. 142 HIPRO GD-B-BS 464-0805.dxf"
+    },
+    {
+     "id": "BS-3",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4743,
+     "hydMaxMm": 10693,
+     "manMaxMm": 12878,
+     "sheet": "eX. 142 HIPRO GD-B-BS 464-0805.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2561,
+     "template": 2569,
+     "deviation": -8,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2500,
+     "template": 2511,
+     "deviation": -11,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5500,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4800, 5.5m: 5500 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (DUO/HIDUO 6-8F)",
+     "drawing": 745,
+     "template": 883,
+     "deviation": -138,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 3,
+     "template": 4,
+     "deviation": -1,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 5043,
+     "template": 4810,
+     "deviation": 233,
+     "used": "výkres",
+     "note": "4573–5043 mm → vnější výložník natažen od kloubu o -0.24…0.23 m"
+    }
+   ],
+   "sheets": [
+    "eX. 142 HIPRO GD-B-BS 464-0805.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ex142-bss",
+   "model": "142",
+   "template": "142",
+   "name": "HIAB eX 142 HiPro BSS",
+   "match": "(^|\\D)142(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "BSS-2",
+   "variants": [
+    {
+     "id": "BSS-2",
+     "boom": "BSS",
+     "extensions": 2,
+     "minOutreachMm": 4664,
+     "hydMaxMm": 7874,
+     "manMaxMm": 7874,
+     "sheet": "eX. 142 HIPRO GD-BSS 464-0806.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2561,
+     "template": 2569,
+     "deviation": -8,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2500,
+     "template": 2511,
+     "deviation": -11,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5500,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4800, 5.5m: 5500 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (DUO/HIDUO 6-8F)",
+     "drawing": 840,
+     "template": 883,
+     "deviation": -43,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 2,
+     "template": 4,
+     "deviation": -2,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4664,
+     "template": 4810,
+     "deviation": -146,
+     "used": "výkres",
+     "note": "4664–4664 mm → vnější výložník natažen od kloubu o -0.15…-0.15 m"
+    }
+   ],
+   "sheets": [
+    "eX. 142 HIPRO GD-BSS 464-0806.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ex142-dds",
+   "model": "142",
+   "template": "142",
+   "name": "HIAB eX 142 HiPro D/DS",
+   "match": "(^|\\D)142(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "DS-5",
+   "variants": [
+    {
+     "id": "D-1",
+     "boom": "D",
+     "extensions": 1,
+     "minOutreachMm": 4643,
+     "hydMaxMm": 6543,
+     "manMaxMm": 8578,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "D-2",
+     "boom": "D",
+     "extensions": 2,
+     "minOutreachMm": 4728,
+     "hydMaxMm": 8578,
+     "manMaxMm": 10763,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "D-3",
+     "boom": "D",
+     "extensions": 3,
+     "minOutreachMm": 4813,
+     "hydMaxMm": 10763,
+     "manMaxMm": 12943,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "DS-1",
+     "boom": "DS",
+     "extensions": 1,
+     "minOutreachMm": 4343,
+     "hydMaxMm": 6243,
+     "manMaxMm": 8278,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "DS-2",
+     "boom": "DS",
+     "extensions": 2,
+     "minOutreachMm": 4428,
+     "hydMaxMm": 8278,
+     "manMaxMm": 10463,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "DS-3",
+     "boom": "DS",
+     "extensions": 3,
+     "minOutreachMm": 4513,
+     "hydMaxMm": 10463,
+     "manMaxMm": 12643,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "D-4",
+     "boom": "D",
+     "extensions": 4,
+     "minOutreachMm": 4722,
+     "hydMaxMm": 12722,
+     "manMaxMm": 15007,
+     "sheet": "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+    },
+    {
+     "id": "D-5",
+     "boom": "D",
+     "extensions": 5,
+     "minOutreachMm": 4807,
+     "hydMaxMm": 15007,
+     "manMaxMm": 17294,
+     "sheet": "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+    },
+    {
+     "id": "DS-4",
+     "boom": "DS",
+     "extensions": 4,
+     "minOutreachMm": 4422,
+     "hydMaxMm": 12422,
+     "manMaxMm": 14707,
+     "sheet": "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+    },
+    {
+     "id": "DS-5",
+     "boom": "DS",
+     "extensions": 5,
+     "minOutreachMm": 4507,
+     "hydMaxMm": 14707,
+     "manMaxMm": 16994,
+     "sheet": "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2594,
+     "template": 2569,
+     "deviation": 25,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2500,
+     "template": 2511,
+     "deviation": -11,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5500,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4800, 5.5m: 5500 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (DUO/HIDUO 6-8F)",
+     "drawing": 745,
+     "template": 883,
+     "deviation": -138,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 5,
+     "template": 4,
+     "deviation": 1,
+     "used": "výkres",
+     "note": "1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4813,
+     "template": 4810,
+     "deviation": 3,
+     "used": "výkres",
+     "note": "4343–4813 mm → vnější výložník natažen od kloubu o -0.47…0.00 m"
+    }
+   ],
+   "sheets": [
+    "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf",
+    "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ex162-ees",
+   "model": "162",
+   "template": "142",
+   "name": "HIAB eX 162 HiPro E/ES",
+   "match": "(^|\\D)162(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "ES-5",
+   "variants": [
+    {
+     "id": "E-1",
+     "boom": "E",
+     "extensions": 1,
+     "minOutreachMm": 4670,
+     "hydMaxMm": 6570,
+     "manMaxMm": 8600,
+     "sheet": "iX. 142 HiPro GD-E-ES-1-3 464-0807.dxf"
+    },
+    {
+     "id": "E-2",
+     "boom": "E",
+     "extensions": 2,
+     "minOutreachMm": 4750,
+     "hydMaxMm": 8600,
+     "manMaxMm": 10780,
+     "sheet": "iX. 142 HiPro GD-E-ES-1-3 464-0807.dxf"
+    },
+    {
+     "id": "E-3",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4800,
+     "hydMaxMm": 10780,
+     "manMaxMm": 12960,
+     "sheet": "iX. 142 HiPro GD-E-ES-1-3 464-0807.dxf"
+    },
+    {
+     "id": "ES-1",
+     "boom": "ES",
+     "extensions": 1,
+     "minOutreachMm": 4370,
+     "hydMaxMm": 6270,
+     "manMaxMm": 8300,
+     "sheet": "iX. 142 HiPro GD-E-ES-1-3 464-0807.dxf"
+    },
+    {
+     "id": "ES-2",
+     "boom": "ES",
+     "extensions": 2,
+     "minOutreachMm": 4450,
+     "hydMaxMm": 8300,
+     "manMaxMm": 10480,
+     "sheet": "iX. 142 HiPro GD-E-ES-1-3 464-0807.dxf"
+    },
+    {
+     "id": "ES-3",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4530,
+     "hydMaxMm": 10480,
+     "manMaxMm": 12660,
+     "sheet": "iX. 142 HiPro GD-E-ES-1-3 464-0807.dxf"
+    },
+    {
+     "id": "E-4",
+     "boom": "E",
+     "extensions": 4,
+     "minOutreachMm": 4810,
+     "hydMaxMm": 12810,
+     "manMaxMm": 15100,
+     "sheet": "iX. 142 HiPro GD-E-ES-4-5 464-0808.dxf"
+    },
+    {
+     "id": "E-5",
+     "boom": "E",
+     "extensions": 5,
+     "minOutreachMm": 4890,
+     "hydMaxMm": 15090,
+     "manMaxMm": 17380,
+     "sheet": "iX. 142 HiPro GD-E-ES-4-5 464-0808.dxf"
+    },
+    {
+     "id": "ES-4",
+     "boom": "ES",
+     "extensions": 4,
+     "minOutreachMm": 4510,
+     "hydMaxMm": 12510,
+     "manMaxMm": 14800,
+     "sheet": "iX. 142 HiPro GD-E-ES-4-5 464-0808.dxf"
+    },
+    {
+     "id": "ES-5",
+     "boom": "ES",
+     "extensions": 5,
+     "minOutreachMm": 4600,
+     "hydMaxMm": 14800,
+     "manMaxMm": 17080,
+     "sheet": "iX. 142 HiPro GD-E-ES-4-5 464-0808.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2598,
+     "template": 2569,
+     "deviation": 29,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2500,
+     "template": 2511,
+     "deviation": -11,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5500,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4800, 5.5m: 5500 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (DUO/HIDUO 6-8F)",
+     "drawing": 745,
+     "template": 883,
+     "deviation": -138,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 5,
+     "template": 4,
+     "deviation": 1,
+     "used": "výkres",
+     "note": "1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4890,
+     "template": 4810,
+     "deviation": 80,
+     "used": "výkres",
+     "note": "4370–4890 mm → vnější výložník natažen od kloubu o -0.44…0.08 m"
+    }
+   ],
+   "sheets": [
+    "iX. 142 HiPro GD-E-ES-1-3 464-0807.dxf",
+    "iX. 142 HiPro GD-E-ES-4-5 464-0808.dxf"
+   ],
+   "notes": [
+    "výkresy 464-0807/0808 platí pro 128–162"
+   ]
+  },
+  {
+   "key": "ex162-bbs",
+   "model": "162",
+   "template": "142",
+   "name": "HIAB eX 162 HiPro B/BS",
+   "match": "(^|\\D)162(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "BS-3",
+   "variants": [
+    {
+     "id": "B-1",
+     "boom": "B",
+     "extensions": 1,
+     "minOutreachMm": 4873,
+     "hydMaxMm": 6774,
+     "manMaxMm": 8808,
+     "sheet": "eX. 162 HIPRO GD-B_BS 1-3 462-4906_drw.dxf"
+    },
+    {
+     "id": "B-2",
+     "boom": "B",
+     "extensions": 2,
+     "minOutreachMm": 4958,
+     "hydMaxMm": 8809,
+     "manMaxMm": 10993,
+     "sheet": "eX. 162 HIPRO GD-B_BS 1-3 462-4906_drw.dxf"
+    },
+    {
+     "id": "B-3",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 5043,
+     "hydMaxMm": 10993,
+     "manMaxMm": 13178,
+     "sheet": "eX. 162 HIPRO GD-B_BS 1-3 462-4906_drw.dxf"
+    },
+    {
+     "id": "BS-1",
+     "boom": "BS",
+     "extensions": 1,
+     "minOutreachMm": 4573,
+     "hydMaxMm": 6474,
+     "manMaxMm": 8508,
+     "sheet": "eX. 162 HIPRO GD-B_BS 1-3 462-4906_drw.dxf"
+    },
+    {
+     "id": "BS-2",
+     "boom": "BS",
+     "extensions": 2,
+     "minOutreachMm": 4658,
+     "hydMaxMm": 8509,
+     "manMaxMm": 10693,
+     "sheet": "eX. 162 HIPRO GD-B_BS 1-3 462-4906_drw.dxf"
+    },
+    {
+     "id": "BS-3",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4743,
+     "hydMaxMm": 10693,
+     "manMaxMm": 12878,
+     "sheet": "eX. 162 HIPRO GD-B_BS 1-3 462-4906_drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2561,
+     "template": 2569,
+     "deviation": -8,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2500,
+     "template": 2511,
+     "deviation": -11,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5500,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4800, 5.5m: 5500 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (DUO/HIDUO 6-8F)",
+     "drawing": 745,
+     "template": 883,
+     "deviation": -138,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 3,
+     "template": 4,
+     "deviation": -1,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 5043,
+     "template": 4810,
+     "deviation": 233,
+     "used": "výkres",
+     "note": "4573–5043 mm → vnější výložník natažen od kloubu o -0.24…0.23 m"
+    }
+   ],
+   "sheets": [
+    "eX. 162 HIPRO GD-B_BS 1-3 462-4906_drw.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ex162-bss",
+   "model": "162",
+   "template": "142",
+   "name": "HIAB eX 162 HiPro BSS",
+   "match": "(^|\\D)162(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "BSS-2",
+   "variants": [
+    {
+     "id": "BSS-2",
+     "boom": "BSS",
+     "extensions": 2,
+     "minOutreachMm": 4664,
+     "hydMaxMm": 7874,
+     "manMaxMm": 7874,
+     "sheet": "eX. 162 HIPRO GD-BSS -2 462-4922_drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2561,
+     "template": 2569,
+     "deviation": -8,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2500,
+     "template": 2511,
+     "deviation": -11,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5500,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4800, 5.5m: 5500 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (DUO/HIDUO 6-8F)",
+     "drawing": 840,
+     "template": 883,
+     "deviation": -43,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 2,
+     "template": 4,
+     "deviation": -2,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4664,
+     "template": 4810,
+     "deviation": -146,
+     "used": "výkres",
+     "note": "4664–4664 mm → vnější výložník natažen od kloubu o -0.15…-0.15 m"
+    }
+   ],
+   "sheets": [
+    "eX. 162 HIPRO GD-BSS -2 462-4922_drw.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ex162-dds",
+   "model": "162",
+   "template": "142",
+   "name": "HIAB eX 162 HiPro D/DS",
+   "match": "(^|\\D)162(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "DS-5",
+   "variants": [
+    {
+     "id": "D-1",
+     "boom": "D",
+     "extensions": 1,
+     "minOutreachMm": 4643,
+     "hydMaxMm": 6543,
+     "manMaxMm": 8578,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "D-2",
+     "boom": "D",
+     "extensions": 2,
+     "minOutreachMm": 4728,
+     "hydMaxMm": 8578,
+     "manMaxMm": 10763,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "D-3",
+     "boom": "D",
+     "extensions": 3,
+     "minOutreachMm": 4813,
+     "hydMaxMm": 10763,
+     "manMaxMm": 12943,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "DS-1",
+     "boom": "DS",
+     "extensions": 1,
+     "minOutreachMm": 4343,
+     "hydMaxMm": 6243,
+     "manMaxMm": 8278,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "DS-2",
+     "boom": "DS",
+     "extensions": 2,
+     "minOutreachMm": 4428,
+     "hydMaxMm": 8278,
+     "manMaxMm": 10463,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "DS-3",
+     "boom": "DS",
+     "extensions": 3,
+     "minOutreachMm": 4513,
+     "hydMaxMm": 10463,
+     "manMaxMm": 12643,
+     "sheet": "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf"
+    },
+    {
+     "id": "D-4",
+     "boom": "D",
+     "extensions": 4,
+     "minOutreachMm": 4722,
+     "hydMaxMm": 12722,
+     "manMaxMm": 15007,
+     "sheet": "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+    },
+    {
+     "id": "D-5",
+     "boom": "D",
+     "extensions": 5,
+     "minOutreachMm": 4807,
+     "hydMaxMm": 15007,
+     "manMaxMm": 17294,
+     "sheet": "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+    },
+    {
+     "id": "DS-4",
+     "boom": "DS",
+     "extensions": 4,
+     "minOutreachMm": 4422,
+     "hydMaxMm": 12422,
+     "manMaxMm": 14707,
+     "sheet": "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+    },
+    {
+     "id": "DS-5",
+     "boom": "DS",
+     "extensions": 5,
+     "minOutreachMm": 4507,
+     "hydMaxMm": 14707,
+     "manMaxMm": 16994,
+     "sheet": "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2594,
+     "template": 2569,
+     "deviation": 25,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2500,
+     "template": 2511,
+     "deviation": -11,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5500,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4800, 5.5m: 5500 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (DUO/HIDUO 6-8F)",
+     "drawing": 745,
+     "template": 883,
+     "deviation": -138,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 5,
+     "template": 4,
+     "deviation": 1,
+     "used": "výkres",
+     "note": "1 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4813,
+     "template": 4810,
+     "deviation": 3,
+     "used": "výkres",
+     "note": "4343–4813 mm → vnější výložník natažen od kloubu o -0.47…0.00 m"
+    }
+   ],
+   "sheets": [
+    "eX. 142 HIPRO GD-D-DS-1-3 465-1105.dxf",
+    "eX. 142 HIPRO GD-D-DS-4-5 465-1106.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ix148-bbs",
+   "model": "148",
+   "template": "142",
+   "name": "HIAB iX 148 Duo B/BS",
+   "match": "(^|\\D)148(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "BS-3",
+   "variants": [
+    {
+     "id": "B-1",
+     "boom": "B",
+     "extensions": 1,
+     "minOutreachMm": 4873,
+     "hydMaxMm": 6774,
+     "manMaxMm": 8808,
+     "sheet": "iX.148 DUO GD- E-ES 1-3 462-4906 drw.dxf"
+    },
+    {
+     "id": "B-2",
+     "boom": "B",
+     "extensions": 2,
+     "minOutreachMm": 4958,
+     "hydMaxMm": 8809,
+     "manMaxMm": 10993,
+     "sheet": "iX.148 DUO GD- E-ES 1-3 462-4906 drw.dxf"
+    },
+    {
+     "id": "B-3",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 5043,
+     "hydMaxMm": 10993,
+     "manMaxMm": 13178,
+     "sheet": "iX.148 DUO GD- E-ES 1-3 462-4906 drw.dxf"
+    },
+    {
+     "id": "BS-1",
+     "boom": "BS",
+     "extensions": 1,
+     "minOutreachMm": 4573,
+     "hydMaxMm": 6474,
+     "manMaxMm": 8508,
+     "sheet": "iX.148 DUO GD- E-ES 1-3 462-4906 drw.dxf"
+    },
+    {
+     "id": "BS-2",
+     "boom": "BS",
+     "extensions": 2,
+     "minOutreachMm": 4658,
+     "hydMaxMm": 8509,
+     "manMaxMm": 10693,
+     "sheet": "iX.148 DUO GD- E-ES 1-3 462-4906 drw.dxf"
+    },
+    {
+     "id": "BS-3",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4743,
+     "hydMaxMm": 10693,
+     "manMaxMm": 12878,
+     "sheet": "iX.148 DUO GD- E-ES 1-3 462-4906 drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2561,
+     "template": 2569,
+     "deviation": -8,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2500,
+     "template": 2511,
+     "deviation": -11,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m)",
+     "drawing": 5500,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4800, 5.5m: 5500 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (DUO/HIDUO 6-8F)",
+     "drawing": 745,
+     "template": 883,
+     "deviation": -138,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 3,
+     "template": 4,
+     "deviation": -1,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 5043,
+     "template": 4810,
+     "deviation": 233,
+     "used": "výkres",
+     "note": "4573–5043 mm → vnější výložník natažen od kloubu o -0.24…0.23 m"
+    }
+   ],
+   "sheets": [
+    "iX.148 DUO GD- E-ES 1-3 462-4906 drw.dxf"
+   ],
+   "notes": [
+    "soubor je pojmenován E-ES, ale je to výkres 462-4906 B/BS 1-3 (platí pro 148/158/162)"
+   ]
+  },
+  {
+   "key": "ex192-ees",
+   "model": "192",
+   "template": "142",
+   "name": "HIAB eX 192 HiPro E/ES",
+   "match": "(^|\\D)192(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "ES-6",
+   "variants": [
+    {
+     "id": "E-2",
+     "boom": "E",
+     "extensions": 2,
+     "minOutreachMm": 4720,
+     "hydMaxMm": 8620,
+     "manMaxMm": 10750,
+     "sheet": "eX.192 HIPRO GD-E-ES 1-3 387-3200.dxf"
+    },
+    {
+     "id": "E-3",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4800,
+     "hydMaxMm": 10750,
+     "manMaxMm": 12940,
+     "sheet": "eX.192 HIPRO GD-E-ES 1-3 387-3200.dxf"
+    },
+    {
+     "id": "ES-2",
+     "boom": "ES",
+     "extensions": 2,
+     "minOutreachMm": 4420,
+     "hydMaxMm": 8320,
+     "manMaxMm": 10450,
+     "sheet": "eX.192 HIPRO GD-E-ES 1-3 387-3200.dxf"
+    },
+    {
+     "id": "ES-3",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4500,
+     "hydMaxMm": 10450,
+     "manMaxMm": 12640,
+     "sheet": "eX.192 HIPRO GD-E-ES 1-3 387-3200.dxf"
+    },
+    {
+     "id": "E-3 (3-6)",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4730,
+     "hydMaxMm": 10680,
+     "manMaxMm": 12860,
+     "sheet": "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+    },
+    {
+     "id": "E-4",
+     "boom": "E",
+     "extensions": 4,
+     "minOutreachMm": 4810,
+     "hydMaxMm": 12860,
+     "manMaxMm": 15150,
+     "sheet": "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+    },
+    {
+     "id": "E-5",
+     "boom": "E",
+     "extensions": 5,
+     "minOutreachMm": 4900,
+     "hydMaxMm": 15150,
+     "manMaxMm": 17530,
+     "sheet": "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+    },
+    {
+     "id": "E-6",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 4980,
+     "hydMaxMm": 17530,
+     "manMaxMm": 19320,
+     "sheet": "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+    },
+    {
+     "id": "ES-3 (3-6)",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4430,
+     "hydMaxMm": 10380,
+     "manMaxMm": 12570,
+     "sheet": "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+    },
+    {
+     "id": "ES-4",
+     "boom": "ES",
+     "extensions": 4,
+     "minOutreachMm": 4520,
+     "hydMaxMm": 12570,
+     "manMaxMm": 14850,
+     "sheet": "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+    },
+    {
+     "id": "ES-5",
+     "boom": "ES",
+     "extensions": 5,
+     "minOutreachMm": 4600,
+     "hydMaxMm": 14850,
+     "manMaxMm": 17230,
+     "sheet": "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+    },
+    {
+     "id": "ES-6",
+     "boom": "ES",
+     "extensions": 6,
+     "minOutreachMm": 4680,
+     "hydMaxMm": 17230,
+     "manMaxMm": 19020,
+     "sheet": "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2601,
+     "template": 2569,
+     "deviation": 32,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2511,
+     "deviation": -15,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m / 6.8m)",
+     "drawing": 6808,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4804, 5.5m: 5504, 6.8m: 6808 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 6,
+     "template": 4,
+     "deviation": 2,
+     "used": "výkres",
+     "note": "2 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4980,
+     "template": 4810,
+     "deviation": 170,
+     "used": "výkres",
+     "note": "4420–4980 mm → vnější výložník natažen od kloubu o -0.39…0.17 m"
+    }
+   ],
+   "sheets": [
+    "eX.192 HIPRO GD-E-ES 1-3 387-3200.dxf",
+    "eX.192 HIPRO GD-E-ES 3-6 387-2399.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ix188-bbs",
+   "model": "188",
+   "template": "142",
+   "name": "HIAB iX 188 HiDuo B/BS",
+   "match": "(^|\\D)188(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "BS-4",
+   "variants": [
+    {
+     "id": "B-1",
+     "boom": "B",
+     "extensions": 1,
+     "minOutreachMm": 4640,
+     "hydMaxMm": 6540,
+     "manMaxMm": 8630,
+     "sheet": "iX.188 HIDUO GD-B-BS 1-3 466-7980 drw.dxf"
+    },
+    {
+     "id": "B-2",
+     "boom": "B",
+     "extensions": 2,
+     "minOutreachMm": 4730,
+     "hydMaxMm": 8630,
+     "manMaxMm": 10760,
+     "sheet": "iX.188 HIDUO GD-B-BS 1-3 466-7980 drw.dxf"
+    },
+    {
+     "id": "B-3",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 4810,
+     "hydMaxMm": 10760,
+     "manMaxMm": 12950,
+     "sheet": "iX.188 HIDUO GD-B-BS 1-3 466-7980 drw.dxf"
+    },
+    {
+     "id": "BS-1",
+     "boom": "BS",
+     "extensions": 1,
+     "minOutreachMm": 4340,
+     "hydMaxMm": 6240,
+     "manMaxMm": 8330,
+     "sheet": "iX.188 HIDUO GD-B-BS 1-3 466-7980 drw.dxf"
+    },
+    {
+     "id": "BS-2",
+     "boom": "BS",
+     "extensions": 2,
+     "minOutreachMm": 4430,
+     "hydMaxMm": 8330,
+     "manMaxMm": 10460,
+     "sheet": "iX.188 HIDUO GD-B-BS 1-3 466-7980 drw.dxf"
+    },
+    {
+     "id": "BS-3",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4510,
+     "hydMaxMm": 10460,
+     "manMaxMm": 12650,
+     "sheet": "iX.188 HIDUO GD-B-BS 1-3 466-7980 drw.dxf"
+    },
+    {
+     "id": "B-3 (3-4)",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 4740,
+     "hydMaxMm": 10690,
+     "manMaxMm": 12870,
+     "sheet": "iX.188 HIDUO GD-B_BS 3-4 466-7981 drw.dxf"
+    },
+    {
+     "id": "B-4",
+     "boom": "B",
+     "extensions": 4,
+     "minOutreachMm": 4820,
+     "hydMaxMm": 12870,
+     "manMaxMm": 15160,
+     "sheet": "iX.188 HIDUO GD-B_BS 3-4 466-7981 drw.dxf"
+    },
+    {
+     "id": "BS-3 (3-4)",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4440,
+     "hydMaxMm": 10390,
+     "manMaxMm": 12570,
+     "sheet": "iX.188 HIDUO GD-B_BS 3-4 466-7981 drw.dxf"
+    },
+    {
+     "id": "BS-4",
+     "boom": "BS",
+     "extensions": 4,
+     "minOutreachMm": 4520,
+     "hydMaxMm": 12570,
+     "manMaxMm": 14860,
+     "sheet": "iX.188 HIDUO GD-B_BS 3-4 466-7981 drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2614,
+     "template": 2569,
+     "deviation": 45,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2511,
+     "deviation": -15,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m / 6.8m)",
+     "drawing": 6808,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4804, 5.5m: 5504, 6.8m: 6808 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 4,
+     "template": 4,
+     "deviation": 0,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4820,
+     "template": 4810,
+     "deviation": 10,
+     "used": "výkres",
+     "note": "4340–4820 mm → vnější výložník natažen od kloubu o -0.47…0.01 m"
+    }
+   ],
+   "sheets": [
+    "iX.188 HIDUO GD-B-BS 1-3 466-7980 drw.dxf",
+    "iX.188 HIDUO GD-B_BS 3-4 466-7981 drw.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ix188-ees",
+   "model": "188",
+   "template": "142",
+   "name": "HIAB iX 188 HiDuo E/ES",
+   "match": "(^|\\D)188(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "ES-6",
+   "variants": [
+    {
+     "id": "E-2",
+     "boom": "E",
+     "extensions": 2,
+     "minOutreachMm": 4720,
+     "hydMaxMm": 8620,
+     "manMaxMm": 10750,
+     "sheet": "iX.188 HIDUO GD-E_ES 1-3 466-7982 drw.dxf"
+    },
+    {
+     "id": "E-3",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4800,
+     "hydMaxMm": 10750,
+     "manMaxMm": 12940,
+     "sheet": "iX.188 HIDUO GD-E_ES 1-3 466-7982 drw.dxf"
+    },
+    {
+     "id": "ES-2",
+     "boom": "ES",
+     "extensions": 2,
+     "minOutreachMm": 4420,
+     "hydMaxMm": 8320,
+     "manMaxMm": 10450,
+     "sheet": "iX.188 HIDUO GD-E_ES 1-3 466-7982 drw.dxf"
+    },
+    {
+     "id": "ES-3",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4500,
+     "hydMaxMm": 10450,
+     "manMaxMm": 12640,
+     "sheet": "iX.188 HIDUO GD-E_ES 1-3 466-7982 drw.dxf"
+    },
+    {
+     "id": "E-3 (3-6)",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4730,
+     "hydMaxMm": 10680,
+     "manMaxMm": 12860,
+     "sheet": "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+    },
+    {
+     "id": "E-4",
+     "boom": "E",
+     "extensions": 4,
+     "minOutreachMm": 4810,
+     "hydMaxMm": 12860,
+     "manMaxMm": 15150,
+     "sheet": "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+    },
+    {
+     "id": "E-5",
+     "boom": "E",
+     "extensions": 5,
+     "minOutreachMm": 4900,
+     "hydMaxMm": 15150,
+     "manMaxMm": 17530,
+     "sheet": "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+    },
+    {
+     "id": "E-6",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 4980,
+     "hydMaxMm": 17530,
+     "manMaxMm": 19320,
+     "sheet": "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+    },
+    {
+     "id": "ES-3 (3-6)",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4430,
+     "hydMaxMm": 10380,
+     "manMaxMm": 12570,
+     "sheet": "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+    },
+    {
+     "id": "ES-4",
+     "boom": "ES",
+     "extensions": 4,
+     "minOutreachMm": 4520,
+     "hydMaxMm": 12570,
+     "manMaxMm": 14850,
+     "sheet": "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+    },
+    {
+     "id": "ES-5",
+     "boom": "ES",
+     "extensions": 5,
+     "minOutreachMm": 4600,
+     "hydMaxMm": 14850,
+     "manMaxMm": 17230,
+     "sheet": "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+    },
+    {
+     "id": "ES-6",
+     "boom": "ES",
+     "extensions": 6,
+     "minOutreachMm": 4680,
+     "hydMaxMm": 17230,
+     "manMaxMm": 19020,
+     "sheet": "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2601,
+     "template": 2569,
+     "deviation": 32,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2511,
+     "deviation": -15,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m / 6.8m)",
+     "drawing": 6808,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4804, 5.5m: 5504, 6.8m: 6808 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2006,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 6,
+     "template": 4,
+     "deviation": 2,
+     "used": "výkres",
+     "note": "2 výsuv(y) navíc = kopie nejmenšího výsuvu šablony"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4980,
+     "template": 4810,
+     "deviation": 170,
+     "used": "výkres",
+     "note": "4420–4980 mm → vnější výložník natažen od kloubu o -0.39…0.17 m"
+    }
+   ],
+   "sheets": [
+    "iX.188 HIDUO GD-E_ES 1-3 466-7982 drw.dxf",
+    "iX.188 HIDUO GD-E_ES 3-6 466-7983 drw.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ix228-bbs",
+   "model": "228",
+   "template": "408",
+   "name": "HIAB iX 228 HiDuo B/BS",
+   "match": "(^|\\D)228(?!\\d|\\s*L\\b)",
+   "dh": -0.277,
+   "baseX": 1,
+   "defaultVariantId": "BS-4",
+   "variants": [
+    {
+     "id": "B-1",
+     "boom": "B",
+     "extensions": 1,
+     "minOutreachMm": 4758,
+     "hydMaxMm": 6608,
+     "manMaxMm": 8698,
+     "sheet": "iX.228 HIDUO GD-B_BS 1-3 466-7975 drw.dxf"
+    },
+    {
+     "id": "B-2",
+     "boom": "B",
+     "extensions": 2,
+     "minOutreachMm": 4843,
+     "hydMaxMm": 8693,
+     "manMaxMm": 10823,
+     "sheet": "iX.228 HIDUO GD-B_BS 1-3 466-7975 drw.dxf"
+    },
+    {
+     "id": "B-3",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 4928,
+     "hydMaxMm": 10828,
+     "manMaxMm": 13018,
+     "sheet": "iX.228 HIDUO GD-B_BS 1-3 466-7975 drw.dxf"
+    },
+    {
+     "id": "BS-1",
+     "boom": "BS",
+     "extensions": 1,
+     "minOutreachMm": 4458,
+     "hydMaxMm": 6308,
+     "manMaxMm": 8398,
+     "sheet": "iX.228 HIDUO GD-B_BS 1-3 466-7975 drw.dxf"
+    },
+    {
+     "id": "BS-2",
+     "boom": "BS",
+     "extensions": 2,
+     "minOutreachMm": 4543,
+     "hydMaxMm": 8393,
+     "manMaxMm": 10523,
+     "sheet": "iX.228 HIDUO GD-B_BS 1-3 466-7975 drw.dxf"
+    },
+    {
+     "id": "BS-3",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4628,
+     "hydMaxMm": 10528,
+     "manMaxMm": 12718,
+     "sheet": "iX.228 HIDUO GD-B_BS 1-3 466-7975 drw.dxf"
+    },
+    {
+     "id": "B-3 (3-4)",
+     "boom": "B",
+     "extensions": 3,
+     "minOutreachMm": 4857,
+     "hydMaxMm": 10757,
+     "manMaxMm": 12937,
+     "sheet": "iX.228 HIDUO GD- B-BS 3-4 466-7976 drw.dxf"
+    },
+    {
+     "id": "B-4",
+     "boom": "B",
+     "extensions": 4,
+     "minOutreachMm": 4942,
+     "hydMaxMm": 12942,
+     "manMaxMm": 15232,
+     "sheet": "iX.228 HIDUO GD- B-BS 3-4 466-7976 drw.dxf"
+    },
+    {
+     "id": "BS-3 (3-4)",
+     "boom": "BS",
+     "extensions": 3,
+     "minOutreachMm": 4557,
+     "hydMaxMm": 10457,
+     "manMaxMm": 12637,
+     "sheet": "iX.228 HIDUO GD- B-BS 3-4 466-7976 drw.dxf"
+    },
+    {
+     "id": "BS-4",
+     "boom": "BS",
+     "extensions": 4,
+     "minOutreachMm": 4642,
+     "hydMaxMm": 12642,
+     "manMaxMm": 14932,
+     "sheet": "iX.228 HIDUO GD- B-BS 3-4 466-7976 drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2634,
+     "template": 2911,
+     "deviation": -277,
+     "used": "výkres",
+     "note": "sloup natažen/zkrácen svisle"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2533,
+     "deviation": -37,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m / 6.8m)",
+     "drawing": 6808,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4804, 5.5m: 5504, 6.8m: 6808 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 4,
+     "template": 8,
+     "deviation": -4,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4942,
+     "template": 4967,
+     "deviation": -25,
+     "used": "výkres",
+     "note": "4458–4942 mm → vnější výložník natažen od kloubu o -0.51…-0.03 m"
+    }
+   ],
+   "sheets": [
+    "iX.228 HIDUO GD-B_BS 1-3 466-7975 drw.dxf",
+    "iX.228 HIDUO GD- B-BS 3-4 466-7976 drw.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ix228-ees",
+   "model": "228",
+   "template": "408",
+   "name": "HIAB iX 228 HiDuo E/ES",
+   "match": "(^|\\D)228(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "ES-6",
+   "variants": [
+    {
+     "id": "E-2",
+     "boom": "E",
+     "extensions": 2,
+     "minOutreachMm": 4588,
+     "hydMaxMm": 8338,
+     "manMaxMm": 10456,
+     "sheet": "iX.228 HIDUO GD- E-ES 1-3 466-7977 drw.dxf"
+    },
+    {
+     "id": "E-3",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4740,
+     "hydMaxMm": 10640,
+     "manMaxMm": 12639,
+     "sheet": "iX.228 HIDUO GD- E-ES 1-3 466-7977 drw.dxf"
+    },
+    {
+     "id": "ES-2",
+     "boom": "ES",
+     "extensions": 2,
+     "minOutreachMm": 4288,
+     "hydMaxMm": 8038,
+     "manMaxMm": 10156,
+     "sheet": "iX.228 HIDUO GD- E-ES 1-3 466-7977 drw.dxf"
+    },
+    {
+     "id": "ES-3",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4440,
+     "hydMaxMm": 10340,
+     "manMaxMm": 12339,
+     "sheet": "iX.228 HIDUO GD- E-ES 1-3 466-7977 drw.dxf"
+    },
+    {
+     "id": "E-3 (3-6)",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4602,
+     "hydMaxMm": 10401,
+     "manMaxMm": 12639,
+     "sheet": "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+    },
+    {
+     "id": "E-4",
+     "boom": "E",
+     "extensions": 4,
+     "minOutreachMm": 4687,
+     "hydMaxMm": 12587,
+     "manMaxMm": 14872,
+     "sheet": "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+    },
+    {
+     "id": "E-5",
+     "boom": "E",
+     "extensions": 5,
+     "minOutreachMm": 4900,
+     "hydMaxMm": 15100,
+     "manMaxMm": 17256,
+     "sheet": "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+    },
+    {
+     "id": "E-6",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 4857,
+     "hydMaxMm": 17257,
+     "manMaxMm": 19042,
+     "sheet": "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+    },
+    {
+     "id": "ES-3 (3-6)",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4302,
+     "hydMaxMm": 10101,
+     "manMaxMm": 12339,
+     "sheet": "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+    },
+    {
+     "id": "ES-4",
+     "boom": "ES",
+     "extensions": 4,
+     "minOutreachMm": 4387,
+     "hydMaxMm": 12287,
+     "manMaxMm": 14572,
+     "sheet": "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+    },
+    {
+     "id": "ES-5",
+     "boom": "ES",
+     "extensions": 5,
+     "minOutreachMm": 4600,
+     "hydMaxMm": 14800,
+     "manMaxMm": 16956,
+     "sheet": "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+    },
+    {
+     "id": "ES-6",
+     "boom": "ES",
+     "extensions": 6,
+     "minOutreachMm": 4557,
+     "hydMaxMm": 16957,
+     "manMaxMm": 18742,
+     "sheet": "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "výkresy se neshodují (466-7977: 2607, 466-7978: 2086) → výška ze šablony"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2533,
+     "deviation": -37,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m / 6.8m)",
+     "drawing": 6808,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4804, 5.5m: 5504, 6.8m: 6808 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 6,
+     "template": 8,
+     "deviation": -2,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4900,
+     "template": 4967,
+     "deviation": -67,
+     "used": "výkres",
+     "note": "4288–4900 mm → vnější výložník natažen od kloubu o -0.68…-0.07 m"
+    }
+   ],
+   "sheets": [
+    "iX.228 HIDUO GD- E-ES 1-3 466-7977 drw.dxf",
+    "iX.228 HIDUO GD- E-ES 3-6 466-7978 drw.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ex232-ees",
+   "model": "232",
+   "template": "408",
+   "name": "HIAB eX 232 HiPro E/ES",
+   "match": "(^|\\D)232(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "ES-6",
+   "variants": [
+    {
+     "id": "E-2",
+     "boom": "E",
+     "extensions": 2,
+     "minOutreachMm": 4588,
+     "hydMaxMm": 8338,
+     "manMaxMm": 10456,
+     "sheet": "eX.232 HIPRO GD- E-ES 1-3 387-6560 drw.dxf"
+    },
+    {
+     "id": "E-3",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4740,
+     "hydMaxMm": 10640,
+     "manMaxMm": 12639,
+     "sheet": "eX.232 HIPRO GD- E-ES 1-3 387-6560 drw.dxf"
+    },
+    {
+     "id": "ES-2",
+     "boom": "ES",
+     "extensions": 2,
+     "minOutreachMm": 4288,
+     "hydMaxMm": 8038,
+     "manMaxMm": 10156,
+     "sheet": "eX.232 HIPRO GD- E-ES 1-3 387-6560 drw.dxf"
+    },
+    {
+     "id": "ES-3",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4440,
+     "hydMaxMm": 10340,
+     "manMaxMm": 12339,
+     "sheet": "eX.232 HIPRO GD- E-ES 1-3 387-6560 drw.dxf"
+    },
+    {
+     "id": "E-3 (3-6)",
+     "boom": "E",
+     "extensions": 3,
+     "minOutreachMm": 4602,
+     "hydMaxMm": 10401,
+     "manMaxMm": 12639,
+     "sheet": "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+    },
+    {
+     "id": "E-4",
+     "boom": "E",
+     "extensions": 4,
+     "minOutreachMm": 4687,
+     "hydMaxMm": 12587,
+     "manMaxMm": 14872,
+     "sheet": "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+    },
+    {
+     "id": "E-5",
+     "boom": "E",
+     "extensions": 5,
+     "minOutreachMm": 4900,
+     "hydMaxMm": 15100,
+     "manMaxMm": 17256,
+     "sheet": "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+    },
+    {
+     "id": "E-6",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 4857,
+     "hydMaxMm": 17257,
+     "manMaxMm": 19042,
+     "sheet": "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+    },
+    {
+     "id": "ES-3 (3-6)",
+     "boom": "ES",
+     "extensions": 3,
+     "minOutreachMm": 4302,
+     "hydMaxMm": 10101,
+     "manMaxMm": 12339,
+     "sheet": "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+    },
+    {
+     "id": "ES-4",
+     "boom": "ES",
+     "extensions": 4,
+     "minOutreachMm": 4387,
+     "hydMaxMm": 12287,
+     "manMaxMm": 14572,
+     "sheet": "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+    },
+    {
+     "id": "ES-5",
+     "boom": "ES",
+     "extensions": 5,
+     "minOutreachMm": 4600,
+     "hydMaxMm": 14800,
+     "manMaxMm": 16956,
+     "sheet": "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+    },
+    {
+     "id": "ES-6",
+     "boom": "ES",
+     "extensions": 6,
+     "minOutreachMm": 4557,
+     "hydMaxMm": 16957,
+     "manMaxMm": 18742,
+     "sheet": "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "výkresy se neshodují (387-6560: 2607, 454-0176: 2086) → výška ze šablony"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2533,
+     "deviation": -37,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m / 6.8m)",
+     "drawing": 6808,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4804, 5.5m: 5504, 6.8m: 6808 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 6,
+     "template": 8,
+     "deviation": -2,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4900,
+     "template": 4967,
+     "deviation": -67,
+     "used": "výkres",
+     "note": "4288–4900 mm → vnější výložník natažen od kloubu o -0.68…-0.07 m"
+    }
+   ],
+   "sheets": [
+    "eX.232 HIPRO GD- E-ES 1-3 387-6560 drw.dxf",
+    "eX.232 HIPRO GD- E-ES 3-6 454-0176 drw.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ix225l-dldll",
+   "model": "225L",
+   "template": "408",
+   "name": "HIAB iX 225L HiDuo DL/DLL",
+   "match": "(^|\\D)225\\s*L(?![a-z\\d])",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "DLS-3",
+   "variants": [
+    {
+     "id": "DLL-1",
+     "boom": "DLL",
+     "extensions": 1,
+     "minOutreachMm": 6268,
+     "hydMaxMm": 8568,
+     "manMaxMm": 8568,
+     "sheet": "iX.225L HIDUO GD- DL-DLL 1-3 466-7989 drw.dxf"
+    },
+    {
+     "id": "DLL-2",
+     "boom": "DLL",
+     "extensions": 2,
+     "minOutreachMm": 6353,
+     "hydMaxMm": 11103,
+     "manMaxMm": 11103,
+     "sheet": "iX.225L HIDUO GD- DL-DLL 1-3 466-7989 drw.dxf"
+    },
+    {
+     "id": "DLL-3",
+     "boom": "DLL",
+     "extensions": 3,
+     "minOutreachMm": 6438,
+     "hydMaxMm": 13688,
+     "manMaxMm": 13688,
+     "sheet": "iX.225L HIDUO GD- DL-DLL 1-3 466-7989 drw.dxf"
+    },
+    {
+     "id": "DLS-1",
+     "boom": "DLS",
+     "extensions": 1,
+     "minOutreachMm": 5668,
+     "hydMaxMm": 7968,
+     "manMaxMm": 7968,
+     "sheet": "iX.225L HIDUO GD- DL-DLL 1-3 466-7989 drw.dxf"
+    },
+    {
+     "id": "DLS-2",
+     "boom": "DLS",
+     "extensions": 2,
+     "minOutreachMm": 5753,
+     "hydMaxMm": 10503,
+     "manMaxMm": 10503,
+     "sheet": "iX.225L HIDUO GD- DL-DLL 1-3 466-7989 drw.dxf"
+    },
+    {
+     "id": "DLS-3",
+     "boom": "DLS",
+     "extensions": 3,
+     "minOutreachMm": 5838,
+     "hydMaxMm": 13088,
+     "manMaxMm": 13088,
+     "sheet": "iX.225L HIDUO GD- DL-DLL 1-3 466-7989 drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "měřítko výkresu nepotvrzeno kótami proti tabulkám → výška ze šablony"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2533,
+     "deviation": -37,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m / 6.8m)",
+     "drawing": 6808,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4804, 5.5m: 5504, 6.8m: 6808 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 3,
+     "template": 8,
+     "deviation": -5,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 6438,
+     "template": 4967,
+     "deviation": 1471,
+     "used": "výkres",
+     "note": "5668–6438 mm → vnější výložník natažen od kloubu o 0.70…1.47 m"
+    }
+   ],
+   "sheets": [
+    "iX.225L HIDUO GD- DL-DLL 1-3 466-7989 drw.dxf"
+   ],
+   "notes": [
+    "vnější výložník natažen o víc než 15 % (zasunutý dosah 6438 mm proti 4967 mm šablony 408) — dlouhé rameno (L) šablona nemá, tvar je jen natažený",
+    "měřítko nepotvrzeno: iX.225L HIDUO GD- DL-DLL 1-3 466-7989 drw.dxf 1:21.89"
+   ]
+  },
+  {
+   "key": "ex235l-dldll",
+   "model": "235L",
+   "template": "408",
+   "name": "HIAB eX 235L HiPro DL/DLL",
+   "match": "(^|\\D)235\\s*L(?![a-z\\d])",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "DLS-3",
+   "variants": [
+    {
+     "id": "DLL-1",
+     "boom": "DLL",
+     "extensions": 1,
+     "minOutreachMm": 6268,
+     "hydMaxMm": 8568,
+     "manMaxMm": 8568,
+     "sheet": "eX.235L HIPRO GD- 455-8760_drw.dxf"
+    },
+    {
+     "id": "DLL-2",
+     "boom": "DLL",
+     "extensions": 2,
+     "minOutreachMm": 6353,
+     "hydMaxMm": 11103,
+     "manMaxMm": 11103,
+     "sheet": "eX.235L HIPRO GD- 455-8760_drw.dxf"
+    },
+    {
+     "id": "DLL-3",
+     "boom": "DLL",
+     "extensions": 3,
+     "minOutreachMm": 6438,
+     "hydMaxMm": 13688,
+     "manMaxMm": 13688,
+     "sheet": "eX.235L HIPRO GD- 455-8760_drw.dxf"
+    },
+    {
+     "id": "DLS-1",
+     "boom": "DLS",
+     "extensions": 1,
+     "minOutreachMm": 5668,
+     "hydMaxMm": 7968,
+     "manMaxMm": 7968,
+     "sheet": "eX.235L HIPRO GD- 455-8760_drw.dxf"
+    },
+    {
+     "id": "DLS-2",
+     "boom": "DLS",
+     "extensions": 2,
+     "minOutreachMm": 5753,
+     "hydMaxMm": 10503,
+     "manMaxMm": 10503,
+     "sheet": "eX.235L HIPRO GD- 455-8760_drw.dxf"
+    },
+    {
+     "id": "DLS-3",
+     "boom": "DLS",
+     "extensions": 3,
+     "minOutreachMm": 5838,
+     "hydMaxMm": 13088,
+     "manMaxMm": 13088,
+     "sheet": "eX.235L HIPRO GD- 455-8760_drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "měřítko výkresu nepotvrzeno kótami proti tabulkám → výška ze šablony"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2496,
+     "template": 2533,
+     "deviation": -37,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (4.8m / 5.5m / 6.8m)",
+     "drawing": 6808,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "4.8m: 4804, 5.5m: 5504, 6.8m: 6808 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 3,
+     "template": 8,
+     "deviation": -5,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 6438,
+     "template": 4967,
+     "deviation": 1471,
+     "used": "výkres",
+     "note": "5668–6438 mm → vnější výložník natažen od kloubu o 0.70…1.47 m"
+    }
+   ],
+   "sheets": [
+    "eX.235L HIPRO GD- 455-8760_drw.dxf"
+   ],
+   "notes": [
+    "vnější výložník natažen o víc než 15 % (zasunutý dosah 6438 mm proti 4967 mm šablony 408) — dlouhé rameno (L) šablona nemá, tvar je jen natažený",
+    "měřítko nepotvrzeno: eX.235L HIPRO GD- 455-8760_drw.dxf 1:21.89"
+   ]
+  },
+  {
+   "key": "ex262-e",
+   "model": "262",
+   "template": "408",
+   "name": "HIAB eX 262 HiPro E",
+   "match": "(^|\\D)262(?!\\d|\\s*L\\b)",
+   "dh": -0.325,
+   "baseX": 1,
+   "defaultVariantId": "E-8",
+   "variants": [
+    {
+     "id": "E-4",
+     "boom": "E",
+     "extensions": 4,
+     "minOutreachMm": 4320,
+     "hydMaxMm": 11705,
+     "manMaxMm": 13813,
+     "sheet": "eX.262 HIPRO GD-E-466-4147_drw_1.dxf"
+    },
+    {
+     "id": "E-5",
+     "boom": "E",
+     "extensions": 5,
+     "minOutreachMm": 4410,
+     "hydMaxMm": 13895,
+     "manMaxMm": 16100,
+     "sheet": "eX.262 HIPRO GD-E-466-4147_drw_1.dxf"
+    },
+    {
+     "id": "E-6",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 4500,
+     "hydMaxMm": 16185,
+     "manMaxMm": 18393,
+     "sheet": "eX.262 HIPRO GD-E-466-4147_drw_1.dxf"
+    },
+    {
+     "id": "E-7",
+     "boom": "E",
+     "extensions": 7,
+     "minOutreachMm": 4590,
+     "hydMaxMm": 18575,
+     "manMaxMm": 20163,
+     "sheet": "eX.262 HIPRO GD-E-466-4147_drw_1.dxf"
+    },
+    {
+     "id": "E-8",
+     "boom": "E",
+     "extensions": 8,
+     "minOutreachMm": 4685,
+     "hydMaxMm": 20970,
+     "manMaxMm": 22644,
+     "sheet": "eX.262 HIPRO GD-E-466-4147_drw_1.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2586,
+     "template": 2911,
+     "deviation": -325,
+     "used": "výkres",
+     "note": "sloup natažen/zkrácen svisle"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2510,
+     "template": 2533,
+     "deviation": -23,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (5.8m / 6.8m)",
+     "drawing": 6802,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "5.8m: 5790, 6.8m: 6802 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (iX-HiDuo)",
+     "drawing": 1040,
+     "template": 1067,
+     "deviation": -27,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 8,
+     "template": 8,
+     "deviation": 0,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4685,
+     "template": 4967,
+     "deviation": -282,
+     "used": "výkres",
+     "note": "4320–4685 mm → vnější výložník natažen od kloubu o -0.65…-0.28 m"
+    }
+   ],
+   "sheets": [
+    "eX.262 HIPRO GD-E-466-4147_drw_1.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ex302-e",
+   "model": "302",
+   "template": "408",
+   "name": "HIAB eX 302 HiPro E",
+   "match": "(^|\\D)302(?!\\d|\\s*L\\b)",
+   "dh": -0.325,
+   "baseX": 1,
+   "defaultVariantId": "E-8",
+   "variants": [
+    {
+     "id": "E-4",
+     "boom": "E",
+     "extensions": 4,
+     "minOutreachMm": 4320,
+     "hydMaxMm": 11705,
+     "manMaxMm": 13813,
+     "sheet": "eX.302 HIPRO GD-E 466-4147 drw.dxf"
+    },
+    {
+     "id": "E-5",
+     "boom": "E",
+     "extensions": 5,
+     "minOutreachMm": 4410,
+     "hydMaxMm": 13895,
+     "manMaxMm": 16100,
+     "sheet": "eX.302 HIPRO GD-E 466-4147 drw.dxf"
+    },
+    {
+     "id": "E-6",
+     "boom": "E",
+     "extensions": 6,
+     "minOutreachMm": 4500,
+     "hydMaxMm": 16185,
+     "manMaxMm": 18393,
+     "sheet": "eX.302 HIPRO GD-E 466-4147 drw.dxf"
+    },
+    {
+     "id": "E-7",
+     "boom": "E",
+     "extensions": 7,
+     "minOutreachMm": 4590,
+     "hydMaxMm": 18575,
+     "manMaxMm": 20163,
+     "sheet": "eX.302 HIPRO GD-E 466-4147 drw.dxf"
+    },
+    {
+     "id": "E-8",
+     "boom": "E",
+     "extensions": 8,
+     "minOutreachMm": 4685,
+     "hydMaxMm": 20970,
+     "manMaxMm": 22644,
+     "sheet": "eX.302 HIPRO GD-E 466-4147 drw.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": 2586,
+     "template": 2911,
+     "deviation": -325,
+     "used": "výkres",
+     "note": "sloup natažen/zkrácen svisle"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2510,
+     "template": 2533,
+     "deviation": -23,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (5.8m / 6.8m)",
+     "drawing": 6802,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "5.8m: 5790, 6.8m: 6802 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Max. šířka základu 5-1 (iX-HiDuo)",
+     "drawing": 1040,
+     "template": 1067,
+     "deviation": -27,
+     "used": "šablona",
+     "note": "závisí na rozvaděči, jen kontrola"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 8,
+     "template": 8,
+     "deviation": 0,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4685,
+     "template": 4967,
+     "deviation": -282,
+     "used": "výkres",
+     "note": "4320–4685 mm → vnější výložník natažen od kloubu o -0.65…-0.28 m"
+    }
+   ],
+   "sheets": [
+    "eX.302 HIPRO GD-E 466-4147 drw.dxf"
+   ],
+   "notes": []
+  },
+  {
+   "key": "ex302-ep",
+   "model": "302",
+   "template": "408",
+   "name": "HIAB eX 302 HiPro EP",
+   "match": "(^|\\D)302(?!\\d|\\s*L\\b)",
+   "dh": 0,
+   "baseX": 1,
+   "defaultVariantId": "EP-5",
+   "variants": [
+    {
+     "id": "EP-2",
+     "boom": "EP",
+     "extensions": 2,
+     "minOutreachMm": 4200,
+     "hydMaxMm": 8000,
+     "manMaxMm": 10195,
+     "sheet": "eX.302 HIPRO GD-EP 466-4146 drw_1.dxf"
+    },
+    {
+     "id": "EP-3",
+     "boom": "EP",
+     "extensions": 3,
+     "minOutreachMm": 4290,
+     "hydMaxMm": 10295,
+     "manMaxMm": 12705,
+     "sheet": "eX.302 HIPRO GD-EP 466-4146 drw_1.dxf"
+    },
+    {
+     "id": "EP-4",
+     "boom": "EP",
+     "extensions": 4,
+     "minOutreachMm": 4380,
+     "hydMaxMm": 12685,
+     "manMaxMm": 15055,
+     "sheet": "eX.302 HIPRO GD-EP 466-4146 drw_1.dxf"
+    },
+    {
+     "id": "EP-5",
+     "boom": "EP",
+     "extensions": 5,
+     "minOutreachMm": 4470,
+     "hydMaxMm": 15075,
+     "manMaxMm": 17299,
+     "sheet": "eX.302 HIPRO GD-EP 466-4146 drw_1.dxf"
+    }
+   ],
+   "report": [
+    {
+     "name": "Výška u osy otoče (1-1)",
+     "drawing": null,
+     "template": 2911,
+     "deviation": null,
+     "used": "šablona",
+     "note": "měřítko výkresu nepotvrzeno kótami proti tabulkám → výška ze šablony"
+    },
+    {
+     "name": "Šířka zasunutých podpěr (3-5a+3-5b)",
+     "drawing": 2510,
+     "template": 2533,
+     "deviation": -23,
+     "used": "šablona",
+     "note": "odchylka ≤ 2 % → šablona"
+    },
+    {
+     "name": "Rozpětí podpěr vysunuto (5.8m / 6.8m)",
+     "drawing": 6802,
+     "template": null,
+     "deviation": null,
+     "used": "výkres",
+     "note": "5.8m: 5790, 6.8m: 6802 — jen údaj, podpěry šablony zasunuté"
+    },
+    {
+     "name": "Hlavní výložník P1→P2",
+     "drawing": null,
+     "template": 2400,
+     "deviation": null,
+     "used": "šablona",
+     "note": "ve výkresu nekótováno"
+    },
+    {
+     "name": "Počet výsuvů",
+     "drawing": 5,
+     "template": 8,
+     "deviation": -3,
+     "used": "výkres",
+     "note": "nadbytečné výsuvy šablony skryty"
+    },
+    {
+     "name": "Dosah zasunuto (1-3 MIN) – rozsah variant",
+     "drawing": 4470,
+     "template": 4967,
+     "deviation": -497,
+     "used": "výkres",
+     "note": "4200–4470 mm → vnější výložník natažen od kloubu o -0.77…-0.50 m"
+    }
+   ],
+   "sheets": [
+    "eX.302 HIPRO GD-EP 466-4146 drw_1.dxf"
+   ],
+   "notes": [
+    "měřítko nepotvrzeno: eX.302 HIPRO GD-EP 466-4146 drw_1.dxf 1:20"
+   ]
+  }
+ ]
+}

@@ -21,7 +21,7 @@ describe('template + drawing', () => {
     const raw = `0\nACAD_TABLE\n10\n1\n20\n2\n91\n3\n92\n4\n${['1-3, OUTREACH', '', '', '', 'EXTENSION', 'MIN', 'MAX', 'MAX', 'E-2', '4750', '8600', '10780'].map(cell).join('')}0\nACAD_TABLE\n91\n2\n92\n2\n${['SPREED', '3-5a', '4.8m', '1250'].map(cell).join('')}0\nEOF\n`
     const t = parseAcadTables(raw)
     expect(t).toHaveLength(2)
-    expect(outreachVariants(t)).toEqual([{ id: 'E-2', family: 'E', extensions: 2, minOutreachMm: 4750, hydMaxMm: 8600, manMaxMm: 10780 }])
+    expect(outreachVariants(t)).toEqual([{ id: 'E-2', family: 'E', boom: 'E', extensions: 2, minOutreachMm: 4750, hydMaxMm: 8600, manMaxMm: 10780 }])
     expect(tableLabelValues(t)).toEqual([{ label: '3-5a', row: '4.8m', value: 1250, table: 'SPREED' }])
   })
   it('picks the closest template', () => {

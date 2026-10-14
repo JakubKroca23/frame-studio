@@ -122,6 +122,9 @@ export function StartScreen() {
               <Button variant="outline" onClick={() => (window.location.hash = '#dxf3d')}>
                 Importovat DXF → 3D
               </Button>
+              <Button variant="outline" onClick={() => (window.location.hash = '#jeraby')}>
+                Jeřáby HIAB
+              </Button>
             </div>
           </section>
         </div>

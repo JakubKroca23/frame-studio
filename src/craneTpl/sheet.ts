@@ -72,7 +72,7 @@ export function tableLabelValues(tables: readonly AcadTable[]): LabelValue[] {
   return out
 }
 
-export interface SheetVariant { id: string; family: 'E' | 'ES'; extensions: number; minOutreachMm: number; hydMaxMm: number; manMaxMm: number }
+export interface SheetVariant { id: string; family: 'E' | 'ES'; /** boom type as printed (E, ES, B, BS, BSS, D, DS, DLL, DLS, EP …) */ boom: string; extensions: number; minOutreachMm: number; hydMaxMm: number; manMaxMm: number }
 
 /** Table "1-3, OUTREACH": rows "E-3 | 4800 | 10780 | 12960". */
 export function outreachVariants(tables: readonly AcadTable[]): SheetVariant[] {
@@ -81,12 +81,15 @@ export function outreachVariants(tables: readonly AcadTable[]): SheetVariant[] {
     if (!t.cells.flat().some((c) => /OUTREACH/i.test(c))) continue
     const flat = t.cells.flat()
     for (let i = 0; i < flat.length; i++) {
-      const m = /^(ES|E)-(\d{1,2})$/i.exec(flat[i])
+      const m = /^([A-Z]{1,4})\s*-\s*(\d{1,2})$/i.exec(flat[i].trim())
       if (!m) continue
-      const vals = flat.slice(i + 1, i + 4).map(num)
-      if (vals.some((v) => v === null)) continue
-      const [min, hyd, man] = vals as number[]
-      out.push({ id: `${m[1].toUpperCase()}-${m[2]}`, family: m[1].toUpperCase() as 'E' | 'ES', extensions: +m[2], minOutreachMm: min, hydMaxMm: hyd, manMaxMm: man })
+      // "MIN | MAX | MAX" (hyd min, hyd max, +man max) or "MIN | MAX | MIN | MAX" (hyd min/max, +man min/max) or hyd only
+      const vals: number[] = []
+      for (let j = i + 1; j < flat.length && vals.length < 4; j++) { const v = num(flat[j]); if (v === null) break; vals.push(v) }
+      if (vals.length < 2) continue
+      const [min, hyd] = vals
+      const man = vals.length >= 4 ? vals[3] : vals.length === 3 ? vals[2] : hyd
+      out.push({ id: `${m[1].toUpperCase()}-${m[2]}`, family: m[1].toUpperCase() as 'E' | 'ES', boom: m[1].toUpperCase(), extensions: +m[2], minOutreachMm: min, hydMaxMm: hyd, manMaxMm: man })
     }
   }
   return out.sort((a, b) => a.family.localeCompare(b.family) || a.extensions - b.extensions)
@@ -105,6 +108,10 @@ export interface CraneSheet {
   model: string | null
   scale: ScaleInfo
   scaleNote: string
+  /** generic dims-vs-geometry scale confirmed by labelled dims against table values */
+  scaleConfirmed: boolean
+  /** all 1-1 heights (without REEL / BOOM COVER) [mm] */
+  heights: number[]
   variants: SheetVariant[]
   labelled: LabelledDim[]
   tableValues: LabelValue[]
@@ -118,7 +125,6 @@ export interface CraneSheet {
  */
 function sheetScale(dims: DimRecord[], labelled: Omit<LabelledDim, 'mm'>[], values: LabelValue[], units: number, titles: string[]): { scale: ScaleInfo; note: string } {
   const generic = detectScale(dims, units, titles)
-  if (generic.source === 'dims' && generic.ratio !== 1) return { scale: generic, note: generic.note }
   // one candidate per labelled dim: the table value whose ratio is most common
   const cand: { d: Omit<LabelledDim, 'mm'>; r: number[] }[] = labelled.map((d) => ({ d, r: values.filter((v) => v.label === d.label).map((v) => v.value / d.paper) }))
   const all = cand.flatMap((c) => c.r)
@@ -132,6 +138,9 @@ function sheetScale(dims: DimRecord[], labelled: Omit<LabelledDim, 'mm'>[], valu
     recs.push({ id: id++, kind: 'linear', value: x * c.d.paper, text: c.d.label, geom: c.d.paper, ratio: x, island: null, dir: c.d.dir, a: c.d.a, b: c.d.b })
   }
   const s = detectScale(recs, units, titles)
+  // labelled dims vs. table values agree (≥ 3) → that scale; otherwise the generic dims-vs-geometry scale
+  if (recs.length < 3 || s.source !== 'dims') return { scale: generic, note: `${generic.note} (kóty s popisem nepotvrdily: ${recs.length})` }
+  if (generic.source === 'dims' && Math.abs(generic.mmPerUnit / s.mmPerUnit - 1) < 0.03) return { scale: generic, note: `${generic.note} Potvrzeno ${recs.length} kótami s popisem proti tabulkám.` }
   return { scale: s, note: `Měřítko z kót s popisem (${recs.length} kót souhlasí s hodnotami v tabulkách: ${recs.map((r) => r.text).join(', ')}). ${s.titleHint ? `Razítko: ${s.titleHint}.` : ''}` }
 }
 
@@ -164,14 +173,11 @@ export function readCraneSheet(raw: string, db: DxfDb = parseDxf(raw)): CraneShe
   const { scale, note } = sheetScale(dims, labelled0, values, db.units, [...texts, ...rawScaleStrings(raw)])
   const labelled = labelled0.map((d) => ({ ...d, mm: Math.round(d.paper * scale.mmPerUnit) }))
 
-  const first = (label: string) => labelled.find((d) => d.label === label)
   const tv = (label: string) => values.filter((v) => v.label === label)
   const keyDims: KeyDim[] = []
-  const fromDim = (key: string, name: string, label: string) => {
-    const d = first(label)
-    keyDims.push(d ? { key, name, mm: d.override ?? d.mm, source: 'výkres-kóta', ref: `kóta ${label}${d.override ? ' (text)' : ` = ${d.paper.toFixed(2)} × ${scale.mmPerUnit.toFixed(2)}`}` } : { key, name, mm: null, source: 'šablona', ref: `kóta ${label} chybí` })
-  }
-  fromDim('height', 'Výška jeřábu nad osou otoče (1-1)', '1-1')
+  const heights = labelled.filter((d) => d.label === '1-1' && d.dir === 'v' && !/REEL|COVER|BOOM/i.test(d.text)).map((d) => d.override ?? d.mm)
+  const hMin = heights.length ? Math.min(...heights) : null
+  keyDims.push(hMin != null ? { key: 'height', name: 'Výška jeřábu u osy otoče (1-1)', mm: hMin, source: 'výkres-kóta', ref: `kóta 1-1 × ${scale.mmPerUnit.toFixed(2)}${heights.length > 1 ? ` (nejnižší z ${heights.join(' / ')})` : ''}` } : { key: 'height', name: 'Výška jeřábu u osy otoče (1-1)', mm: null, source: 'šablona', ref: 'kóta 1-1 chybí' })
   const ext = variants.length ? { min: Math.min(...variants.map((v) => v.extensions)), max: Math.max(...variants.map((v) => v.extensions)) } : null
   keyDims.push({ key: 'extensions', name: 'Počet výsuvů', mm: ext?.max ?? null, source: ext ? 'výkres-tabulka' : 'šablona', ref: ext ? `tabulka 1-3 OUTREACH: ${variants.map((v) => v.id).join(', ')}` : 'tabulka chybí' })
   const pv = (f: (v: SheetVariant) => number) => Object.fromEntries(variants.map((v) => [v.id, f(v)]))
@@ -194,6 +200,6 @@ export function readCraneSheet(raw: string, db: DxfDb = parseDxf(raw)): CraneShe
   return {
     isCrane,
     reason: isCrane ? `HIAB výkres${exterior ? ' (EXTERIOR DRAWING)' : ''}, tabulka dosahů: ${variants.length} variant` : 'není výkres jeřábu HIAB',
-    title, model, scale, scaleNote: note, variants, labelled, tableValues: values, dims: keyDims,
+    title, model, scale, scaleNote: note, scaleConfirmed: /Potvrzeno/.test(note), heights, variants, labelled, tableValues: values, dims: keyDims,
   }
 }

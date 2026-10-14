@@ -98,7 +98,8 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const { l2 } = variantBoom(variant)
   const dl = l2 - mesh.l2 // variant retracted length vs. the mesh variant
   const n = variant.extensions, S = def.meshExtSections
-  const groups = useMemo(() => adaptGroups(raw, def, def.adapt ? dl : 0, n, Ud, U), [raw, def, dl, n]) // eslint-disable-line react-hooks/exhaustive-deps
+  const vStroke = variantBoom(variant).stroke
+  const groups = useMemo(() => adaptGroups(raw, def, def.adapt ? dl : 0, n, Ud, U, vStroke), [raw, def, dl, n, vStroke]) // eslint-disable-line react-hooks/exhaustive-deps
   const meshes = (g: string) => (groups[g] ?? []).map((geo, i) => <mesh key={`${g}${i}`} geometry={geo} material={material} castShadow receiveShadow />)
 
   // S telescopes in the mesh. A variant with n < S shows only the first n (the n-th carries the hook); n > S adds
