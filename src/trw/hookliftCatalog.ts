@@ -132,6 +132,38 @@ export const HOOKLIFT_CATALOG: HookliftSpec[] = [
     horizontalMovementMm: null, installHeightMm: 250, tunnelHeightMm: 125, hookHeightMm: 1570, bodyWidthMm: 1070,
     minWorkingHeightMm: [2625, 2720, 2800, 3066, 3066], maxPressureMPa: 30, oilFlowLpm: 100,
   }),
+  ...defineSeries({
+    series: 'ULTIMA 14S', source: 'Hiab BD-ULTIMA14S-EN-WW_191010', capacityT: 14, vehicleGvwT: 19, axles: 2, gCodes: [41, 43, 46, 51, 53, 56],
+    massKg: [1600, 1630, 1660, 1760, 1840, 1860], tippingAngleDeg: [50, 47, 50, 49, 52, 52],
+    bodyLengthM: [[3.4, 5.1], [3.6, 5.3], [3.9, 5.6], [4.2, 6.1], [4.5, 6.4], [4.5, 6.6]],
+    subframeLengthMm: [4808, 4958, 5308, 5758, 6508, 6508], cogBMm: [2180, 2290, 2450, 2700, 2850, 2950], gLengthMm: [4080, 4270, 4580, 5080, 5360, 5560],
+    horizontalMovementMm: [900, 900, 900, 1100, 1100, 1300], installHeightMm: 230, tunnelHeightMm: 125, hookHeightMm: 1570, bodyWidthMm: 1070,
+    maxPressureMPa: 30, oilFlowLpm: 60,
+  }),
+  ...defineSeries({
+    series: 'ULTIMA 16S', source: 'Hiab BD-ULTIMA16S-EN-DIN_191010', capacityT: 16, vehicleGvwT: 26, axles: 3, gCodes: [46, 51, 53, 56, 59, 61],
+    massKg: [1740, 1840, 1920, 1940, 1990, 2010], tippingAngleDeg: [50, 49, 52, 52, 52, 49],
+    bodyLengthM: [[3.9, 5.6], [4.2, 6.1], [4.5, 6.4], [4.5, 6.6], [4.6, 6.9], [4.8, 7.1]],
+    subframeLengthMm: [5308, 5758, 6508, 6508, 6508, 6758], cogBMm: [2450, 2700, 2850, 2950, 3000, 3150], gLengthMm: [4580, 5080, 5360, 5560, 5860, 6080],
+    horizontalMovementMm: [900, 1100, 1100, 1300, 1450, 1450], installHeightMm: [230, 230, 230, 230, 250, 250], tunnelHeightMm: [125, 125, 125, 125, 105, 105],
+    hookHeightMm: 1570, bodyWidthMm: 1070, maxPressureMPa: 30, oilFlowLpm: 80,
+  }),
+  ...defineSeries({
+    series: 'ULTIMA 26S', source: 'Hiab BD-ULTIMA26-EN-DIN_191010', capacityT: 26, vehicleGvwT: 32, axles: 4, gCodes: [51, 53, 56, '56S', 59, 61, 63, 70, 78],
+    massKg: [2550, 2650, 2680, 2680, 2730, 2750, 2790, 3080, 3230], tippingAngleDeg: [49, 52, 52, 49, 52, 49, 46, 50, 46],
+    bodyLengthM: [[4.2, 6.1], [4.5, 6.4], [4.5, 6.6], [4.7, 6.6], [4.6, 6.9], [4.8, 7.1], [5.1, 7.3], [5.7, 8.0], [6.5, 8.8]],
+    subframeLengthMm: [5933, 6563, 6563, 6583, 6563, 6733, 6883, 7783, 8419], cogBMm: [2700, 2850, 2950, 2950, 3000, 3150, 3300, 3900, 4350],
+    gLengthMm: [5080, 5360, 5560, 5580, 5860, 6080, 6310, 6980, 7780], horizontalMovementMm: [1100, 1100, 1300, 1100, 1450, 1450, 1450, 1450, 1450],
+    installHeightMm: 270, tunnelHeightMm: 125, hookHeightMm: 1570, bodyWidthMm: 1070, maxPressureMPa: 30, oilFlowLpm: 120,
+  }),
+  ...defineSeries({
+    series: 'ULTIMA 26Z', source: 'Hiab BD-ULTIMA26-EN-DIN_191010', capacityT: 26, vehicleGvwT: 32, axles: 4, gCodes: [51, 53, 56, 59, 61, 65],
+    massKg: [2720, 2750, 2800, 2840, 2870, 2950], tippingAngleDeg: [53, 49, 49, 52, 49, 48],
+    bodyLengthM: [[3.0, 6.1], [3.3, 6.3], [3.6, 6.6], [3.8, 7.0], [4.1, 7.1], [4.4, 7.4]],
+    subframeLengthMm: [5753, 5983, 6283, 6583, 6783, 7133], cogBMm: [2800, 2950, 3150, 3350, 3500, 3630], gLengthMm: [5080, 5310, 5610, 5880, 6110, 6430],
+    horizontalMovementMm: null, installHeightMm: 250, tunnelHeightMm: 125, hookHeightMm: 1570, bodyWidthMm: 1070,
+    minWorkingHeightMm: [2625, 2720, 2800, 3066, 3066, 3215], maxPressureMPa: 30, oilFlowLpm: 100,
+  }),
 ]
 
 const clean = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '')

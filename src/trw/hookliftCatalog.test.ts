@@ -5,8 +5,8 @@ import { hookliftPlacement } from './hooklift'
 describe('hookliftCatalog', () => {
   it('has all datasheet models', () => {
     expect(HOOKLIFT_CATALOG.map((c) => c.name)).toContain('ULTIMA 18Z.59')
-    expect(HOOKLIFT_CATALOG).toHaveLength(30)
-    for (const c of HOOKLIFT_CATALOG) expect(c.subframeLengthMm).toBeGreaterThan(5000)
+    expect(HOOKLIFT_CATALOG).toHaveLength(57)
+    for (const c of HOOKLIFT_CATALOG) expect(c.subframeLengthMm).toBeGreaterThan(4500)
   })
   it('fuzzy matches names', () => {
     expect(findHookliftSpec('MULTILIFT ULT18Z59 DIN')).toMatchObject({ name: 'ULTIMA 18Z.59', massKg: 2520, subframeLengthMm: 6583, gLengthMm: 5880, installHeightMm: 250 })
@@ -27,5 +27,8 @@ describe('hookliftCatalog', () => {
     expect(r.mesh.file).toBe('ultima21s56.glb')
     expect(hookliftPlacement({ xFrom: null, xTo: null, length: null, height: null, name: 'ULT18Z59' }, 9000).mesh.file).toBe('ult18z59.glb')
     expect(hookliftPlacement({ xFrom: null, xTo: null, length: null, height: null, name: 'ULTIMA 21Z.56' }, 9000).mesh.file).toBe('ult18z59.glb')
+    for (const n of ['ULT18S53', 'ULT14S41', 'ULT16S61', 'ULT26S78']) expect(hookliftPlacement({ xFrom: null, xTo: null, length: null, height: null, name: n }, 9000).mesh.file).toBe('ultima21s56.glb')
+    expect(hookliftPlacement({ xFrom: null, xTo: null, length: null, height: null, name: 'ULT26Z65' }, 9000).mesh.file).toBe('ult18z59.glb')
+    expect(findHookliftSpec('ULTIMA 26S.56S')?.subframeLengthMm).toBe(6583)
   })
 })

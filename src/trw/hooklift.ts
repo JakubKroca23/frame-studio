@@ -60,11 +60,11 @@ export const ULTIMA21S56: HookliftMesh = {
 }
 
 /**
- * Mesh per series: sliding-arm series (21S, 21SL) → ULTIMA 21S.56 mesh; articulated Z-arm series and
- * 18S (as requested) → ULT18Z59 mesh.
+ * Mesh per series by arm type: series letter S / SL (straight sliding arm) → ULTIMA 21S.56 mesh;
+ * Z (articulated jib) and unknown → ULT18Z59 mesh.
  */
 export function meshForSeries(series: string | null | undefined): HookliftMesh {
-  return series && /^ULTIMA 21S/.test(series) ? ULTIMA21S56 : ULT18Z59
+  return series && /\d+S(L)?$/.test(series) ? ULTIMA21S56 : ULT18Z59
 }
 
 export interface HookliftParams {
