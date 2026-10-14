@@ -100,26 +100,26 @@ export function Protractor({ offset, value, limits, radius: R, label, onAngle }:
       {span < 360 && (
         <mesh position={[0, 0, -0.002]}>
           <ringGeometry args={[R * 0.88, R, 64, 1, (limits[1] + offset) * rad, (360 - span) * rad]} />
-          <meshBasicMaterial color="#d33" transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
+          <meshBasicMaterial color="#5d6873" transparent opacity={0.45} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>
       )}
       <mesh position={[0, 0, -0.003]}>
         <ringGeometry args={[R * 0.88, R, 64, 1, (limits[0] + offset) * rad, Math.min(360, span) * rad]} />
-        <meshBasicMaterial color="#3a8de0" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false} />
+        <meshBasicMaterial color="#3ee6c4" transparent opacity={0.16} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <lineSegments>
         <bufferGeometry onUpdate={(g) => g.setFromPoints(ticks)} />
         <lineBasicMaterial color="#c9d6e3" />
       </lineSegments>
       <Bar from={[0, 0, 0]} to={[Math.cos(offset * rad) * R, Math.sin(offset * rad) * R, 0]} width={R * 0.008} color="#c9d6e3" opacity={0.6} />
-      <Bar from={[0, 0, 0]} to={[Math.cos(a) * R * 0.86, Math.sin(a) * R * 0.86, 0]} width={R * 0.012} color="#f2a900" opacity={0.7} />
+      <Bar from={[0, 0, 0]} to={[Math.cos(a) * R * 0.86, Math.sin(a) * R * 0.86, 0]} width={R * 0.012} color="#E53935" opacity={0.7} />
       {/* the ONLY way to change the angle: drag this arrow around the ring */}
       <group position={[Math.cos(a) * R * 0.94, Math.sin(a) * R * 0.94, 0.004]} rotation={[0, 0, a - Math.PI / 2]}>
         <ArrowHandle size={R * 0.45} name="crane-angle-arrow" label={`${label}: táhněte šipkou po kruhu`}
           onDown={(e) => drag.start(e, ref.current!)} onMove={drag.move} onUp={drag.end} />
       </group>
       {labels}
-      <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[Math.cos(a) * R * 0.55, Math.sin(a) * R * 0.55, 0]} center zIndexRange={[20, 10]}>
+      <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[Math.cos(a) * R * 1.95, Math.sin(a) * R * 1.95, 0]} center zIndexRange={[20, 10]}>
         <div className="crane-gizmo-label">{label}: {fmt(value, 1)}°</div>
       </Html>
     </group>
@@ -139,7 +139,7 @@ export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap }: 
   const [hover, setHover] = useState(false)
   const [active, setActive] = useState(false)
   const down0 = useRef<{ x: number; y: number } | null>(null)
-  const color = active ? '#ff6a2b' : hover ? '#3ee6c4' : '#f2a900'
+  const color = active ? '#ff8a80' : hover ? '#ff5252' : '#E53935'
   return (
     <group scale={size}>
       <mesh geometry={arrowShape} raycast={() => null} renderOrder={999}>
@@ -180,7 +180,7 @@ export function TelescopeArrows({ value, max, step = 0.1, size = 0.75, onValue }
       <group position={[-size * 0.9, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <ArrowHandle size={size} name="crane-ext-in" label="Zasunout" onDown={begin} onMove={drag.move} onUp={finish} onTap={() => onValue(clamp(value - step))} />
       </group>
-      <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, size * 1.1, 0]} center zIndexRange={[20, 10]}>
+      <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, -size * 1.9, 0]} center zIndexRange={[20, 10]}>
         <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm / {fmt(max * 1000)} mm</div>
       </Html>
     </group>
@@ -211,9 +211,9 @@ export function LinearScale({ value, max }: { value: number; max: number }) {
         <bufferGeometry onUpdate={(g) => g.setFromPoints(ticks)} />
         <lineBasicMaterial color="#c9d6e3" />
       </lineSegments>
-      <Bar from={[value, -0.1, 0]} to={[value, 0.45, 0]} width={0.04} color="#f2a900" />
+      <Bar from={[value, -0.1, 0]} to={[value, 0.45, 0]} width={0.04} color="#E53935" />
       {labels}
-      <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[value, -0.35, 0]} center zIndexRange={[20, 10]}>
+      <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[value, -0.9, 0]} center zIndexRange={[20, 10]}>
         <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm</div>
       </Html>
     </group>
@@ -236,7 +236,7 @@ export function CraneDimensions({ column, tip, height, reach, loadText }: { colu
       <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[(cx + tx) / 2, g, (cz + tz) / 2]} center zIndexRange={[19, 10]}>
         <div className="crane-dim-label crane-dim-r">↔ {fmt(reach, 2)} m</div>
       </Html>
-      <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[tx, y + 450, tz]} center zIndexRange={[19, 10]}>
+      <Html pointerEvents="none" style={{ pointerEvents: "none" }} position={[tx, y + 1300, tz]} center zIndexRange={[19, 10]}>
         <div className="crane-dim-label crane-dim-load">{loadText}</div>
       </Html>
     </group>

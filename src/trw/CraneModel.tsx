@@ -23,7 +23,7 @@ export function craneModelFor(name: string | null | undefined) {
   return d ? CRANE_MODELS.find((m) => m.def === d) ?? null : null
 }
 
-const material = new THREE.MeshStandardMaterial({ color: '#c8231b', metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide })
+const material = new THREE.MeshStandardMaterial({ color: '#222222', metalness: 0.35, roughness: 0.5, emissive: '#0b0d10', side: THREE.DoubleSide })
 
 export function CraneModel(props: { file: string; x: number; frameTop: number; slewDeg: number; fallback: ReactNode }) {
   return (

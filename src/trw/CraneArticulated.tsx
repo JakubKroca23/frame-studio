@@ -9,10 +9,10 @@ import { Boundary } from './HookliftModel'
 import { adaptGroups } from '../craneTpl/adaptMesh'
 import { defOf, extFraction, templateSectionStrokes, forwardKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
 
-const material = new THREE.MeshStandardMaterial({ color: '#c8231b', metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide })
-const handleMat = new THREE.MeshStandardMaterial({ color: '#1f6fd1', emissive: '#0b3a7a', transparent: true, opacity: 0.85 })
+const material = new THREE.MeshStandardMaterial({ color: '#222222', metalness: 0.35, roughness: 0.5, emissive: '#0b0d10', side: THREE.DoubleSide })
+const handleMat = new THREE.MeshStandardMaterial({ color: '#E53935', emissive: '#7a1210', transparent: true, opacity: 0.85 })
 const rad = Math.PI / 180
-const jointMat = new THREE.MeshStandardMaterial({ color: '#f2a900', emissive: '#6b4a00', transparent: true, opacity: 0.9 })
+const jointMat = new THREE.MeshStandardMaterial({ color: '#E53935', emissive: '#7a1210', transparent: true, opacity: 0.9 })
 const JOINT_NAMES: Record<JointKey, string> = { slew: 'Natočení', a1: 'Hlavní výložník', rel: 'Vnější výložník', ext: 'Výsuvy' }
 
 export interface ArticulatedProps {
