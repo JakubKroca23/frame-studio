@@ -675,7 +675,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
       </aside>
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
-        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} /> : null}
+        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} /> : null}
         {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={slewDeg} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>
