@@ -2,6 +2,8 @@
 import { CS_SIM_SCHEMA } from './csSimResult'
 import { TRW_SCHEMA, TRW_URL, TrwAuthError, liveDocOf, mapTrwExport, type TrwImport } from './trwConfig'
 
+import { TRW_OPEN_HINT, trwAuthHeaders } from './trwToken'
+
 export const TRW_FROM_TRW_URL = `${TRW_URL}/api/config/from-trw`
 
 type Rec = Record<string, unknown>
@@ -90,7 +92,7 @@ export async function convertTrwFile(file: Blob & { name?: string }, fetcher: ty
   form.append('file', file, file.name ?? 'projekt.trw')
   let res: Response
   try {
-    res = await fetcher(TRW_FROM_TRW_URL, { method: 'POST', credentials: 'include', body: form })
+    res = await fetcher(TRW_FROM_TRW_URL, { method: 'POST', credentials: 'include', headers: trwAuthHeaders(), body: form })
   } catch {
     throw new Error('trw není dostupný (síť nebo CORS).')
   }
@@ -133,7 +135,7 @@ export function classifyFile(name: string, text: string | null): DroppedKind {
 
 /** Reason shown in the live status line when the trw import failed (no document → no live request). */
 export function importBlockReason(err: unknown): string {
-  if (err instanceof TrwAuthError) return 'trw import vyžaduje přihlášení'
+  if (err instanceof TrwAuthError) return `trw import vyžaduje přihlášení – ${TRW_OPEN_HINT}`
   return `import z trw selhal (${err instanceof Error ? err.message : String(err)})`
 }
 

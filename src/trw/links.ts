@@ -1,3 +1,4 @@
+import { trwAuthHeaders } from './trwToken'
 /** One-click links between frame-studio, trw and CS Sim (pure helpers + fetch). */
 import { CS_SIM_SCHEMA, parseProfileDims, type CsSimResult } from './csSimResult'
 import { TRW_SCHEMA, TRW_URL, TrwAuthError, mapTrwExport, type TrwImport } from './trwConfig'
@@ -58,7 +59,7 @@ export async function fetchTrwUrl(url: string, fetcher: typeof fetch = fetch): P
   if ('error' in v) throw new Error(v.error)
   let res: Response
   try {
-    res = await fetcher(v.url, { method: 'GET', credentials: 'include', headers: { Accept: 'application/json' } })
+    res = await fetcher(v.url, { method: 'GET', credentials: 'include', headers: { Accept: 'application/json', ...trwAuthHeaders() } })
   } catch {
     throw new Error('trw není dostupný (síť nebo CORS).')
   }

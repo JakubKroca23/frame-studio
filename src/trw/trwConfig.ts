@@ -1,3 +1,4 @@
+import { trwAuthHeaders } from './trwToken'
 /**
  * Import of the trw export format `trw/config@1` (https://trw.propoj.app, záložka Mezirám).
  * trw measures x from the front end of the vehicle (FOH ahead of axle 1); the configurator measures
@@ -338,7 +339,7 @@ export async function fetchTrwExport(body: unknown, fetcher: typeof fetch = fetc
   const res = await fetcher(TRW_EXPORT_URL, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...trwAuthHeaders() },
     body: JSON.stringify(body),
   })
   if (res.status === 401) throw new TrwAuthError('Nejste přihlášeni v trw.')

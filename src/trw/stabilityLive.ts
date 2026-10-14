@@ -4,6 +4,8 @@
  * never touches the network. Tries a WebSocket once, then a POST; if neither answers it stays silent and
  * callers keep the local `stability.angles[]` data. Requests are coalesced to one per animation frame.
  */
+import { getTrwToken, trwAuthHeaders, trwAuthReason } from './trwToken'
+
 export interface LiveRequest { slew_deg: number; outreach_mm: number | null; hook_height_mm?: number | null; load_kg: number | null; crane_variant?: string | null }
 /** `document` (CalcRequest as sent to trw on import) or `document_id` (saved_calculations id). */
 export interface LiveDoc { document?: unknown; document_id?: number | string }
@@ -102,7 +104,9 @@ export class StabilityLive {
   private body(req: LiveRequest, ws: boolean) {
     if (ws && this.docSent) return req
     if (ws) this.docSent = true
-    return { ...this.doc, ...req }
+    const token = getTrwToken()
+    // WS: {token, document|document_id, …} in the first message (trw docs); HTTP: Bearer header instead
+    return ws && token ? { token, ...this.doc, ...req } : { ...this.doc, ...req }
   }
 
   private tryWs(): Promise<boolean> {
@@ -121,10 +125,10 @@ export class StabilityLive {
           if (this.ws === ws) {
             this.ws = null
             // 4401 not logged in / 4403 origin → the POST would fail the same way
-            if (ev?.code === 4401) this.setMode('unavailable', 'nepřihlášen v trw')
+            if (ev?.code === 4401) this.setMode('unavailable', trwAuthReason())
             else if (ev?.code === 4403) this.setMode('unavailable', 'nepovolený původ (CORS)')
             else this.setMode(this.d.fetch ? 'http' : 'unavailable', 'spojení ukončeno')
-          } else if (ev?.code === 4401) this.reason = 'nepřihlášen v trw'
+          } else if (ev?.code === 4401) this.reason = trwAuthReason()
           else if (ev?.code === 4403) this.reason = 'nepovolený původ (CORS)'
           finish(false)
         }
@@ -152,11 +156,11 @@ export class StabilityLive {
   }
 
   private async post(req: LiveRequest): Promise<LiveResponse | null> {
-    const res = await this.d.fetch!(this.d.httpUrl, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.body(req, false)) })
+    const res = await this.d.fetch!(this.d.httpUrl, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...trwAuthHeaders() }, body: JSON.stringify(this.body(req, false)) })
     if (!res.ok) {
       let detail = ''
       try { const e = await res.json(); detail = typeof e?.detail === 'string' ? e.detail : typeof e?.error === 'string' ? e.error : '' } catch { /* no body */ }
-      this.reason = res.status === 401 || res.status === 403 ? 'nepřihlášen v trw' : res.status === 404 ? (this.doc?.document_id != null ? 'uložený výpočet nenalezen' : 'endpoint neexistuje') : res.status === 422 ? `dokument nelze použít${detail ? ` (${detail})` : ''}` : `chyba trw ${res.status}`
+      this.reason = res.status === 401 ? trwAuthReason() : res.status === 403 ? 'nepřihlášen v trw' : res.status === 404 ? (this.doc?.document_id != null ? 'uložený výpočet nenalezen' : 'endpoint neexistuje') : res.status === 422 ? `dokument nelze použít${detail ? ` (${detail})` : ''}` : `chyba trw ${res.status}`
       return null
     }
     const body = (await res.json()) as LiveResponse

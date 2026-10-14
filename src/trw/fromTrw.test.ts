@@ -65,7 +65,7 @@ t2('reads trw from-trw report shape', () => {
 import { importBlockReason } from './fromTrw'
 describe('live status when the trw import fails', () => {
   it('names the login requirement', () => {
-    expect(importBlockReason(new TrwAuthError('x'))).toBe('trw import vyžaduje přihlášení')
+    expect(importBlockReason(new TrwAuthError('x'))).toBe('trw import vyžaduje přihlášení – otevřete frame tlačítkem „Otevřít ve frame-studio“ v trw')
     expect(importBlockReason(new Error('trw není dostupný'))).toContain('import z trw selhal')
   })
 })

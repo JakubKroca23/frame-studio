@@ -2,6 +2,10 @@ import { createRoot } from 'react-dom/client'
 import Root from './Root.tsx'
 import { initManifold } from './mesh/manifold'
 import './index.css'
+import { captureTrwToken } from './trw/trwToken'
+
+// before the router reads the hash
+captureTrwToken()
 
 void initManifold()
   .catch((error: unknown) => {
