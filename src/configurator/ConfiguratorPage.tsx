@@ -13,6 +13,7 @@ import { TrwImportPanel } from '../trw/TrwImportPanel'
 import { TrwMarkers } from '../trw/TrwMarkers'
 import { TrwExtendedPanel } from '../trw/TrwExtendedPanel'
 import { TrwExtendedView } from '../trw/TrwExtendedView'
+import { craneModelFor, type CranePose } from '../trw/CraneModel'
 import type { TrwImport } from '../trw/trwConfig'
 import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
@@ -70,7 +71,15 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [trw, setTrw] = useState<TrwImport | null>(null)
-  const [slewDeg, setSlewDeg] = useState(0)
+  const [slewDeg, setSlewDegRaw] = useState(0)
+  /** Crane pose: user override, else unfolded once the slewing slider (stability view) has been used. */
+  const [cranePoseOverride, setCranePoseOverride] = useState<CranePose | null>(null)
+  const [slewTouched, setSlewTouched] = useState(false)
+  const setSlewDeg = (deg: number) => {
+    setSlewDegRaw(deg)
+    setSlewTouched(true)
+  }
+  const cranePose: CranePose = cranePoseOverride ?? (slewTouched ? 'unfolded' : 'folded')
   const [sim, setSim] = useState<CsSimResult | null>(null)
   const [simError, setSimError] = useState<string | null>(null)
   const [trwSource, setTrwSource] = useState<string | null>(link?.kind === 'trw' ? link.url : null)
@@ -469,6 +478,16 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
               {trw.steel?.name ? <> · materiál rámu {trw.steel.name}{trw.steel.re_MPa ? ` (ReH ${trw.steel.re_MPa} MPa)` : ''}</> : null}
               {trw.subframe?.profile?.name ? <> · mezirám {trw.subframe.profile.name}{trw.subframe.steel?.name ? `, ${trw.subframe.steel.name}` : ''}</> : null}
               {trw.markers.crane ? <> · jeřáb {trw.markers.crane.name} na {Math.round(trw.markers.crane.x)} mm za 1. nápravou (žlutě), podpěry červeně</> : null}
+              {trw.markers.crane && craneModelFor(trw.markers.crane.name) ? (
+                <div className="row" role="group" aria-label="Poloha jeřábu" style={{ margin: '6px 0' }}>
+                  <span>Jeřáb:</span>
+                  {(['folded', 'unfolded'] as const).map((pose) => (
+                    <Button key={pose} variant={cranePose === pose ? 'rust' : 'outline'} aria-pressed={cranePose === pose} onClick={() => setCranePoseOverride(pose)}>
+                      {pose === 'folded' ? 'Složený' : 'Rozložený'}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
               {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={slewDeg} onSlew={setSlewDeg} /> : null}
               <ul className="hints">
                 {trw.warnings.map((warning) => (
@@ -675,7 +694,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
       </aside>
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
-        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} /> : null}
+        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} /> : null}
         {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={slewDeg} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>

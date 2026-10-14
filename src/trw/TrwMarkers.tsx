@@ -1,9 +1,9 @@
 import { Html } from '@react-three/drei'
 import type { TrwMarkers as Markers } from './trwConfig'
-import { CraneModel, craneModelFor } from './CraneModel'
+import { CraneModel, craneModelFor, type CranePose } from './CraneModel'
 
 /** Simple markers for the crane column and outrigger legs (X rearward from axle 1, Y up, Z lateral). */
-export function TrwMarkers({ markers, frameTop, slewDeg = 0 }: { markers: Markers; frameTop: number; slewDeg?: number }) {
+export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded' }: { markers: Markers; frameTop: number; slewDeg?: number; cranePose?: CranePose }) {
   const craneModel = craneModelFor(markers.crane?.name)
   const craneBox = markers.crane ? (
     <mesh position={[markers.crane.x, frameTop + 900, 0]}>
@@ -13,7 +13,7 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0 }: { markers: Marker
   ) : null
   return (
     <group name="trw-markers">
-      {markers.crane && craneModel ? <CraneModel file={craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} fallback={craneBox} /> : craneBox}
+      {markers.crane && craneModel ? <CraneModel file={cranePose === 'unfolded' ? craneModel.unfolded : craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} fallback={craneBox} /> : craneBox}
       {markers.outriggers.map((leg) => {
         const z = ((leg.side === 'left' ? -1 : 1) * (leg.spread || 2500)) / 2
         return (

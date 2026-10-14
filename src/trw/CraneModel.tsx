@@ -8,9 +8,14 @@ import { Boundary } from './HookliftModel'
  * Hiab X-HiPro 142 E-4 in transport (folded) position, from the user's DXF (3DFACE, mm → m).
  * Mesh coordinates: origin on the slewing column axis at the mounting plane (y = 0 = underside of the base),
  * X lateral (outrigger beams, −1.164…1.349 m), Y up (−0.802 stowed legs … 2.261 m), Z longitudinal (−0.525…0.431 m).
- * Two groups: `base` (base, outrigger housings, legs, slewing gear) and `slew` (column + folded boom package).
+ * Two groups: `base` (base, outrigger housings, legs, slewing gear) and `slew` (column + booms).
+ * Unfolded pose (hr-142_e4_straight.dxf) is mapped into the same frame (x_f = −z_u, z_f = x_u): booms point along +Z,
+ * straight, tip 4.72 m from the column axis at 2.72 m height; outriggers stowed (same 2.51 m width as folded).
+ * Both poses share this frame, so +Z is the boom direction → slew 0° (forward) maps +Z to scene −X.
  */
-export const CRANE_MODELS = [{ re: /x.?hi.?pro\s*142|\b142\s*e.?4|\bex\s*142|hiab.*142/i, file: 'hiab-x-hipro-142e4.glb', name: 'HIAB X-HiPro 142 E-4' }]
+export const CRANE_MODELS = [{ re: /x.?hi.?pro\s*142|\b142\s*e.?4|\bex\s*142|hiab.*142/i, file: 'hiab-x-hipro-142e4.glb', unfolded: 'hiab-x-hipro-142e4-unfolded.glb', name: 'HIAB X-HiPro 142 E-4' }]
+
+export type CranePose = 'folded' | 'unfolded'
 
 export function craneModelFor(name: string | null | undefined) {
   return name ? CRANE_MODELS.find((m) => m.re.test(name)) ?? null : null
@@ -52,16 +57,16 @@ function Loaded({ file, x, frameTop, slewDeg }: { file: string; x: number; frame
     })
     return out
   }, [gltf])
-  // mesh → scene: rotate +90° about Y (mesh Z → scene X along the vehicle, mesh X → lateral), ×1000 (mm)
-  // slewing (trw convention: 0° forward, clockwise from above) rotates only the `slew` group about the column axis
+  // mesh → scene: rotate −90° about Y (boom direction mesh +Z → scene −X = forward, mesh X → lateral), ×1000 (mm).
+  // Slewing (trw: 0° forward, clockwise from above, 90° = right = +Z) rotates only the `slew` group: θ = −90° + slew.
   return (
     <group name="trw-crane-model" position={[x, frameTop, 0]} scale={1000}>
-      <group rotation={[0, Math.PI / 2, 0]}>
+      <group rotation={[0, -Math.PI / 2, 0]}>
         {groups.base.map((g, i) => (
           <mesh key={i} geometry={g} material={material} castShadow receiveShadow />
         ))}
       </group>
-      <group rotation={[0, Math.PI / 2 - (slewDeg * Math.PI) / 180, 0]} name="trw-crane-slew">
+      <group rotation={[0, -Math.PI / 2 + (slewDeg * Math.PI) / 180, 0]} name="trw-crane-slew">
         {groups.slew.map((g, i) => (
           <mesh key={i} geometry={g} material={material} castShadow receiveShadow />
         ))}
