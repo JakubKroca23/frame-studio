@@ -1,5 +1,9 @@
-import { Canvas, useThree } from '@react-three/fiber'
-import { useEffect, useRef, useState } from 'react'
+import { OrbitControls } from '@react-three/drei'
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { CraneModel, craneModelFor } from './trw/CraneModel'
+import { HookliftModel } from './trw/HookliftModel'
+import { hookliftPlacement } from './trw/hooklift'
 import * as THREE from 'three'
 import { queueProjectFile } from './openProject'
 import { useApp } from './state'
@@ -23,7 +27,7 @@ function DummyChassis({ hot, setHot, open }: { hot: boolean; setHot: (h: boolean
     <group name="start-dummy-chassis" position={[0, 0, CH.z]}
       onPointerOver={(e) => { e.stopPropagation(); setHot(true); document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { setHot(false); document.body.style.cursor = '' }}
-      onClick={(e) => { e.stopPropagation(); open() }}>
+      onClick={(e) => { e.stopPropagation(); if (e.delta <= 6) open() }}>
       {[-1, 1].map((s) => <mesh key={s} material={m} position={[CH.x, 1000, s * 420]}><boxGeometry args={[CH.len, 270, 90]} /></mesh>)}
       {[0.1, 0.3, 0.5, 0.7, 0.9].map((t) => <mesh key={t} material={m} position={[x0 + CH.len * t, 1000, 0]}><boxGeometry args={[120, 200, 750]} /></mesh>)}
       {axles.map((ax) => (
@@ -41,21 +45,51 @@ function DummyChassis({ hot, setHot, open }: { hot: boolean; setHot: (h: boolean
   )
 }
 
-/** Fixed view on the hall front; pulls back on portrait screens so all three doors stay in frame. */
-function HeroCamera({ onProject }: { onProject: (pts: [number, number][]) => void }) {
+/** A crane and a Multilift on display next to the dummy chassis (same z, either side). */
+const CRANE_AT = { x: CH.x - CH.len / 2 - 3800, z: CH.z }
+const HOOK_AT = { x: CH.x + CH.len / 2 + 7200, z: CH.z, len: 5900 }
+const FRAME_TOP = 1000
+
+/** Clickable showpiece: hover ring on the floor, click (not drag) opens the link. */
+function Exhibit({ name, x, z, r, hot, setHot, open, children }: { name: string; x: number; z: number; r: number; hot: boolean; setHot: (h: boolean) => void; open: () => void; children: ReactNode }) {
+  return (
+    <group name={name} position={[0, 0, z]}
+      onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHot(true); document.body.style.cursor = 'pointer' }}
+      onPointerOut={() => { setHot(false); document.body.style.cursor = '' }}
+      onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); if (e.delta <= 6) open() }}>
+      <mesh position={[x, 6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[r - 140, r, 64]} />
+        <meshBasicMaterial color={hot ? '#3ee6c4' : '#5b6573'} transparent opacity={hot ? 0.95 : 0.45} />
+      </mesh>
+      {/* pedestal = frame stand-in */}
+      <mesh position={[x, FRAME_TOP / 2, 0]}><boxGeometry args={[x === CRANE_AT.x ? 1400 : HOOK_AT.len, FRAME_TOP, 900]} /><meshStandardMaterial color={hot ? '#2f6f66' : '#3a4048'} roughness={0.7} /></mesh>
+      {children}
+    </group>
+  )
+}
+
+const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 15500 * k, 9200 + 1500 * (k - 1), H.z1 + 21000 * k)
+
+/** Default view on the hall front (pulled back on portrait); free orbit afterwards. Projects the label anchors every frame. */
+function HeroCamera({ anchors, onProject }: { anchors: [number, number, number][]; onProject: (pts: [number, number][]) => void }) {
   const { camera, size } = useThree()
+  const last = useRef('')
   useEffect(() => {
     const aspect = size.width / Math.max(1, size.height)
-    const k = aspect < 1.2 ? 1.2 / aspect : 1
-    camera.position.set(TARGET.x - 15500 * k, 9200 + 1500 * (k - 1), H.z1 + 21000 * k)
+    camera.position.copy(CAM_HOME(aspect < 1.2 ? 1.2 / aspect : 1))
     camera.lookAt(TARGET)
     camera.updateProjectionMatrix()
+  }, [camera, size])
+  useFrame(() => {
     camera.updateMatrixWorld()
-    const pts: [number, number, number][] = [...DOORS.slice(0, 2).map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z]]
-    onProject(pts.map((p) => { const v = new THREE.Vector3(...p).project(camera); return [((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height] }))
-  }, [camera, size, onProject])
+    const pts = anchors.map((p): [number, number] => { const v = new THREE.Vector3(...p).project(camera); return v.z > 1 ? [-9999, -9999] : [Math.round(((v.x + 1) / 2) * size.width), Math.round(((1 - v.y) / 2) * size.height)] })
+    const key = JSON.stringify(pts)
+    if (key !== last.current) { last.current = key; onProject(pts) }
+  })
   return null
 }
+
+const ANCHORS: [number, number, number][] = [...DOORS.slice(0, 2).map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 4300, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z]]
 
 type Door = { label: string; sub: string; onClick: () => void; testid: string }
 
@@ -64,7 +98,10 @@ export function StartHero() {
   const dxf = useRef<HTMLInputElement>(null), trw = useRef<HTMLInputElement>(null)
   const loadFile = useApp((s) => s.loadFile)
   const [pts, setPts] = useState<[number, number][]>([])
-  const [hot, setHot] = useState(false)
+  const [hot, setHot] = useState(false), [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false)
+  const crane = craneModelFor('X-HiPro 142')
+  const hook = hookliftPlacement({ name: 'ULT21S 5900', xFrom: null, xTo: null, length: null, height: null }, HOOK_AT.x + HOOK_AT.len / 2)
+  const go = (h: string) => { document.body.style.cursor = ''; window.location.hash = h }
   const openCfg = () => { document.body.style.cursor = ''; window.location.hash = '#novy' }
   const doors: Door[] = [
     { label: 'Import DXF podvozku', sub: 'bokorys / půdorys · DXF, DWG', onClick: () => dxf.current?.click(), testid: 'door-dxf' },
@@ -72,7 +109,7 @@ export function StartHero() {
   ]
   return (
     <section className="start-hero" aria-label="Hala ContSystem – vstup do CS Studia">
-      <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ fov: 42, near: 100, far: 200000, position: [-9000, 9000, 9000] }}
+      <Canvas frameloop="always" dpr={[1, 1.5]} camera={{ fov: 42, near: 100, far: 200000, position: [-9000, 9000, 9000] }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}>
         <color attach="background" args={['#b4c3cf']} />
         <StudioLights />
@@ -82,12 +119,31 @@ export function StartHero() {
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
         <Surroundings />
         <DummyChassis hot={hot} setHot={setHot} open={openCfg} />
-        <HeroCamera onProject={setPts} />
+        <Exhibit name="start-crane" x={CRANE_AT.x} z={CRANE_AT.z} r={1900} hot={craneHot} setHot={setCraneHot} open={() => go('#jeraby')}>
+          {crane ? <CraneModel file={crane.file} x={CRANE_AT.x} frameTop={FRAME_TOP} slewDeg={0} fallback={null} /> : null}
+        </Exhibit>
+        <Exhibit name="start-multilift" x={HOOK_AT.x} z={HOOK_AT.z} r={3600} hot={hookHot} setHot={setHookHot} open={() => go('#multilift')}>
+          <HookliftModel xRear={hook.xRear} frameTop={FRAME_TOP} params={hook.params} mesh={hook.mesh} fallback={null} />
+        </Exhibit>
+        <OrbitControls makeDefault target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
+        <HeroCamera anchors={ANCHORS} onProject={setPts} />
       </Canvas>
       {pts[2] ? (
         <button type="button" className={hot ? 'door-btn cfg-btn is-hot' : 'door-btn cfg-btn'} data-testid="start-cfg" style={{ left: pts[2][0], top: pts[2][1] }}
           onMouseEnter={() => setHot(true)} onMouseLeave={() => setHot(false)} onClick={openCfg}>
           <strong>Konfigurátor</strong><span>podvozek, rám, nápravy</span>
+        </button>
+      ) : null}
+      {pts[3] ? (
+        <button type="button" className={craneHot ? 'door-btn cfg-btn is-hot' : 'door-btn cfg-btn'} data-testid="start-crane" style={{ left: pts[3][0], top: pts[3][1] }}
+          onMouseEnter={() => setCraneHot(true)} onMouseLeave={() => setCraneHot(false)} onClick={() => go('#jeraby')}>
+          <strong>Jeřáby HIAB</strong><span>katalog, X-HiPro 142</span>
+        </button>
+      ) : null}
+      {pts[4] ? (
+        <button type="button" className={hookHot ? 'door-btn cfg-btn is-hot' : 'door-btn cfg-btn'} data-testid="start-multilift" style={{ left: pts[4][0], top: pts[4][1] }}
+          onMouseEnter={() => setHookHot(true)} onMouseLeave={() => setHookHot(false)} onClick={() => go('#multilift')}>
+          <strong>Multilift</strong><span>nosiče kontejnerů</span>
         </button>
       ) : null}
       {pts.slice(0, 2).map(([x, y], i) => (
