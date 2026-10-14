@@ -2,7 +2,7 @@ import { Html } from '@react-three/drei'
 import type { TrwMarkers as Markers } from './trwConfig'
 import { CraneModel, craneModelFor, type CranePose } from './CraneModel'
 import { CraneArticulated } from './CraneArticulated'
-import { parseX142Variant, type CraneJoints } from './craneKinematics'
+import { craneVariantMatch, type CraneJoints } from './craneKinematics'
 
 /** Simple markers for the crane column and outrigger legs (X rearward from axle 1, Y up, Z lateral). */
 export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded', craneJoints, onCraneJoints }: { markers: Markers; frameTop: number; slewDeg?: number; cranePose?: CranePose; craneJoints?: CraneJoints; onCraneJoints?: (j: CraneJoints) => void }) {
@@ -17,7 +17,10 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
     <group name="trw-markers">
       {markers.crane && craneModel ? (
         cranePose === 'unfolded' && craneJoints && onCraneJoints ? (
-          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneJoints} variant={parseX142Variant(markers.crane.name)} onJoints={onCraneJoints} fallback={craneBox} />
+          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneJoints} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} />
+        ) : !craneModel.def.foldedFile && craneModel.def.folded && onCraneJoints ? (
+          // no separate folded mesh (408): articulated mesh in its measured transport pose
+          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneModel.def.folded} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} />
         ) : (
           <CraneModel file={craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} fallback={craneBox} />
         )

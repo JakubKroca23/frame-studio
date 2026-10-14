@@ -1,0 +1,199 @@
+{
+ "schema": "trw/config@1",
+ "generated": "2026-10-13T06:23:57Z",
+ "units": {
+  "length": "mm",
+  "mass": "kg",
+  "force": "kN",
+  "moment": "kNm",
+  "stress": "MPa"
+ },
+ "x_origin": "front end = FOH ahead of axle 1 (TrailerWIN FOH: front axle → front of vehicle); x_trw = x − front_overhang_mm",
+ "name": "MAN TGX 26.480 + HIAB X-HiPro 408 E-8 (příklad)",
+ "chassis": {
+  "id": 97330,
+  "source_path": "CHAS/MAN-UK-Euro6.chas",
+  "name": "MAN TGX 26.480 6x2-2 BL 6x2 Drawbar  Euro 6 -4200 XL Sleeper cab",
+  "manufacturer": "MAN",
+  "axle_x_mm": [
+   1475.0,
+   5675.0,
+   7025.0
+  ],
+  "n_front_axles": 1,
+  "wheelbase_mm": 4200.0,
+  "wheelbase_technical_mm": 4732.894736842105,
+  "front_overhang_mm": 1475.0,
+  "rear_overhang_mm": 2150.0,
+  "frame_length_mm": 9175.0,
+  "frame_height_mm": 938.0,
+  "frame_height_laden_mm": null,
+  "frame_height_unladen_mm": null,
+  "frame_width_mm": null,
+  "gvw_kg": 26000.0,
+  "rail_profile": {
+   "kind": "FRU",
+   "name": "M.A.N  Profil 1   220x80x85x6",
+   "source": "trailerwin:CHMAN.FRA#86",
+   "dims_raw": [
+    220.0,
+    80.0,
+    85.0,
+    6.0,
+    6.0,
+    6.0
+   ],
+   "H_mm": 220.0,
+   "B_mm": 80.0,
+   "B_bottom_mm": 85.0,
+   "tw_mm": 6.0,
+   "tf_mm": 6.0,
+   "tf_bottom_mm": 6.0,
+   "t_mm": null
+  },
+  "rail_steel": {
+   "name": "S 420",
+   "re_MPa": 420.0,
+   "source": "TrailerWIN MECPR.FRA (ReH)"
+  },
+  "raw": {
+   "FRAT": 270,
+   "HFRA": 938,
+   "TYRE": "315/70R22.5",
+   "TYR2": "315/70R22.5"
+  }
+ },
+ "axles": [
+  {
+   "index": 1,
+   "x_mm": 1475.0,
+   "permitted_kg": 7500.0,
+   "unladen_kg": 5785.452043369474,
+   "laden_kg": 6371.743397275507,
+   "laden_kN": 62.50680272727273,
+   "track_mm": null,
+   "tyre_diameter_mm": null
+  },
+  {
+   "index": 2,
+   "x_mm": 5675.0,
+   "permitted_kg": 11500.0,
+   "unladen_kg": 4072.75271059216,
+   "laden_kg": 7597.628996385877,
+   "laden_kN": 74.53274045454546,
+   "track_mm": null,
+   "tyre_diameter_mm": null
+  },
+  {
+   "index": 3,
+   "x_mm": 7025.0,
+   "permitted_kg": 7500.0,
+   "unladen_kg": 376.79524603836535,
+   "laden_kg": 2675.627606338616,
+   "laden_kN": 26.24790681818182,
+   "track_mm": null,
+   "tyre_diameter_mm": null
+  }
+ ],
+ "subframe": {
+  "profile": {
+   "kind": "FRU",
+   "name": "U 160x60x6",
+   "source": "trailerwin:SUBU.FRA#577",
+   "dims_raw": [
+    160.0,
+    60.0,
+    60.0,
+    6.0,
+    6.0,
+    6.0
+   ],
+   "H_mm": 160.0,
+   "B_mm": 60.0,
+   "B_bottom_mm": 60.0,
+   "tw_mm": 6.0,
+   "tf_mm": 6.0,
+   "tf_bottom_mm": 6.0,
+   "t_mm": null
+  },
+  "steel": {
+   "name": "Fe52",
+   "re_MPa": 355.0,
+   "source": "TrailerWIN MECPR.FRA (ReH)"
+  },
+  "connection": "shear",
+  "mounting_x_mm": null
+ },
+ "crane": {
+  "id": 10157,
+  "name": "HIAB X-HiPro 408 E-8",
+  "manufacturer": "HIAB",
+  "mass_kg": 1370.0,
+  "legs_mass_kg": 355.0,
+  "x_mm": 4104.0,
+  "cog_offset_mm": -10.0,
+  "hook_kg": 2000.0,
+  "radius_m": 8.0,
+  "Mk_kNm": 173.08764000000002,
+  "lifting_moment_raw": null,
+  "outrigger_spread_mm": 5788.0,
+  "outrigger_x_mm": {
+   "left": 3675.0,
+   "right": 3845.0
+  },
+  "leg_forces_kN": {
+   "left": 71.470091290611,
+   "right": 83.91229037076302
+  },
+  "outline_svg_url": "/api/outlines/cranes/10157?format=svg"
+ },
+ "body": null,
+ "payloads": [],
+ "axle_loads": {
+  "unladen_total_kg": 10235.0,
+  "laden_total_kg": 16645.0,
+  "laden_front_kg": 6371.743397275507,
+  "laden_rear_kg": 10273.256602724494
+ },
+ "outlines": {
+  "cab_svg_url": "/api/outlines/cabs/TGX_XL_2015?format=svg&dir=MAN",
+  "crane_svg_url": "/api/outlines/cranes/10157?format=svg",
+  "body_svg_url": null
+ },
+ "stability": {
+  "status": "neověřeno vůči CraneWIN",
+  "evidence": "…",
+  "angle_convention": {
+   "zero": "forward",
+   "sense": "clockwise",
+   "right_deg": 90
+  },
+  "required_n": 1.4,
+  "dynamic": 1.3,
+  "pass": false,
+  "min_factor": 0.36,
+  "angles": [
+   {
+    "angle_deg": 0,
+    "factor": 9.42,
+    "pass": true,
+    "line": "FR",
+    "tipping_lines": [],
+    "reactions": null
+   },
+   {
+    "angle_deg": 90,
+    "factor": 0.36,
+    "pass": false,
+    "line": "FR",
+    "tipping_lines": [],
+    "reactions": null
+   }
+  ],
+  "reactions": [],
+  "reactions_note": "…",
+  "lines": [],
+  "inputs": {},
+  "notes": []
+ }
+}

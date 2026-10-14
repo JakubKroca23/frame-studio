@@ -6,13 +6,10 @@ import { CraneDimensions, LinearScale, Protractor } from './CraneGizmos'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
-import { A1_CAD, forwardKinematics, inverseKinematics, jointLimits, L2_E4, loadAt, nearestEquivalent, setJoint, REL_CAD, slewFromAzimuth, variantBoom, X142_GEOM, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
+import { defOf, forwardKinematics, inverseKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, slewFromAzimuth, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
 
-export const ARTICULATED_GLB = 'hiab-x-hipro-142e4-articulated.glb'
 const material = new THREE.MeshStandardMaterial({ color: '#c8231b', metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide })
 const handleMat = new THREE.MeshStandardMaterial({ color: '#1f6fd1', emissive: '#0b3a7a', transparent: true, opacity: 0.85 })
-const D2 = { r: X142_GEOM.tipRetractedE4.r - X142_GEOM.p2.r, h: X142_GEOM.tipRetractedE4.h - X142_GEOM.p2.h }
-const U = { r: D2.r / Math.hypot(D2.r, D2.h), h: D2.h / Math.hypot(D2.r, D2.h) }
 const rad = Math.PI / 180
 const jointMat = new THREE.MeshStandardMaterial({ color: '#f2a900', emissive: '#6b4a00', transparent: true, opacity: 0.9 })
 const JOINT_NAMES: Record<JointKey, string> = { slew: 'Natočení', a1: 'Hlavní výložník', rel: 'Vnější výložník', ext: 'Výsuvy' }
@@ -49,8 +46,8 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   }, [propJoints]) // eslint-disable-line react-hooks/exhaustive-deps
   function publish(j: CraneJoints) {
     const r = craneReadout(j, variant, x, frameTop)
-    const ld = loadAt(variant.id, r.reach)
-    setLiveCrane({ slewDeg: j.slew, outreachMm: r.reach * 1000, hookHeightMm: r.height * 1000, loadKg: ld?.kg ?? null, variant: `X-HiPro 142 ${variant.id}` })
+    const ld = loadAt(variant, r.reach)
+    setLiveCrane({ slewDeg: j.slew, outreachMm: r.reach * 1000, hookHeightMm: r.height * 1000, loadKg: ld?.kg ?? null, variant: `${defOf(variant).name.replace(/^HIAB /, '')} ${variant.id}` })
   }
   const flush = () => {
     if (timer.current) clearTimeout(timer.current)
@@ -71,7 +68,13 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
     window.addEventListener('pointerup', flush)
     return () => window.removeEventListener('pointerup', flush)
   })
-  const gltf = useGLTF(`${import.meta.env.BASE_URL}models/crane/${ARTICULATED_GLB}`)
+  const def = defOf(variant)
+  const mesh = meshAngles(def)
+  const A1_CAD = mesh.a1, REL_CAD = mesh.rel, D2 = mesh.d2
+  const Ud = { r: D2.r / mesh.l2, h: D2.h / mesh.l2 }
+  const ed = def.geom.extDir ?? D2
+  const U = { r: ed.r / Math.hypot(ed.r, ed.h), h: ed.h / Math.hypot(ed.r, ed.h) }
+  const gltf = useGLTF(`${import.meta.env.BASE_URL}models/crane/${def.file}`)
   const groups = useMemo(() => {
     gltf.scene.updateMatrixWorld(true)
     const out: Record<string, THREE.BufferGeometry[]> = {}
@@ -94,11 +97,12 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const meshes = (g: string) => (groups[g] ?? []).map((geo, i) => <mesh key={`${g}${i}`} geometry={geo} material={material} castShadow receiveShadow />)
 
   const { l2 } = variantBoom(variant)
-  const dl = l2 - L2_E4 // variant retracted length vs. the E-4 CAD
-  const n = variant.extensions
-  // 4 telescopes in the CAD; they extend equally, a variant with n sections moves the first n
-  const extOff = (k: number) => dl + joints.ext * (Math.min(k, n) / n)
-  const tipLocal = { r: D2.r + U.r * (dl + joints.ext), h: D2.h + U.h * (dl + joints.ext) }
+  const dl = l2 - mesh.l2 // variant retracted length vs. the mesh variant
+  const n = variant.extensions, S = def.meshExtSections
+  // S telescopes in the mesh; they extend equally. n ≤ S: the first n move; n > S (408: 8 vs 6 profiles): spread over S
+  const frac = (k: number) => (n <= S ? Math.min(k, n) / n : k / S)
+  const extPos = (k: number) => ({ r: Ud.r * dl + U.r * joints.ext * frac(k), h: Ud.h * dl + U.h * joints.ext * frac(k) })
+  const tipLocal = { r: D2.r + Ud.r * dl + U.r * joints.ext, h: D2.h + Ud.h * dl + U.h * joints.ext }
 
   // ---- tip drag (IK) ----
   const camera = useThree((s) => s.camera)
@@ -121,7 +125,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
     const hit = new THREE.Vector3()
     if (!e.ray.intersectPlane(drag.current.plane, hit)) return
     const dx = (hit.x - x) / 1000, dz = hit.z / 1000, h = (hit.y - frameTop) / 1000
-    const slew = slewFromAzimuth(dx, dz, joints.slew)
+    const slew = slewFromAzimuth(dx, dz, joints.slew, def.limits.slew)
     onJoints(inverseKinematics({ r: Math.hypot(dx, dz), h }, variant, slew))
   }
   const up = (e: ThreeEvent<PointerEvent>) => {
@@ -143,11 +147,11 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const pick = (key: JointKey) => ({ onPointerDown: (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setSel(key) }, onClick: (e: ThreeEvent<MouseEvent>) => e.stopPropagation() })
   const lim = (k: JointKey) => jointLimits(k, variant)
   const ro = craneReadout(joints, variant, x, frameTop)
-  const ld = loadAt(variant.id, ro.reach)
-  const loadText = ld ? `max ${Math.round(ld.kg).toLocaleString('cs-CZ')} kg · ${(ld.kg * 9.81 * ro.reach / 1000).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} kNm${ld.manual ? ' (ruční výsuv)' : ''}` : 'nosnost n/a (ES)'
-  const extBase = { r: D2.r + U.r * dl, h: D2.h + U.h * dl }
-  const P1 = X142_GEOM.p1, P2 = X142_GEOM.p2
-  const lat = X142_GEOM.lateralOffset
+  const ld = loadAt(variant, ro.reach)
+  const loadText = ld ? `max ${Math.round(ld.kg).toLocaleString('cs-CZ')} kg · ${(ld.kg * 9.81 * ro.reach / 1000).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} kNm${ld.manual ? ' (ruční výsuv)' : ''}` : def.noLoadText
+  const extBase = { r: def.geom.p2.r + D2.r + Ud.r * dl, h: def.geom.p2.h + D2.h + Ud.h * dl } // mesh frame (inside the −P2 group)
+  const P1 = def.geom.p1, P2 = def.geom.p2
+  const lat = def.geom.lateralOffset
   return (
    <>
     <CraneDimensions column={[x, 0]} tip={[ro.x * 1000, ro.y * 1000]} height={ro.height} reach={ro.reach} loadText={loadText} />
@@ -185,13 +189,13 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
           <group rotation={[-(joints.rel - REL_CAD) * rad, 0, 0]}>
             <group position={[0, -P2.h, -P2.r]}>
               {meshes('outer')}
-              {[1, 2, 3, 4].map((k) => (
-                <group key={k} position={[0, U.h * extOff(k), U.r * extOff(k)]}>
+              {Array.from({ length: S }, (_, i) => i + 1).map((k) => (
+                <group key={k} position={[0, extPos(k).h, extPos(k).r]}>
                   {meshes(`ext${k}`)}
                 </group>
               ))}
             </group>
-            <mesh ref={tipRef} name="crane-tip-handle" position={[X142_GEOM.lateralOffset, tipLocal.h, tipLocal.r]} material={handleMat} onPointerDown={down} onPointerMove={move} onPointerUp={up}>
+            <mesh ref={tipRef} name="crane-tip-handle" position={[lat, tipLocal.h, tipLocal.r]} material={handleMat} onPointerDown={down} onPointerMove={move} onPointerUp={up}>
               <sphereGeometry args={[0.18, 20, 14]} />
             </mesh>
             <group position={[0, -P2.h, -P2.r]}>

@@ -12,7 +12,8 @@
  * ASSUMED (not in the drawings): joint limits, telescopes extend equally, slewing range centred on forward.
  */
 
-export type CraneVariant = { id: string; family: 'E' | 'ES'; extensions: number; minOutreachMm: number; hydMaxMm: number; manMaxMm: number }
+export type CraneModelKey = '142' | '408'
+export type CraneVariant = { id: string; family: 'E' | 'ES'; extensions: number; minOutreachMm: number; hydMaxMm: number; manMaxMm: number; model?: CraneModelKey }
 
 /** Table "1-3, OUTREACH" from drawings 464-0807 (E/ES 1-3) and 464-0808 (E/ES 4-5). */
 export const X142_VARIANTS: CraneVariant[] = [
@@ -26,7 +27,7 @@ export const X142_VARIANTS: CraneVariant[] = [
   { id: 'ES-3', family: 'ES', extensions: 3, minOutreachMm: 4530, hydMaxMm: 10480, manMaxMm: 12660 },
   { id: 'ES-4', family: 'ES', extensions: 4, minOutreachMm: 4510, hydMaxMm: 12510, manMaxMm: 14800 },
   { id: 'ES-5', family: 'ES', extensions: 5, minOutreachMm: 4600, hydMaxMm: 14800, manMaxMm: 17080 },
-]
+].map((v) => ({ ...v, family: v.family as 'E' | 'ES', model: '142' as const }))
 
 /** HiSelect (E only): SOR [m] / SLC [kg], manual MOR1/MLC1. */
 export const X142_LOADS: Record<string, { sor: [number, number][]; mor1: number; mlc1: number; hors: number }> = {
@@ -42,6 +43,7 @@ export const X142_GEOM = {
   p1: { r: -0.05, h: 2.2 },
   p2: { r: 1.95, h: 2.35 },
   tipRetractedE4: { r: 4.69, h: 2.27 },
+  tipRetracted: { r: 4.69, h: 2.27 },
   /** Outer boom centreline is offset laterally from the column axis (CAD x ≈ 0.29 m). */
   lateralOffset: 0.29,
 }
@@ -71,24 +73,153 @@ export function parseX142Variant(name: string | null | undefined): CraneVariant 
   return X142_VARIANTS.find((v) => v.id === id) ?? X142_VARIANTS[3]
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// Crane definitions (one per model): mesh, pivots, limits, extensions, variant + load table.
+// ---------------------------------------------------------------------------------------------------------
+
+type RH = { r: number; h: number }
+export type LoadTable = { sor: [number, number][]; mor1: number; mlc1: number; hors: number }
+
+export interface CraneDef {
+  key: CraneModelKey
+  name: string
+  /** recognises the trw crane name */
+  match: RegExp
+  /** articulated GLB (groups base, column, cyl1?, main, outer, ext1…extN), mesh frame: x lateral, y up, z = r */
+  file: string
+  /** separate folded GLB (142); without it the folded pose is the articulated mesh at `foldedPose` */
+  foldedFile?: string
+  /** geometry in the boom plane of the mesh pose [m] */
+  geom: { p1: RH; p2: RH; tipRetracted: RH; lateralOffset: number; extDir?: RH }
+  /** min outreach of the variant the mesh was built from (shifts the retracted outer boom for other variants) */
+  refMinOutreachMm: number
+  limits: { a1: [number, number]; rel: [number, number]; slew: [number, number] }
+  variants: CraneVariant[]
+  defaultVariantId: string
+  loads: Record<string, LoadTable> | null
+  /** telescopic sections present in the mesh (ext1…extN groups) */
+  meshExtSections: number
+  /** folded transport pose (from the mesh pose) — only for models without a separate folded GLB */
+  folded?: CraneJoints
+  /** default "Rozložený" pose; absent = the mesh pose */
+  unfolded?: Omit<CraneJoints, 'slew'>
+  /** label for missing load data */
+  noLoadText: string
+}
+
+/**
+ * HIAB X-HiPro 408 E-8, measured from the user's SolidWorks GLB (1824 parts, metres, folded transport pose).
+ * Mesh frame: origin on the slewing axis (GLB x −0.485, z −0.107) at the crane underside (GLB y 0.419 = lowest point,
+ * ASSUMED to be the mounting plane), y up (= −y of the GLB), z = r along the boom plane of the folded pose.
+ * Pins measured (centres of cylindrical parts, ±5 mm): P1 = main boom pivot (part 55), P2 = knuckle (part 220),
+ * tip = hook pin of the innermost section (part 115). The outer boom package runs 0.44 m beside the main boom plane.
+ * Mesh has 6 nested telescopic profiles; datasheet says E-8 = 8 hydraulic extensions (one ~166 mm profile and the
+ * smallest are missing in the GLB) → the 6 mesh sections are spread over the full 8-extension stroke.
+ * hydMax 20.9 m / manMax 22.4 m: Hiab X-HiPro 408 E-8 technical data. minOutreach = retracted straight reach from
+ * the measured geometry (not a drawing value) → stroke 16.0 m ≈ 8 × 2.0 m.
+ */
+const X408_GEOM = { p1: { r: -0.31, h: 2.384 }, p2: { r: 1.244, h: 0.555 }, tipRetracted: { r: -0.991, h: 2.22 }, lateralOffset: 0.44, extDir: { r: -0.845, h: 0.535 } }
+const len = (a: RH) => Math.hypot(a.r, a.h)
+const sub = (a: RH, b: RH): RH => ({ r: a.r - b.r, h: a.h - b.h })
+const X408_MIN_OUT = Math.round((X408_GEOM.p1.r + len(sub(X408_GEOM.p2, X408_GEOM.p1)) + len(sub(X408_GEOM.tipRetracted, X408_GEOM.p2))) * 1000)
+
+export const CRANE_DEFS: CraneDef[] = [
+  {
+    key: '142', name: 'HIAB X-HiPro 142', match: /x.?hi.?pro\s*142|\b142\s*e.?4|\bex\s*142|hiab.*142|(^|\D)142(?!\d)/i,
+    file: 'hiab-x-hipro-142e4-articulated.glb', foldedFile: 'hiab-x-hipro-142e4.glb',
+    geom: X142_GEOM, refMinOutreachMm: 4810, limits: { a1: [-10, 80], rel: [-170, 30], slew: [-207.5, 207.5] },
+    variants: X142_VARIANTS, defaultVariantId: 'E-4', loads: X142_LOADS, meshExtSections: 4, noLoadText: 'nosnost n/a (ES)',
+  },
+  {
+    key: '408', name: 'HIAB X-HiPro 408', match: /x.?hi.?pro\s*408|(^|\D)408(?!\d)/i,
+    file: 'hiab-x-hipro-408e8-articulated.glb',
+    geom: X408_GEOM, refMinOutreachMm: X408_MIN_OUT,
+    // ASSUMED limits (no drawing yet); must contain the measured folded pose (a1 −49.6°, rel −167°). Slewing: continuous.
+    limits: { a1: [-52, 80], rel: [-170, 30], slew: [-360, 360] },
+    variants: [{ id: 'E-8', family: 'E', extensions: 8, minOutreachMm: X408_MIN_OUT, hydMaxMm: 20900, manMaxMm: 22400, model: '408' }],
+    defaultVariantId: 'E-8', loads: null, meshExtSections: 6, noLoadText: 'nosnost n/a',
+    // folded = the GLB pose; booms over the right-hand side (ASSUMED side: the GLB does not say which side is which)
+    folded: { slew: 90, a1: 0, rel: 0, ext: 0 },
+    unfolded: { a1: 15, rel: -10, ext: 0 }, // ASSUMED working pose
+  },
+]
+
+const DEG = 180 / Math.PI
+/** Angles of the mesh pose (used to rotate mesh parts). */
+export function meshAngles(def: CraneDef) {
+  const d1 = sub(def.geom.p2, def.geom.p1), d2 = sub(def.geom.tipRetracted, def.geom.p2)
+  const a1 = Math.atan2(d1.h, d1.r) * DEG
+  let rel = Math.atan2(d2.h, d2.r) * DEG - a1
+  rel = rel - 360 * Math.round(rel / 360)
+  const e = def.geom.extDir ?? d2
+  let delta = (Math.atan2(e.h, e.r) - Math.atan2(d2.h, d2.r)) * DEG
+  delta = delta - 360 * Math.round(delta / 360)
+  return { a1, rel, l1: len(d1), l2: len(d2), d2, delta }
+}
+for (const d of CRANE_DEFS) if (d.folded) { const m = meshAngles(d); d.folded = { ...d.folded, a1: m.a1, rel: m.rel } }
+
+export function craneDefFor(name: string | null | undefined): CraneDef | null {
+  if (!name) return null
+  // 408 first: "408" never matches the 142 pattern, but keep the explicit order
+  return CRANE_DEFS.find((d) => d.key === '408' && d.match.test(name)) ?? CRANE_DEFS.find((d) => d.match.test(name)) ?? null
+}
+export const defOf = (v: CraneVariant): CraneDef => CRANE_DEFS.find((d) => d.key === (v.model ?? '142'))!
+
+/** Variant of a crane + whether trw named it exactly. */
+export function craneVariantMatch(name: string | null | undefined): { def: CraneDef; variant: CraneVariant; exact: boolean } | null {
+  const def = craneDefFor(name)
+  if (!def) return null
+  if (def.key === '142') return { def, ...x142VariantMatch(name) }
+  const m = /\b(ES|E)\s*-?\s*(\d{1,2})\b/i.exec((name ?? '').replace(/408/, ' '))
+  const id = m ? `${m[1].toUpperCase()}-${m[2]}` : null
+  const v = def.variants.find((x) => x.id === id)
+  return { def, variant: v ?? def.variants.find((x) => x.id === def.defaultVariantId)!, exact: !!v }
+}
+
 /** Retracted outer-boom length (P2 → tip) and hydraulic stroke for a variant [m]. */
 export function variantBoom(v: CraneVariant) {
-  return { l2: L2_E4 + (v.minOutreachMm - 4810) / 1000, stroke: (v.hydMaxMm - v.minOutreachMm) / 1000 }
+  const def = defOf(v)
+  return { l2: meshAngles(def).l2 + (v.minOutreachMm - def.refMinOutreachMm) / 1000, stroke: (v.hydMaxMm - v.minOutreachMm) / 1000 }
 }
 
 const clamp = (x: number, [a, b]: [number, number]) => Math.min(b, Math.max(a, x))
 
+/** Mesh pose of the 142 (straight CAD). */
 export function straightPose(): CraneJoints {
   return { slew: 0, a1: A1_CAD, rel: REL_CAD, ext: 0 }
+}
+/** "Rozložený" preset of a model. */
+export function unfoldedPose(def: CraneDef, slew = 0): CraneJoints {
+  const m = meshAngles(def)
+  return { slew, ...(def.unfolded ?? { a1: m.a1, rel: m.rel, ext: 0 }) }
+}
+
+/** Outer-boom vector in its own frame (x along P2→tip of the mesh pose) for an extension e. */
+function outerVec(v: CraneVariant, e: number) {
+  const { delta } = meshAngles(defOf(v))
+  const { l2 } = variantBoom(v)
+  const x = l2 + e * Math.cos(delta / DEG), y = e * Math.sin(delta / DEG)
+  return { L: Math.hypot(x, y), beta: Math.atan2(y, x) }
 }
 
 /** Forward kinematics → tip in the boom plane (r, h) [m] plus knuckle. */
 export function forwardKinematics(j: CraneJoints, v: CraneVariant) {
-  const { l2 } = variantBoom(v)
-  const a1 = j.a1 / deg, a2 = (j.a1 + j.rel) / deg
-  const k = { r: X142_GEOM.p1.r + L1 * Math.cos(a1), h: X142_GEOM.p1.h + L1 * Math.sin(a1) }
-  const L = l2 + j.ext
+  const def = defOf(v)
+  const { l1 } = meshAngles(def)
+  const P1 = def.geom.p1
+  const a1 = j.a1 / DEG
+  const k = { r: P1.r + l1 * Math.cos(a1), h: P1.h + l1 * Math.sin(a1) }
+  const { L, beta } = outerVec(v, j.ext)
+  const a2 = (j.a1 + j.rel) / DEG + beta
   return { knuckle: k, tip: { r: k.r + L * Math.cos(a2), h: k.h + L * Math.sin(a2) } }
+}
+
+/** Extension e that puts the tip at distance d from the knuckle. */
+function extForDistance(v: CraneVariant, d: number) {
+  const { delta } = meshAngles(defOf(v))
+  const { l2 } = variantBoom(v)
+  const c = Math.cos(delta / DEG), s = Math.sin(delta / DEG)
+  return -l2 * c + Math.sqrt(Math.max(0, d * d - l2 * l2 * s * s))
 }
 
 /**
@@ -97,23 +228,27 @@ export function forwardKinematics(j: CraneJoints, v: CraneVariant) {
  * so an unreachable target gives the closest pose within limits.
  */
 export function inverseKinematics(target: { r: number; h: number }, v: CraneVariant, slew = 0): CraneJoints {
+  const def = defOf(v)
+  const { l1: L1d } = meshAngles(def)
+  const P1 = def.geom.p1
   const { l2, stroke } = variantBoom(v)
-  const dx = target.r - X142_GEOM.p1.r, dy = target.h - X142_GEOM.p1.h
+  const dx = target.r - P1.r, dy = target.h - P1.h
   const D = Math.hypot(dx, dy)
   const phi = Math.atan2(dy, dx)
   const solve = (ext: number, up: boolean): CraneJoints => {
-    const L = l2 + ext
-    const c = Math.min(1, Math.max(-1, (D * D - L1 * L1 - L * L) / (2 * L1 * L)))
+    const { L } = outerVec(v, ext)
+    const c = Math.min(1, Math.max(-1, (D * D - L1d * L1d - L * L) / (2 * L1d * L)))
     const q2 = (up ? -1 : 1) * Math.acos(c) // up: knuckle above the line (natural loader-crane pose)
-    const a1 = clamp((phi - Math.atan2(L * Math.sin(q2), L1 + L * Math.cos(q2))) * deg, LIMITS.a1)
+    const a1 = clamp((phi - Math.atan2(L * Math.sin(q2), L1d + L * Math.cos(q2))) * DEG, def.limits.a1)
     // re-aim / re-extend the outer boom from the (possibly clamped) knuckle
-    const k = { r: X142_GEOM.p1.r + L1 * Math.cos(a1 / deg), h: X142_GEOM.p1.h + L1 * Math.sin(a1 / deg) }
-    const rel = clamp(Math.atan2(target.h - k.h, target.r - k.r) * deg - a1, LIMITS.rel)
-    const e = clamp(Math.hypot(target.r - k.r, target.h - k.h) - l2, [ext > 0 ? 0 : 0, stroke])
-    return { slew, a1, rel, ext: ext === 0 ? Math.min(e, Math.max(0, D - L1 - l2)) : e }
+    const k = { r: P1.r + L1d * Math.cos(a1 / DEG), h: P1.h + L1d * Math.sin(a1 / DEG) }
+    const e = clamp(extForDistance(v, Math.hypot(target.r - k.r, target.h - k.h)), [0, stroke])
+    const eFinal = ext === 0 ? Math.min(e, Math.max(0, D - L1d - l2)) : e
+    const rel = clamp(nearestEquivalent(Math.atan2(target.h - k.h, target.r - k.r) * DEG - a1 - outerVec(v, eFinal).beta * DEG, 0), def.limits.rel)
+    return { slew, a1, rel, ext: eFinal }
   }
   const err = (j: CraneJoints) => { const t = forwardKinematics(j, v).tip; return Math.hypot(t.r - target.r, t.h - target.h) }
-  const ext0 = clamp(D - L1 - l2, [0, stroke])
+  const ext0 = clamp(D - L1d - l2, [0, stroke])
   // candidates: minimal extension first (knuckle up, then down), then growing extension until reachable
   const cands: CraneJoints[] = []
   for (const e of [ext0, ...Array.from({ length: 21 }, (_, i) => (stroke * i) / 20)]) for (const up of [true, false]) cands.push(solve(e, up))
@@ -123,17 +258,17 @@ export function inverseKinematics(target: { r: number; h: number }, v: CraneVari
 }
 
 /** Slew angle [deg] from a horizontal direction: dx along the vehicle (+ rearward), dy lateral (+ right). 0 = forward, clockwise. */
-export function slewFromAzimuth(dx: number, dy: number, prev = 0): number {
-  let s = Math.atan2(dy, -dx) * deg
-  // choose the equivalent angle closest to the previous one within the 415° range
-  const cands = [s - 360, s, s + 360].filter((a) => a >= LIMITS.slew[0] && a <= LIMITS.slew[1])
+export function slewFromAzimuth(dx: number, dy: number, prev = 0, limits: [number, number] = LIMITS.slew): number {
+  let s = Math.atan2(dy, -dx) * DEG
+  // choose the equivalent angle closest to the previous one within the slewing range
+  const cands = [s - 720, s - 360, s, s + 360, s + 720].filter((a) => a >= limits[0] && a <= limits[1])
   s = cands.reduce((b, a) => (Math.abs(a - prev) < Math.abs(b - prev) ? a : b), cands[0] ?? s)
   return s
 }
 
-/** Indicative capacity [kg] by outreach [m] from the HiSelect table (linear). null = no data (ES variants). */
-export function loadAt(variantId: string, r: number): { kg: number; manual: boolean } | null {
-  const t = X142_LOADS[variantId]
+/** Indicative capacity [kg] by outreach [m] from the model's load table (linear). null = no data (ES, 408). */
+export function loadAt(variant: string | CraneVariant, r: number): { kg: number; manual: boolean } | null {
+  const t = typeof variant === 'string' ? X142_LOADS[variant] : defOf(variant).loads?.[variant.id]
   if (!t) return null
   const pts = t.sor
   if (r <= pts[0][0]) return { kg: pts[0][1], manual: false }
@@ -158,7 +293,7 @@ export function nearestEquivalent(a: number, prev: number): number {
 
 /** Joint range [deg or m] for one joint of a variant. */
 export function jointLimits(key: JointKey, v: CraneVariant): [number, number] {
-  return key === 'ext' ? [0, variantBoom(v).stroke] : LIMITS[key]
+  return key === 'ext' ? [0, variantBoom(v).stroke] : defOf(v).limits[key]
 }
 
 /** Set ONE joint (others untouched), clamped to its limits. */
@@ -168,14 +303,15 @@ export function setJoint(j: CraneJoints, key: JointKey, value: number, v: CraneV
 
 /**
  * Joint value from a dragged point in the boom plane (r, h) [m]:
- * a1 = direction from the main pivot, rel = direction from the knuckle minus a1, ext = projection along the outer boom.
+ * a1 = direction from the main pivot, rel = direction from the knuckle minus a1, ext = projection along the extension direction.
  */
 export function jointFromBoomPoint(j: CraneJoints, key: 'a1' | 'rel' | 'ext', p: { r: number; h: number }, v: CraneVariant): CraneJoints {
-  const P1 = X142_GEOM.p1
-  if (key === 'a1') return setJoint(j, 'a1', nearestEquivalent(Math.atan2(p.h - P1.h, p.r - P1.r) * deg, j.a1), v)
+  const P1 = defOf(v).geom.p1
+  if (key === 'a1') return setJoint(j, 'a1', nearestEquivalent(Math.atan2(p.h - P1.h, p.r - P1.r) * DEG, j.a1), v)
   const k = forwardKinematics(j, v).knuckle
-  if (key === 'rel') return setJoint(j, 'rel', nearestEquivalent(Math.atan2(p.h - k.h, p.r - k.r) * deg - j.a1, j.rel), v)
-  const a2 = (j.a1 + j.rel) / deg
-  const along = (p.r - k.r) * Math.cos(a2) + (p.h - k.h) * Math.sin(a2)
-  return setJoint(j, 'ext', along - variantBoom(v).l2, v)
+  if (key === 'rel') return setJoint(j, 'rel', nearestEquivalent(Math.atan2(p.h - k.h, p.r - k.r) * DEG - j.a1 - outerVec(v, j.ext).beta * DEG, j.rel), v)
+  const { delta } = meshAngles(defOf(v))
+  const a = (j.a1 + j.rel + delta) / DEG
+  const along = (p.r - k.r) * Math.cos(a) + (p.h - k.h) * Math.sin(a)
+  return setJoint(j, 'ext', along - variantBoom(v).l2 * Math.cos(delta / DEG), v)
 }

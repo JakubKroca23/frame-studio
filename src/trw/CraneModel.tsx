@@ -3,6 +3,7 @@ import { Suspense, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
+import { CRANE_DEFS, craneDefFor } from './craneKinematics'
 
 /**
  * Hiab X-HiPro 142 E-4 in transport (folded) position, from the user's DXF (3DFACE, mm → m).
@@ -13,12 +14,13 @@ import { Boundary } from './HookliftModel'
  * straight, tip 4.72 m from the column axis at 2.72 m height; outriggers stowed (same 2.51 m width as folded).
  * Both poses share this frame, so +Z is the boom direction → slew 0° (forward) maps +Z to scene −X.
  */
-export const CRANE_MODELS = [{ re: /x.?hi.?pro\s*142|\b142\s*e.?4|\bex\s*142|hiab.*142/i, file: 'hiab-x-hipro-142e4.glb', name: 'HIAB X-HiPro 142 E-4' }]
+export const CRANE_MODELS = CRANE_DEFS.map((d) => ({ re: d.match, file: d.foldedFile ?? d.file, name: d.name, def: d }))
 
 export type CranePose = 'folded' | 'unfolded'
 
 export function craneModelFor(name: string | null | undefined) {
-  return name ? CRANE_MODELS.find((m) => m.re.test(name)) ?? null : null
+  const d = craneDefFor(name)
+  return d ? CRANE_MODELS.find((m) => m.def === d) ?? null : null
 }
 
 const material = new THREE.MeshStandardMaterial({ color: '#c8231b', metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide })

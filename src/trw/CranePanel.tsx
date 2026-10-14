@@ -1,12 +1,14 @@
 import { craneReadout } from './CraneArticulated'
-import { LIMITS, loadAt, variantBoom, type CraneJoints, type CraneVariant } from './craneKinematics'
+import { defOf, jointLimits, loadAt, variantBoom, type CraneJoints, type CraneVariant } from './craneKinematics'
 
 const G = 9.81
 
 /** Joint sliders (fallback to tip dragging) + live readout of the tip (Czech). */
 export function CranePanel({ joints, variant, exact = true, craneX, frameTop, onJoints }: { joints: CraneJoints; variant: CraneVariant; exact?: boolean; craneX: number; frameTop: number; onJoints: (j: CraneJoints) => void }) {
   const r = craneReadout(joints, variant, craneX, frameTop)
-  const load = loadAt(variant.id, r.reach)
+  const def = defOf(variant)
+  const load = loadAt(variant, r.reach)
+  const L = (k: 'slew' | 'a1' | 'rel') => jointLimits(k, variant)
   const stroke = variantBoom(variant).stroke
   const slider = (label: string, key: keyof CraneJoints, min: number, max: number, step: number, unit: string, scale = 1) => (
     <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
@@ -18,11 +20,11 @@ export function CranePanel({ joints, variant, exact = true, craneX, frameTop, on
   return (
     <div className="crane-panel" style={{ margin: '6px 0' }}>
       <div style={{ fontSize: 12, marginBottom: 4 }}>
-        HIAB X-HiPro 142 {variant.id}{!exact ? <em> (trw neuvádí variantu, automaticky zvolena {variant.id})</em> : null} · táhněte modrou kouli na špičce výložníku, nebo použijte posuvníky
+        {def.name} {variant.id}{!exact ? <em> (trw neuvádí variantu{def.variants.length === 1 ? ', model je jen' : ', automaticky zvolena'} {variant.id})</em> : null} · táhněte modrou kouli na špičce výložníku, nebo použijte posuvníky
       </div>
-      {slider('Natočení', 'slew', LIMITS.slew[0], LIMITS.slew[1], 1, '°')}
-      {slider('Hlavní výložník', 'a1', LIMITS.a1[0], LIMITS.a1[1], 0.5, '°')}
-      {slider('Vnější výložník', 'rel', LIMITS.rel[0], LIMITS.rel[1], 0.5, '°')}
+      {slider('Natočení', 'slew', L('slew')[0], L('slew')[1], 1, '°')}
+      {slider('Hlavní výložník', 'a1', L('a1')[0], L('a1')[1], 0.5, '°')}
+      {slider('Vnější výložník', 'rel', L('rel')[0], L('rel')[1], 0.5, '°')}
       {slider('Výsuvy', 'ext', 0, stroke, 0.05, 'm')}
       <table className="crane-readout" style={{ fontSize: 12, marginTop: 4 }}>
         <tbody>
@@ -34,7 +36,7 @@ export function CranePanel({ joints, variant, exact = true, craneX, frameTop, on
           <tr>
             <td>Aktuální nosnost</td>
             <td>
-              {load ? `${Math.round(load.kg)} kg${load.manual ? ' (ruční výsuv)' : ''}` : 'není k dispozici (ES)'}
+              {load ? `${Math.round(load.kg)} kg${load.manual ? ' (ruční výsuv)' : ''}` : def.loads ? 'není k dispozici (ES)' : 'nosnost n/a (zatěžovací tabulka zatím chybí)'}
             </td>
           </tr>
           {load ? (
@@ -43,7 +45,7 @@ export function CranePanel({ joints, variant, exact = true, craneX, frameTop, on
         </tbody>
       </table>
       <div style={{ fontSize: 11, opacity: 0.75 }}>
-        Nosnost podle HiSelect tabulky, orientační. Výška = horní hrana rámu ({Math.round(frameTop)} mm) + výška špičky nad patkou jeřábu; vozovka v y = 0.
+        {def.loads ? 'Nosnost podle HiSelect tabulky, orientační. ' : `${def.name}: kinematika změřena z 3D modelu, rozsahy kloubů odhadnuty (bez výkresu). `}Výška = horní hrana rámu ({Math.round(frameTop)} mm) + výška špičky nad patkou jeřábu; vozovka v y = 0.
       </div>
     </div>
   )
