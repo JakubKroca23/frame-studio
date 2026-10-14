@@ -1,6 +1,6 @@
 /** TrailerWIN .trw project → trw/config@1 via trw `POST /api/config/from-trw`, plus routing of dropped files. */
 import { CS_SIM_SCHEMA } from './csSimResult'
-import { TRW_SCHEMA, TRW_URL, TrwAuthError, mapTrwExport, type TrwImport } from './trwConfig'
+import { TRW_SCHEMA, TRW_URL, TrwAuthError, liveDocOf, mapTrwExport, type TrwImport } from './trwConfig'
 
 export const TRW_FROM_TRW_URL = `${TRW_URL}/api/config/from-trw`
 
@@ -110,7 +110,7 @@ export async function convertTrwFile(file: Blob & { name?: string }, fetcher: ty
   if (body === null) throw new Error('trw nevrátil JSON.')
   const result = mapTrwExport(unwrapConfig(body))
   const report = reportLines(body)
-  return { ...result, report, warnings: [...report.map((r) => `TrailerWIN: ${r}`), ...result.warnings] }
+  return { ...result, liveDoc: result.liveDoc ?? liveDocOf(body), report, warnings: [...report.map((r) => `TrailerWIN: ${r}`), ...result.warnings] }
 }
 
 export type DroppedKind = 'trw-project' | 'trw-config' | 'cs-sim' | 'unknown'

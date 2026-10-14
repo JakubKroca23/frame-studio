@@ -1,8 +1,9 @@
+import { STATUS_COLOR, WARN_UTILISATION } from './stabilitySectors'
 import { hookliftPlacement, isHookliftAccessory, pickHooklift } from './hooklift'
 import { BODY_TYPE_LABEL, nearestAngle, stabilitySummary, type TrwExtended } from './trwExtended'
 
 /** Panel summary of body / accessories / stability with the slew angle slider. */
-export function TrwExtendedPanel({ ext, slewDeg, onSlew }: { ext: TrwExtended; slewDeg: number; onSlew: (deg: number) => void }) {
+export function TrwExtendedPanel({ ext, slewDeg, onSlew, showSectors, onShowSectors }: { ext: TrwExtended; slewDeg: number; onSlew: (deg: number) => void; showSectors?: boolean; onShowSectors?: (v: boolean) => void }) {
   const st = ext.stability
   const e = nearestAngle(st, slewDeg)
   const hl = pickHooklift(ext)
@@ -38,6 +39,20 @@ export function TrwExtendedPanel({ ext, slewDeg, onSlew }: { ext: TrwExtended; s
           <span style={{ background: overall, color: '#fff', padding: '0 5px', borderRadius: 3 }}>{st.pass === true ? 'vyhovuje' : st.pass === false ? 'nevyhovuje' : 'neznámo'}</span>
           {stabilitySummary(st) ? ` · ${stabilitySummary(st)}` : ''}{' '}
           {!st.verified ? <span style={{ background: '#f4c430', color: '#222', padding: '0 5px', borderRadius: 3 }}>neověřeno proti CraneWIN</span> : null}
+          {st.angles.length && onShowSectors ? (
+            <div>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                <input type="checkbox" checked={!!showSectors} onChange={(e) => onShowSectors(e.target.checked)} /> Výseče stability
+              </label>
+              {showSectors ? (
+                <div className="stab-legend" aria-label="Legenda výsečí stability">
+                  <span><i style={{ background: STATUS_COLOR.ok }} />bezpečné (k ≥ n / {WARN_UTILISATION}{st.requiredN ? ` = ${(st.requiredN / WARN_UTILISATION).toFixed(2)}` : ''})</span>
+                  <span><i style={{ background: STATUS_COLOR.warn }} />blízko limitu (využití n/k 85–100 %)</span>
+                  <span><i style={{ background: STATUS_COLOR.fail }} />nevyhovuje (k &lt; n{st.requiredN ? ` = ${st.requiredN}` : ''})</span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {st.angles.length ? (
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
               Natočení jeřábu

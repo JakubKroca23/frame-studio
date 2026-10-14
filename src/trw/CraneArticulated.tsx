@@ -1,6 +1,7 @@
 import { useGLTF } from '@react-three/drei'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { setLiveCrane } from './liveCrane'
 import { CraneDimensions, LinearScale, Protractor } from './CraneGizmos'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -44,8 +45,13 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const same = (a: CraneJoints | null, b: CraneJoints) => !!a && a.slew === b.slew && a.a1 === b.a1 && a.rel === b.rel && a.ext === b.ext
   useEffect(() => {
-    if (!same(sent.current, propJoints)) setLive(propJoints)
-  }, [propJoints])
+    if (!same(sent.current, propJoints)) { setLive(propJoints); publish(propJoints) }
+  }, [propJoints]) // eslint-disable-line react-hooks/exhaustive-deps
+  function publish(j: CraneJoints) {
+    const r = craneReadout(j, variant, x, frameTop)
+    const ld = loadAt(variant.id, r.reach)
+    setLiveCrane({ slewDeg: j.slew, outreachMm: r.reach * 1000, hookHeightMm: r.height * 1000, loadKg: ld?.kg ?? null, variant: `X-HiPro 142 ${variant.id}` })
+  }
   const flush = () => {
     if (timer.current) clearTimeout(timer.current)
     timer.current = null
@@ -56,7 +62,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const onJoints = (j: CraneJoints) => {
     // coalesce pointer moves to one render per animation frame
     latest.current = j
-    if (!raf.current) raf.current = requestAnimationFrame(() => { raf.current = 0; if (latest.current) setLive(latest.current) })
+    if (!raf.current) raf.current = requestAnimationFrame(() => { raf.current = 0; if (latest.current) { setLive(latest.current); publish(latest.current) } })
     pending.current = j
     if (!timer.current) timer.current = setTimeout(flush, 120)
   }

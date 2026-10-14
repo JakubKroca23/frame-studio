@@ -132,6 +132,18 @@ export interface TrwImport {
   subframe: TrwExport['subframe']
   markers: TrwMarkers
   warnings: string[]
+  /** trw document (or saved calculation id) for the live stability API; null when the import has neither */
+  liveDoc?: { document?: unknown; document_id?: number | string } | null
+}
+
+/** document / document_id carried by a trw export or request body (several spellings). */
+export function liveDocOf(data: unknown): TrwImport['liveDoc'] {
+  const o = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
+  const src = (o.source && typeof o.source === 'object' ? o.source : {}) as Record<string, unknown>
+  const id = o.document_id ?? o.calculation_id ?? src.document_id ?? src.calculation_id
+  if (typeof id === 'number' || (typeof id === 'string' && id)) return { document_id: id }
+  if (o.document && typeof o.document === 'object') return { document: o.document }
+  return null
 }
 
 const ok = (v: Num): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -316,7 +328,7 @@ export function mapTrwExport(data: unknown): TrwImport {
     config: cfg,
     approx,
   }
-  return { preset, basePresetId: base.id, steel: ch.rail_steel ?? null, subframe: t.subframe ?? null, markers, warnings }
+  return { preset, basePresetId: base.id, steel: ch.rail_steel ?? null, subframe: t.subframe ?? null, markers, warnings, liveDoc: liveDocOf(data) }
 }
 
 export class TrwAuthError extends Error {}
@@ -331,5 +343,8 @@ export async function fetchTrwExport(body: unknown, fetcher: typeof fetch = fetc
   })
   if (res.status === 401) throw new TrwAuthError('Nejste přihlášeni v trw.')
   if (!res.ok) throw new Error(`trw vrátil chybu ${res.status}.`)
-  return mapTrwExport(await res.json())
+  const json = await res.json()
+  const r = mapTrwExport(json)
+  // the request body's document is what the live API needs (unless trw returned a saved id)
+  return { ...r, liveDoc: r.liveDoc ?? liveDocOf(body) }
 }

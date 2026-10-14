@@ -15,6 +15,7 @@ import { TrwExtendedPanel } from '../trw/TrwExtendedPanel'
 import { TrwExtendedView } from '../trw/TrwExtendedView'
 import { craneModelFor, type CranePose } from '../trw/CraneModel'
 import { CranePanel } from '../trw/CranePanel'
+import { setLiveCrane } from '../trw/liveCrane'
 import { parseX142Variant, x142VariantMatch, straightPose, type CraneJoints } from '../trw/craneKinematics'
 import type { TrwImport } from '../trw/trwConfig'
 import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
@@ -99,6 +100,8 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
   const trwRef = useRef<TrwImport | null>(null)
   const trwFileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
+  const [showSectors, setShowSectors] = useState(true)
+  useEffect(() => setLiveCrane({ slewDeg }), [slewDeg])
   trwRef.current = trw
   const groupRef = useRef<THREE.Group | null>(null)
   const openModel = useApp((s) => s.openModel)
@@ -501,7 +504,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
               {trw.markers.crane && craneModelFor(trw.markers.crane.name) && cranePose === 'unfolded' ? (
                 <CranePanel joints={craneJoints} variant={parseX142Variant(trw.markers.crane.name)} exact={x142VariantMatch(trw.markers.crane.name).exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} />
               ) : null}
-              {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} /> : null}
+              {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} showSectors={showSectors} onShowSectors={setShowSectors} /> : null}
               <ul className="hints">
                 {trw.warnings.map((warning) => (
                   <li key={warning} className="warn">
@@ -708,7 +711,7 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
-        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={((slewDeg % 360) + 360) % 360} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
+        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={((slewDeg % 360) + 360) % 360} craneX={trw.markers.crane?.x ?? null} sectorRadius={trw.markers.crane && craneModelFor(trw.markers.crane.name) ? parseX142Variant(trw.markers.crane.name).hydMaxMm : 8000} showSectors={showSectors} liveDoc={trw.liveDoc} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>
             <CsSimOverlay result={sim} frameTop={built.frame.topHeight} frameHalfWidth={built.frame.widthRear / 2} railHeight={built.frame.sectionHeight} />
