@@ -5,8 +5,7 @@
  * POST /api/auth/logout
  * The password is never stored; only the cookie (set by trw) authenticates.
  *
- * Transition safety (trw not deployed yet): the gate only locks when trw answers in the NEW contract
- * (401 with password_required:true). Network/CORS errors, other statuses and the old 401 {"detail":…} open the app.
+ * Every 401 from /me locks. Network/CORS errors (trw unreachable) and other statuses open the app.
  */
 import { TRW_URL } from '../trw/trwConfig'
 
@@ -29,7 +28,7 @@ export async function checkGate(fetcher: typeof fetch = fetch): Promise<GateStat
   }
   const b = await json(res)
   if (res.ok) return { kind: 'open', loggedIn: b?.authenticated === true && b?.password_required === true }
-  if (res.status === 401 && b?.password_required === true) return { kind: 'locked' }
+  if (res.status === 401) return { kind: 'locked' }
   return { kind: 'open', loggedIn: false, note: `trw /api/auth/me ${res.status} (přechodná verze) – ověření hesla přeskočeno` }
 }
 

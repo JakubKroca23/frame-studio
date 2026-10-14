@@ -13,8 +13,8 @@ describe('trw password gate', () => {
     expect(await checkGate(f(200, { authenticated: true, password_required: false }))).toEqual({ kind: 'open', loggedIn: false })
     expect(await checkGate(f(401, { authenticated: false, password_required: true }))).toEqual({ kind: 'locked' })
   })
-  it('never locks during the transition', async () => {
-    expect((await checkGate(f(401, { detail: 'Přihlaste se.' }))).kind).toBe('open') // old trw
+  it('network errors still open, any 401 locks', async () => {
+    expect((await checkGate(f(401, { detail: 'Přihlaste se.' }))).kind).toBe('locked') // any 401 locks
     expect((await checkGate(f(404, null))).kind).toBe('open')
     expect((await checkGate((async () => { throw new TypeError('Failed to fetch') }) as never)).kind).toBe('open')
   })
