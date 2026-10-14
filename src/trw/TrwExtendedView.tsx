@@ -117,26 +117,26 @@ function ExtraOutrigger({ a, frameTop }: { a: ExtAccessory; frameTop: number }) 
     ['left', a.reachLeft],
     ['right', a.reachRight],
   ]
+  const boxes = legs.map(([side, reach]) => {
+    if (reach == null || reach <= 0) return null
+    const z = (side === 'left' ? -1 : 1) * reach
+    return (
+      <group key={side}>
+        <Box pos={[a.x!, frameTop - 60, z / 2]} size={[140, 120, Math.abs(z)]} color="#d35400" opacity={0.85} />
+        <mesh position={[a.x!, frameTop / 2, z]}>
+          <cylinderGeometry args={[55, 55, frameTop, 14]} />
+          <meshStandardMaterial color="#d35400" />
+        </mesh>
+        <mesh position={[a.x!, 15, z]}>
+          <cylinderGeometry args={[200, 200, 30, 20]} />
+          <meshStandardMaterial color="#d35400" />
+        </mesh>
+      </group>
+    )
+  })
   return (
     <group name={`trw-extra-outrigger-${a.name}`}>
-      <AuxOutriggerModel kind={pickAuxStab((a.reachLeft ?? 0) + (a.reachRight ?? 0) || null)} x={a.x} top={frameTop - 60} />
-      {legs.map(([side, reach]) => {
-        if (reach == null || reach <= 0) return null
-        const z = (side === 'left' ? -1 : 1) * reach
-        return (
-          <group key={side}>
-            <Box pos={[a.x!, frameTop - 60, z / 2]} size={[140, 120, Math.abs(z)]} color="#d35400" opacity={0.85} />
-            <mesh position={[a.x!, frameTop / 2, z]}>
-              <cylinderGeometry args={[55, 55, frameTop, 14]} />
-              <meshStandardMaterial color="#d35400" />
-            </mesh>
-            <mesh position={[a.x!, 15, z]}>
-              <cylinderGeometry args={[200, 200, 30, 20]} />
-              <meshStandardMaterial color="#d35400" />
-            </mesh>
-          </group>
-        )
-      })}
+      <AuxOutriggerModel kind={pickAuxStab((a.reachLeft ?? 0) + (a.reachRight ?? 0) || null)} x={a.x} top={frameTop - 60} reachLeft={a.reachLeft} reachRight={a.reachRight} fallback={<>{boxes}</>} />
       <Label position={[a.x, frameTop + 350, 0]} text={`${a.name} · ${a.massKg != null ? Math.round(a.massKg) : '?'} kg`} bg="rgba(180,70,0,0.9)" />
     </group>
   )

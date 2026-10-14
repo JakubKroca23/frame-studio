@@ -55,7 +55,14 @@
      1207,
      1257
     ]
-   }
+   },
+   "footSpacingRetractedMm": 2266,
+   "armStrokeMm": 1387.5,
+   "armStrokeSource": "(5041 − 2266) / 2, rozteč os patek",
+   "telescopes": 1,
+   "legStrokeMm": 450,
+   "legStrokeSource": "B − A (Short/Medium/Long 450, Extra short 350); E/F pod rámem F − E = 450",
+   "armOverlapExtendedMm": 631
   },
   {
    "key": "hiab-aux-6m",
@@ -127,7 +134,16 @@
     "widthMm": 457.3,
     "footSpacingMm": 172.0,
     "beamHeightRatio": "345/358 (střed nosníku v modelu 349 → 339.6; model 5m měří ve středu 349 vs. výkres 358 – kóta zahrnuje horní lišty)"
-   }
+   },
+   "footSpacingRetractedMm": 2326,
+   "armStrokeMm": 1827,
+   "armStrokeSource": "(5980 − 2326) / 2",
+   "telescopes": 1,
+   "telescopesNote": "výkres 556-2067 kreslí na každou stranu jedno výsuvné rameno (čárkovaně), druhý teleskop neukazuje → 1 rameno; ve vysunutí zbývá v housingu jen 252 mm překrytí (5m: 631) – k ověření u HIAB",
+   "legStrokeMm": 450,
+   "legStrokeSource": "B − A (Short/Medium/Long 450, Extra short 350); F − E = 450",
+   "armOverlapExtendedMm": 252
   }
- ]
+ ],
+ "groups": "GLB uzly: housing (pevný), armL/armR (model −X/+X, výsuv po ose X), legL/legR (výsuv −Y). Model +X = levá strana vozu (scéna −Z)."
 }

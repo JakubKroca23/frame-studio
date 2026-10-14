@@ -1,21 +1,20 @@
 import { useGLTF } from '@react-three/drei'
-import { Component, Suspense, useMemo, type ReactNode } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
+import { TelescopeArrows } from './CraneGizmos'
 import CATALOG from './outriggerCatalog.json'
 
 /**
- * HIAB auxiliary stabilizer (přídavné podpěry) – retracted housing + legs.
- * GLB in metres: X = across the truck (length of the housing), Y up, Z = along the truck.
- * 5m: from the HIAB 3D model (556-2066: zasunuto 2490, vysunuto 5041).
- * 6m: derived from the 5m model per drawing 556-2067 (zasunuto 2550, vysunuto 5980,
- * šířka 457.3): housing + výsuvná ramena prodloužena o 60 mm uprostřed, patky/válce/úchyty posunuty tuhě,
- * průřez rozšířen 426 → 457.3.
+ * HIAB auxiliary stabilizer (přídavné podpěry) with moving groups.
+ * GLB in metres: X = across the truck, Y up, Z = along the truck. Nodes: housing (fixed), armL/armR (slide along ∓X),
+ * legL/legR (slide down). Model +X = vehicle left (scene −Z). 5m = HIAB model (556-2066), 6m derived per 556-2067.
+ * Strokes from the drawings (outriggerCatalog.json): arm = (spread − retracted foot spacing)/2, leg = B − A.
  */
-const byKey = (k: string) => CATALOG.entries.find((e) => e.key === k)!
-export const AUX_STAB = {
-  '5m': { file: byKey('hiab-aux-5m').file, retracted: byKey('hiab-aux-5m').retractedMm, extended: byKey('hiab-aux-5m').extendedMm },
-  '6m': { file: byKey('hiab-aux-6m').file, retracted: byKey('hiab-aux-6m').retractedMm, extended: byKey('hiab-aux-6m').extendedMm },
-} as const
+type Entry = (typeof CATALOG.entries)[number]
+const byKey = (k: string): Entry => CATALOG.entries.find((e) => e.key === k)!
+const mk = (e: Entry) => ({ file: e.file, retracted: e.retractedMm, extended: e.extendedMm, footRetracted: e.footSpacingRetractedMm, armStroke: e.armStrokeMm, legStroke: e.legStrokeMm })
+export const AUX_STAB = { '5m': mk(byKey('hiab-aux-5m')), '6m': mk(byKey('hiab-aux-6m')) } as const
 export type AuxStabKind = keyof typeof AUX_STAB
 
 /** Pick 5m / 6m by the total extended spread (mm), nearest catalogue value. */
@@ -24,32 +23,82 @@ export function pickAuxStab(spread: number | null | undefined): AuxStabKind {
   return Math.abs(spread - AUX_STAB['6m'].extended) < Math.abs(spread - AUX_STAB['5m'].extended) ? '6m' : '5m'
 }
 
+/** Arm extension [mm] for a trw reach (foot axis from the vehicle centre line, mm). */
+export function armExtFromReach(kind: AuxStabKind, reach: number | null | undefined): number {
+  const s = AUX_STAB[kind]
+  if (reach == null || !Number.isFinite(reach)) return 0
+  return Math.min(s.armStroke, Math.max(0, reach - s.footRetracted / 2))
+}
+
+/** Leg extension [mm] to touch the ground (gap = foot bottom above ground, mm); `reaches` false when the stroke is short. */
+export function legToGround(kind: AuxStabKind, gap: number): { down: number; reaches: boolean } {
+  const st = AUX_STAB[kind].legStroke
+  return { down: Math.min(st, Math.max(0, gap)), reaches: gap <= st }
+}
+
 class Boundary extends Component<{ children: ReactNode; fallback: ReactNode }, { err: boolean }> {
   state = { err: false }
   static getDerivedStateFromError() { return { err: true } }
   render() { return this.state.err ? this.props.fallback : this.props.children }
 }
 
-function Loaded({ kind, x, top }: { kind: AuxStabKind; x: number; top: number }) {
-  const gltf = useGLTF(`${import.meta.env.BASE_URL}models/outrigger/${AUX_STAB[kind].file}`)
-  const { obj, off } = useMemo(() => {
+type Side = 'left' | 'right'
+const NODE: Record<Side, { arm: string; leg: string; dir: number }> = { left: { arm: 'armR', leg: 'legR', dir: 1 }, right: { arm: 'armL', leg: 'legL', dir: -1 } }
+
+function Loaded({ kind, x, top, reachLeft, reachRight }: { kind: AuxStabKind; x: number; top: number; reachLeft?: number | null; reachRight?: number | null }) {
+  const s = AUX_STAB[kind]
+  const gltf = useGLTF(`${import.meta.env.BASE_URL}models/outrigger/${s.file}`)
+  const { obj, off, nodes, footY, footX } = useMemo(() => {
     const o = gltf.scene.clone(true)
     const b = new THREE.Box3().setFromObject(o)
-    return { obj: o, off: new THREE.Vector3(-(b.min.x + b.max.x) / 2, -b.max.y, -(b.min.z + b.max.z) / 2) }
+    const nodes = Object.fromEntries(['armL', 'armR', 'legL', 'legR'].map((n) => [n, o.getObjectByName(n) ?? null]))
+    const lb = nodes.legR ? new THREE.Box3().setFromObject(nodes.legR) : b
+    const ll = nodes.legL ? new THREE.Box3().setFromObject(nodes.legL) : b
+    return { obj: o, off: new THREE.Vector3(-(b.min.x + b.max.x) / 2, -b.max.y, -(b.min.z + b.max.z) / 2), nodes, footY: lb.min.y - b.max.y, footX: { left: (lb.min.x + lb.max.x) / 2 - (b.min.x + b.max.x) / 2, right: (ll.min.x + ll.max.x) / 2 - (b.min.x + b.max.x) / 2 } }
   }, [gltf])
-  // scene mm, X along truck, Z lateral → rotate model X (across) onto scene Z
+  const gap = top + footY * 1000 // foot bottom above ground (scene y = 0), mm
+  const ground = legToGround(kind, gap)
+  const init = (r: number | null | undefined) => { const e = armExtFromReach(kind, r); return { ext: e, down: e > 0 ? ground.down : 0 } }
+  const [st, setSt] = useState<Record<Side, { ext: number; down: number }>>({ left: init(reachLeft), right: init(reachRight) })
+  useEffect(() => setSt({ left: init(reachLeft), right: init(reachRight) }), [reachLeft, reachRight, kind, gap]) // eslint-disable-line react-hooks/exhaustive-deps
+  const cur = useRef({ left: { ext: 0, down: 0 }, right: { ext: 0, down: 0 } })
+  useFrame((_, dt) => {
+    const k = 1 - Math.exp(-dt * 4)
+    for (const side of ['left', 'right'] as Side[]) {
+      const c = cur.current[side], t = st[side], n = NODE[side]
+      c.ext += (t.ext - c.ext) * k
+      c.down += (t.down - c.down) * k
+      const arm = nodes[n.arm], leg = nodes[n.leg]
+      if (arm) arm.position.set((n.dir * c.ext) / 1000, 0, 0)
+      if (leg) leg.position.set((n.dir * c.ext) / 1000, -c.down / 1000, 0)
+    }
+  })
+  const set = (side: Side, p: Partial<{ ext: number; down: number }>) => setSt((o) => ({ ...o, [side]: { ...o[side], ...p } }))
   return (
-    <group position={[x, top, 0]} rotation={[0, Math.PI / 2, 0]} scale={1000}>
+    <group position={[x, top, 0]} rotation={[0, Math.PI / 2, 0]} scale={1000} name={`aux-stab-${kind}`}>
       <primitive object={obj} position={off} />
+      {(['left', 'right'] as Side[]).map((side) => {
+        const n = NODE[side], fx = footX[side] + n.dir * (st[side].ext / 1000)
+        return (
+          <group key={side}>
+            <group position={[fx + n.dir * 0.25, 0.1, 0]} rotation={[0, n.dir > 0 ? 0 : Math.PI, 0]}>
+              <TelescopeArrows value={st[side].ext / 1000} max={s.armStroke / 1000} size={0.22} onValue={(m) => set(side, { ext: m * 1000, down: m > 0 ? st[side].down : 0 })} />
+            </group>
+            <group position={[fx, footY - st[side].down / 1000 - 0.15, 0]} rotation={[0, 0, -Math.PI / 2]}>
+              <TelescopeArrows value={st[side].down / 1000} max={s.legStroke / 1000} size={0.18} onValue={(m) => set(side, { down: m * 1000 })} />
+            </group>
+          </group>
+        )
+      })}
     </group>
   )
 }
 
-export function AuxOutriggerModel({ kind, x, top, fallback = null }: { kind: AuxStabKind; x: number; top: number; fallback?: ReactNode }) {
+export function AuxOutriggerModel({ kind, x, top, reachLeft, reachRight, fallback = null }: { kind: AuxStabKind; x: number; top: number; reachLeft?: number | null; reachRight?: number | null; fallback?: ReactNode }) {
   return (
     <Boundary fallback={fallback}>
       <Suspense fallback={fallback}>
-        <Loaded kind={kind} x={x} top={top} />
+        <Loaded kind={kind} x={x} top={top} reachLeft={reachLeft} reachRight={reachRight} />
       </Suspense>
     </Boundary>
   )
