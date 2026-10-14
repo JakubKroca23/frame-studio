@@ -46,11 +46,11 @@ export function ReportTable({ rows }: { rows: Row[] }) {
 export function CraneStage({ def, variant, joints, onJoints }: { def: CraneDef; variant: CraneVariant; joints: CraneJoints; onJoints: (j: CraneJoints) => void }) {
   return (
     <Canvas shadows camera={{ position: [19000, 7000, 7500], fov: 40, near: 10, far: 200000 }} gl={{ preserveDrawingBuffer: true }}>
-      <color attach="background" args={['#eef1f4']} />
+      <color attach="background" args={['#1a2230']} />
       <ambientLight intensity={0.5} />
       <directionalLight position={[8000, 15000, 6000]} intensity={1.4} castShadow />
       <Environment preset="city" />
-      <gridHelper args={[30000, 30, '#9aa4ae', '#d0d6dc']} />
+      <gridHelper args={[30000, 30, '#3a4659', '#253043']} />
       <CraneArticulated key={`${def.key}-${variant.id}`} x={0} frameTop={0} joints={joints} variant={variant} onJoints={onJoints} fallback={null} />
       <OrbitControls makeDefault target={[0, 1800, 5500]} />
     </Canvas>

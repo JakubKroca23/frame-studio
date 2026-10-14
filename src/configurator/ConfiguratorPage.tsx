@@ -118,6 +118,8 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
   const [dragging, setDragging] = useState(false)
   const [showSectors, setShowSectors] = useState(true)
   useEffect(() => setLiveCrane({ slewDeg }), [slewDeg])
+  // headless capture of the start-page card loop: slewing through the real stability sectors
+  useEffect(() => { (window as unknown as { __slew?: (d: number) => void }).__slew = setSlewDeg })
   trwRef.current = trw
   const groupRef = useRef<THREE.Group | null>(null)
   const openModel = useApp((s) => s.openModel)

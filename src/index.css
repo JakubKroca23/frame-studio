@@ -1218,7 +1218,7 @@ input, select, textarea, button { color: var(--ink); background-color: #1e2735; 
 .icon-btn.is-active { color: var(--teal); }
 .icon-btn.is-active::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--brand-grad); }
 .icon-btn:disabled { opacity: 0.4; cursor: default; }
-body.hide-side .app { grid-template-columns: 0 minmax(0, 1fr) !important; }
+@media (min-width: 961px) { body.hide-side .app { grid-template-columns: 0 minmax(0, 1fr) !important; } }
 body.hide-side .app-side { display: none !important; }
 @media (max-width: 720px) { .icon-btn { width: 36px; height: 36px; } .topbar-logo img { width: 34px; height: 34px; } .topbar-sep { margin: 0 2px; } }
 
@@ -1284,3 +1284,9 @@ body.hide-side .app-side { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .hero-truss path, .hero-nodes, .hero-arrows, .hero-boom, .mini-art * { animation: none !important; stroke-dashoffset: 0 !important; opacity: 1 !important; }
 }
+.start-page { padding-top: 40px; }
+.start-page .start-title { margin-bottom: 8px; }
+.card-media { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; background: #1a2230; }
+.start-page .feature-grid { margin: 10px auto 18px; }
+.start-page .start-lead { margin-bottom: 4px; }
+.start-page .start-cta { margin-bottom: 40px; }

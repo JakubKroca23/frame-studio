@@ -52,7 +52,7 @@ export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykre
   const session = useContext(SessionCtx)
   return (
     <header className="app-header topbar">
-      <a className="topbar-logo" href="#" title="Úvod" aria-label="Úvod – Frame Studio"><img src="/fs-mark.svg" alt="" width="40" height="40" /></a>
+      <a className="topbar-logo" href="#" title="Úvod" aria-label="Úvod – Contsystem Studio"><img src="/cs-mark.svg" alt="Contsystem Studio" width="40" height="40" /></a>
       <nav className="topbar-actions" aria-label="Hlavní ovládání">
         <IconButton icon="plus" label="Nový projekt (konfigurátor)" href="#novy" active={page === 'novy'} />
         <IconButton icon="open" label="Otevřít projekt nebo výkres (.trw, .json, DXF, DWG)" onClick={open} />

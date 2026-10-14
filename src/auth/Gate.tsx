@@ -28,7 +28,7 @@ export function Gate({ children }: { children: ReactNode }) {
     }
     return (
       <form className="gate" onSubmit={submit} style={{ maxWidth: 320, margin: '15vh auto', display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'sans-serif' }}>
-        <strong>Frame Studio</strong>
+        <strong>Contsystem Studio</strong>
         <label htmlFor="gate-pw">Heslo</label>
         <input id="gate-pw" type="password" autoComplete="current-password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} />
         <Button type="submit" variant="rust" disabled={busy || !pw}>Přihlásit</Button>

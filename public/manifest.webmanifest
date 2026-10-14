@@ -1,6 +1,6 @@
 {
-  "name": "Frame Studio",
-  "short_name": "Frame Studio",
+  "name": "Contsystem Studio",
+  "short_name": "CS Studio",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#141A24",

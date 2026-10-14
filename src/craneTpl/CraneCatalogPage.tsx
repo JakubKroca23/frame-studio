@@ -1,6 +1,6 @@
 import { TopBar } from '../components/TopBar'
 import { useEffect, useState } from 'react'
-import { CRANE_CATALOG, CRANE_DEFS } from '../trw/craneKinematics'
+import { CRANE_CATALOG, CRANE_DEFS, meshAngles, variantBoom } from '../trw/craneKinematics'
 import { CraneStage, ReportTable, fmtMm, usePose } from './CraneStage'
 
 /** #jeraby — every crane of the drawing catalog (template + drawing) plus the two sample models, articulated. */
@@ -16,6 +16,13 @@ function Inner({ defKey, setKey, def, entry }: { defKey: string; setKey: (k: str
   const [vid, setVid] = useState(def.defaultVariantId)
   const variant = def.variants.find((v) => v.id === vid) ?? def.variants[0]
   const pose = usePose(def, variant)
+  // headless capture of the start-page card loop (scripts/capture-cards): t∈[0,1] → real joint motion within the def's limits
+  useEffect(() => {
+    const w = window as unknown as { __craneAnim?: (t: number) => void }
+    const straight = -meshAngles(def).delta, stroke = variantBoom(variant).stroke
+    w.__craneAnim = (t) => { const k = 0.5 - 0.5 * Math.cos(2 * Math.PI * t); pose.setJoints({ slew: -20 + 40 * k, a1: 4 + 14 * k, rel: straight - 6 * (1 - k), ext: 0.7 * stroke * k }) }
+    return () => { delete w.__craneAnim }
+  }, [def, variant, pose])
   useEffect(() => { window.history.replaceState(null, '', `#jeraby/${defKey}`) }, [defKey])
   const ev = entry?.variants.find((v) => v.id === variant.id)
   return (
