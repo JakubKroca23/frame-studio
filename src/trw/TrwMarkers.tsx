@@ -1,9 +1,11 @@
 import { Html } from '@react-three/drei'
 import type { TrwMarkers as Markers } from './trwConfig'
 import { CraneModel, craneModelFor, type CranePose } from './CraneModel'
+import { CraneArticulated } from './CraneArticulated'
+import { parseX142Variant, type CraneJoints } from './craneKinematics'
 
 /** Simple markers for the crane column and outrigger legs (X rearward from axle 1, Y up, Z lateral). */
-export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded' }: { markers: Markers; frameTop: number; slewDeg?: number; cranePose?: CranePose }) {
+export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded', craneJoints, onCraneJoints }: { markers: Markers; frameTop: number; slewDeg?: number; cranePose?: CranePose; craneJoints?: CraneJoints; onCraneJoints?: (j: CraneJoints) => void }) {
   const craneModel = craneModelFor(markers.crane?.name)
   const craneBox = markers.crane ? (
     <mesh position={[markers.crane.x, frameTop + 900, 0]}>
@@ -13,7 +15,15 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
   ) : null
   return (
     <group name="trw-markers">
-      {markers.crane && craneModel ? <CraneModel file={cranePose === 'unfolded' ? craneModel.unfolded : craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} fallback={craneBox} /> : craneBox}
+      {markers.crane && craneModel ? (
+        cranePose === 'unfolded' && craneJoints && onCraneJoints ? (
+          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneJoints} variant={parseX142Variant(markers.crane.name)} onJoints={onCraneJoints} fallback={craneBox} />
+        ) : (
+          <CraneModel file={craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} fallback={craneBox} />
+        )
+      ) : (
+        craneBox
+      )}
       {markers.outriggers.map((leg) => {
         const z = ((leg.side === 'left' ? -1 : 1) * (leg.spread || 2500)) / 2
         return (

@@ -246,6 +246,7 @@ function CameraBridge({
     // Dev-only hook so headless screenshots can frame the model precisely.
     const hook = {
       scene,
+      camera,
       pose: () => ({ position: camera.position.toArray(), target: controls.target.toArray() }),
       look(position: [number, number, number], target: [number, number, number]) {
         controls.target.set(target[0], target[1], target[2])

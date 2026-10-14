@@ -13,7 +13,7 @@ import { Boundary } from './HookliftModel'
  * straight, tip 4.72 m from the column axis at 2.72 m height; outriggers stowed (same 2.51 m width as folded).
  * Both poses share this frame, so +Z is the boom direction → slew 0° (forward) maps +Z to scene −X.
  */
-export const CRANE_MODELS = [{ re: /x.?hi.?pro\s*142|\b142\s*e.?4|\bex\s*142|hiab.*142/i, file: 'hiab-x-hipro-142e4.glb', unfolded: 'hiab-x-hipro-142e4-unfolded.glb', name: 'HIAB X-HiPro 142 E-4' }]
+export const CRANE_MODELS = [{ re: /x.?hi.?pro\s*142|\b142\s*e.?4|\bex\s*142|hiab.*142/i, file: 'hiab-x-hipro-142e4.glb', name: 'HIAB X-HiPro 142 E-4' }]
 
 export type CranePose = 'folded' | 'unfolded'
 

@@ -14,6 +14,8 @@ import { TrwMarkers } from '../trw/TrwMarkers'
 import { TrwExtendedPanel } from '../trw/TrwExtendedPanel'
 import { TrwExtendedView } from '../trw/TrwExtendedView'
 import { craneModelFor, type CranePose } from '../trw/CraneModel'
+import { CranePanel } from '../trw/CranePanel'
+import { parseX142Variant, straightPose, type CraneJoints } from '../trw/craneKinematics'
 import type { TrwImport } from '../trw/trwConfig'
 import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
@@ -80,6 +82,14 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
     setSlewTouched(true)
   }
   const cranePose: CranePose = cranePoseOverride ?? (slewTouched ? 'unfolded' : 'folded')
+  /** Articulated crane joints (slew shared with the stability slider). */
+  const [boomJoints, setBoomJoints] = useState(() => { const { a1, rel, ext } = straightPose(); return { a1, rel, ext } })
+  const craneJoints: CraneJoints = { slew: slewDeg, ...boomJoints }
+  const setCraneJoints = (j: CraneJoints) => {
+    setBoomJoints({ a1: j.a1, rel: j.rel, ext: j.ext })
+    setSlewDeg(j.slew)
+    setCranePoseOverride('unfolded')
+  }
   const [sim, setSim] = useState<CsSimResult | null>(null)
   const [simError, setSimError] = useState<string | null>(null)
   const [trwSource, setTrwSource] = useState<string | null>(link?.kind === 'trw' ? link.url : null)
@@ -482,13 +492,16 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
                 <div className="row" role="group" aria-label="Poloha jeřábu" style={{ margin: '6px 0' }}>
                   <span>Jeřáb:</span>
                   {(['folded', 'unfolded'] as const).map((pose) => (
-                    <Button key={pose} variant={cranePose === pose ? 'rust' : 'outline'} aria-pressed={cranePose === pose} onClick={() => setCranePoseOverride(pose)}>
+                    <Button key={pose} variant={cranePose === pose ? 'rust' : 'outline'} aria-pressed={cranePose === pose} onClick={() => { setCranePoseOverride(pose); if (pose === 'unfolded') { const { a1, rel, ext } = straightPose(); setBoomJoints({ a1, rel, ext }) } }}>
                       {pose === 'folded' ? 'Složený' : 'Rozložený'}
                     </Button>
                   ))}
                 </div>
               ) : null}
-              {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={slewDeg} onSlew={setSlewDeg} /> : null}
+              {trw.markers.crane && craneModelFor(trw.markers.crane.name) && cranePose === 'unfolded' ? (
+                <CranePanel joints={craneJoints} variant={parseX142Variant(trw.markers.crane.name)} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} />
+              ) : null}
+              {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} /> : null}
               <ul className="hints">
                 {trw.warnings.map((warning) => (
                   <li key={warning} className="warn">
@@ -694,8 +707,8 @@ export function ConfiguratorPage({ initialPreset, link }: { initialPreset?: stri
       </aside>
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
-        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} /> : null}
-        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={slewDeg} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
+        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
+        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={((slewDeg % 360) + 360) % 360} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>
             <CsSimOverlay result={sim} frameTop={built.frame.topHeight} frameHalfWidth={built.frame.widthRear / 2} railHeight={built.frame.sectionHeight} />
