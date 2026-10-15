@@ -119,7 +119,7 @@ function Exhibit({ name, x, z, r, standLen, children, ...h }: Hover & { name: st
 }
 
 const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 15500 * k, 9200 + 1500 * (k - 1), H.z1 + 21000 * k)
-const ANCHORS: [number, number, number][] = [...DOORS.slice(0, 2).map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 4300, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z]]
+const ANCHORS: [number, number, number][] = [...DOORS.slice(0, 2).map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [DOORS[1], 1700, H.z1 + 300], [CH.x, 2700, CH.z], [CRANE_AT.x, 4300, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z]]
 
 /** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
 function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
@@ -151,7 +151,7 @@ function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
 type Label = { label: string; sub: string; onClick: () => void; testid: string; hot?: boolean; setHot?: (h: boolean) => void; cfg?: boolean }
 
 export function StartHero() {
-  const dxf = useRef<HTMLInputElement>(null), trw = useRef<HTMLInputElement>(null)
+  const dxf = useRef<HTMLInputElement>(null), trw = useRef<HTMLInputElement>(null), spec = useRef<HTMLInputElement>(null)
   const loadFile = useApp((s) => s.loadFile)
   const labels = useRef<(HTMLElement | null)[]>([])
   const [hot, setHot] = useState(false), [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false)
@@ -159,6 +159,7 @@ export function StartHero() {
   const items: Label[] = [
     { label: 'Import DXF podvozku', sub: 'bokorys / půdorys · DXF, DWG', onClick: () => dxf.current?.click(), testid: 'door-dxf' },
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
+    { label: 'Specifikace PDF', sub: 'popis vozidla výrobce · MAN', onClick: () => spec.current?.click(), testid: 'door-spec' },
     { label: 'Konfigurátor', sub: 'podvozek, rám, nápravy', onClick: () => go('#novy'), testid: 'start-cfg', hot, setHot, cfg: true },
     { label: 'Jeřáby HIAB', sub: 'katalog, X-HiPro 142', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
     { label: 'Multilift', sub: 'nosiče kontejnerů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
@@ -194,6 +195,8 @@ export function StartHero() {
       ))}
       <input ref={dxf} hidden type="file" accept=".dxf,.dwg,.gz,.tgz,.zip,application/dxf,application/acad,application/octet-stream"
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { window.location.hash = '#vykres'; void loadFile(f) } }} />
+      <input ref={spec} hidden type="file" accept=".pdf,application/pdf"
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { queueProjectFile(f); window.location.hash = '#novy' } }} />
       <input ref={trw} hidden type="file" accept=".trw,.json,application/json,application/octet-stream"
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { queueProjectFile(f); window.location.hash = '#novy' } }} />
     </section>

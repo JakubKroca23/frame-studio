@@ -55,6 +55,7 @@ export function cabSpec(input: CabShapeInput): ParametricCabSpec {
     wheelRadius: input.wheelRadius,
     frontTrack: input.frontTrack ?? 2050,
     tyreWidth: input.tyreWidth ?? 315,
+    ...(cab.code ? { code: cab.code } : {}),
   }
 }
 

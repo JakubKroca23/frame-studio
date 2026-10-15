@@ -704,6 +704,8 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
       addTankBody(equipment, fitBeside(item, world, 700), false)
     } else if (kind === 'fifth') {
       addFifth(equipment, item)
+    } else if (kind === 'coupling') {
+      addCoupling(equipment, { ...item, y: item.z, z: item.y })
     } else if (kind === 'spare') {
       addSpare(equipment, item)
     } else if (kind === 'light') {
@@ -794,12 +796,15 @@ function addFifth(parent: THREE.Group, item: Placed) {
 function addSpare(parent: THREE.Group, item: Placed) {
   const g = new THREE.Group()
   g.name = item.part.partNumber
-  const radius = clamp(Math.max(item.height, item.width) / 2, 180, 620)
-  const tyre = new THREE.Mesh(tireGeo(radius, clamp(item.len, 160, 360)), rubber)
-  tyre.rotation.z = Math.PI / 2
+  // Side carrier (len ≈ height ≫ width): wheel upright, axis across the frame; otherwise axis along x.
+  const upright = item.len > item.width * 1.6 && item.height > item.width * 1.6
+  const radius = clamp((upright ? Math.max(item.height, item.len) : Math.max(item.height, item.width)) / 2, 180, 620)
+  const tyre = new THREE.Mesh(tireGeo(radius, clamp(upright ? item.width : item.len, 160, 360)), rubber)
+  if (upright) tyre.rotation.x = Math.PI / 2
+  else tyre.rotation.z = Math.PI / 2
   tyre.position.set(item.x, item.z, item.y)
   const disc = new THREE.Mesh(rimDisc(radius), alloy)
-  disc.rotation.y = Math.PI / 2
+  if (!upright) disc.rotation.y = Math.PI / 2
   disc.position.set(item.x, item.z, item.y)
   g.add(tyre, disc)
   parent.add(g)

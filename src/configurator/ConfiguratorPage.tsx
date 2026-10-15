@@ -39,6 +39,8 @@ import { useLiveStatus } from '../trw/useLiveStatus'
 import { importBlockReason } from '../trw/fromTrw'
 import type { LiveDoc } from '../trw/stabilityLive'
 import { classifyFile, convertTrwFile, unwrapConfig } from '../trw/fromTrw'
+import { isManSpecText, parseManSpec, specToConfig, type SpecImport } from '../spec/manSpec'
+import { pdfToText } from '../spec/pdfText'
 
 /** Cab shapes offered in the form: every make plus Mercedes-Benz (shape only, no chassis presets yet). */
 const CAB_STYLES: { id: CabStyle; name: string }[] = [...MAKES, { id: 'mercedes', name: 'Mercedes-Benz (jen tvar kabiny)' }]
@@ -128,6 +130,8 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
   const [liveBlock, setLiveBlock] = useState<string | null>(null)
   const trwFileRef = useRef<HTMLInputElement>(null)
   const dxfFileRef = useRef<HTMLInputElement>(null)
+  const specFileRef = useRef<HTMLInputElement>(null)
+  const [specImport, setSpecImport] = useState<SpecImport | null>(null)
   const [refine, setRefine] = useState<(RefineResult & { file: string }) | null>(null)
   const [dragging, setDragging] = useState(false)
   const [showSectors, setShowSectors] = useState(true)
@@ -150,6 +154,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
 
   function choosePreset(next: ChassisPreset, fromTrw: TrwImport | null = null) {
     setTrw(fromTrw)
+    if (!next.id.startsWith('spec-')) setSpecImport(null)
     setPreset(next)
     const fresh = cloneConfig(next.config)
     setCfg(fresh)
@@ -245,6 +250,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
 
   /** Opens a .trw project (converted by trw), a trw/config@1 JSON or a CS Sim result. */
   async function openFile(file: File) {
+    if (/\.pdf$/i.test(file.name)) return openSpecPdf(file)
     if (/\.(dxf|dwg|gz|tgz|zip)$/i.test(file.name)) return refineFromDrawing(file)
     const isTrw = /\.trw$/i.test(file.name)
     const text = isTrw ? null : await file.text()
@@ -271,6 +277,20 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
     } catch (err) {
       if (kind === 'trw-project') setLiveBlock(importBlockReason(err))
       setLinkStatus({ text: err instanceof Error ? err.message : String(err), level: 'error', login: err instanceof TrwAuthError })
+    }
+  }
+  /** Manufacturer specification PDF (MAN "Popis vozidla"): text via pdf.js → TD codes → chassis. */
+  async function openSpecPdf(file: File) {
+    setLinkStatus({ text: `Čtu specifikaci ${file.name}…`, level: 'info' })
+    try {
+      const text = await pdfToText(await file.arrayBuffer())
+      if (!isManSpecText(text)) throw new Error('nerozpoznaná specifikace – zatím je podporován formát MAN (řádky TDxxx).')
+      const result = specToConfig(parseManSpec(text), file.name)
+      choosePreset(result.preset)
+      setSpecImport(result)
+      setLinkStatus({ text: `Specifikace ${file.name}: ${result.parsed.length} hodnot převzato, ${result.assumptions.length} předpokladů (viz níže).`, level: 'ok' })
+    } catch (err) {
+      setLinkStatus({ text: `${file.name}: ${err instanceof Error ? err.message : String(err)}`, level: 'error' })
     }
   }
   /** DXF/DWG side view (chassis or chassis + crane): refine the current config (trw or preset) with measured values. */
@@ -565,8 +585,31 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
                 if (file) void refineFromDrawing(file)
               }}
             />
-            <span className="muted">nebo přetáhněte .trw / .json / .dxf do okna</span>
+            <Button size="sm" variant="outline" onClick={() => specFileRef.current?.click()} data-testid="cfg-spec-pdf">
+              Specifikace PDF
+            </Button>
+            <input
+              ref={specFileRef}
+              type="file"
+              accept=".pdf,application/pdf"
+              style={{ display: 'none' }}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file) void openSpecPdf(file)
+              }}
+            />
+            <span className="muted">nebo přetáhněte .trw / .json / .dxf / .pdf do okna</span>
           </div>
+          {specImport ? (
+            <details className="status ok" data-testid="cfg-spec" open>
+              <summary>Ze specifikace {specImport.spec.model ?? ''} – převzato {specImport.parsed.length}, předpokladů {specImport.assumptions.length}</summary>
+              <ul>{specImport.parsed.map((p) => <li key={p.path + p.label}>{p.label}: <strong>{p.value}</strong> <span className="muted">({p.source})</span></li>)}</ul>
+              <p className="muted"><strong>Předpoklady – ve specifikaci nejsou (model je jen odhaduje):</strong></p>
+              <ul className="hints">{specImport.assumptions.map((p) => <li key={p.path + p.label} className="warn">{p.label}: {p.value} – {p.source}</li>)}</ul>
+              {specImport.warnings.length ? <ul className="hints">{specImport.warnings.map((w) => <li key={w} className="warn">{w}</li>)}</ul> : null}
+            </details>
+          ) : null}
           {refine ? (
             <details className="status ok" data-testid="cfg-refine" open>
               <summary>Zpřesněno z výkresu {refine.file} ({refine.applied.length})</summary>

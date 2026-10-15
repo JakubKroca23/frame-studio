@@ -52,6 +52,8 @@ export interface CabConfig {
   /** First axle to the rear wall of the cab. */
   backFromAxle: number
   color: number
+  /** Manufacturer cab code (MAN TM, GN…), when read from a specification. */
+  code?: string
 }
 
 export interface TankConfig {
@@ -90,6 +92,12 @@ export interface ChassisConfig {
   sideGuards: boolean
   rearUnderrun: boolean
   mudguards: boolean
+  /** Spare wheel carrier on the frame side (MAN specification). */
+  spare?: { enabled: boolean; side: Side; beforeRear: boolean; diameter?: number }
+  /** Trailer coupling on the rear end crossmember. */
+  coupling?: boolean
+  /** Air suspension on the driven rear axles (front stays on leaves). */
+  airSuspension?: boolean
 }
 
 /** A value read from a source is a plain number; an estimated one is wrapped. */

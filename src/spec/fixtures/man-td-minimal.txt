@@ -1,0 +1,25 @@
+Synthetic fixture (not a real MAN document): only TD rows, values invented for the test.
+            Typ vozidla: test                                   TD051 Výška nad zemí nezatížené točnice                  -
+            Kabina řidiče: test                                 TD008 Šířka včetně zpětného zrcátka                 2900.0
+                                                                TD001 Šířka přes kabinu                             2200.0
+            TD026 Hmotnost podvozku s kabinou řidiče    9000
+            TD018 Maximální přípustná celková hmotnost  25000
+            TD031 Maximální přípustná celková hmotnost jízdní   40000
+            TD009 Šířka rámu vpředu                      940.0
+            TD010 Šířka rámu vzadu                       760.0
+            TD078 Profil rámu                          260 x 80
+                                                          x 8
+            TD071 Celková délka                         10000.0
+            TD063 Přední převis vozidla                  1500.0
+            TD057 Rozvor mezi přední nápravou              4500
+            TD058 Rozvor mezi tlačenou a zadní nápravou       0
+            TD059 Rozvor mezi zadní nápravou               1400
+            TD060 Rozvor mezi zadní a vlečenou nápravou       0
+            TD064 Zadní převis rámu                      2600.0
+            TD072 Vzdálenost mezi první přední nápravou a 900.0
+            nástavbou
+            TD067 Vzdálenost mezi čepem návěsu a přední       -
+            TD033 Maximální vnější výška, nenaložené vozidlo  3400.0
+            TD035 Výška rámu na teoretickém zadním rozvoru    1000.0
+            kol, nenaložené vozidlo
+            TD036 Výška rámu na teoretickém zadním rozvoru     980.0

@@ -21,6 +21,7 @@ export type EquipKind =
   | 'hydraulic'
   | 'pto'
   | 'underrun'
+  | 'coupling'
   | 'skip'
 
 export const EQUIP_LABELS: Record<EquipKind, string> = {
@@ -38,6 +39,7 @@ export const EQUIP_LABELS: Record<EquipKind, string> = {
   bracket: 'Držák',
   crane: 'Hydraulická ruka',
   light: 'Světlo',
+  coupling: 'Závěs přívěsu',
   fifth: 'Točnice',
   spare: 'Rezervní kolo',
   hydraulic: 'Hydraulická nádrž',

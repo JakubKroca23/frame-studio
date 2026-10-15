@@ -200,6 +200,7 @@ export function paramsForConfig(cfg: ChassisConfig, base: ChassisParams = defaul
     tracks: cfg.axles.map(() => 0),
     lod: 2,
     holes: 'geometry',
+    suspension: cfg.airSuspension === false ? 'leaf' : base.suspension,
     show: { ...base.show, suspension: true, drivetrain: true },
   }
 }
@@ -264,6 +265,7 @@ interface Slot {
 function equipment(layout: Layout, warnings: string[]): PartModel[] {
   const { cfg } = layout
   const parts: PartModel[] = []
+  let spare: PartModel | null = null
   const lastFront = Math.max(0, ...cfg.axles.map((axle) => axle.position).filter((x) => x < layout.firstRear))
   const start = lastFront + layout.frontRadius + 220
   const limit = layout.firstRear - layout.rearRadius - 140
@@ -297,16 +299,25 @@ function equipment(layout: Layout, warnings: string[]): PartModel[] {
     const z = slot.z ?? layout.top - slot.height / 2
     parts.push(part(slot.id, slot.kind, x0, x0 + slot.len, z - slot.height / 2, z + slot.height / 2, sign * (layout.half + 40), sign * (layout.half + 40 + slot.width)))
   }
+  if (cfg.spare?.enabled) {
+    // Side carrier: wheel upright, axis across the frame. Position along the frame is not in the spec → just ahead of the first rear axle.
+    const d = Math.round(cfg.spare.diameter ?? layout.rearRadius * 2)
+    const x0 = cfg.spare.beforeRear ? layout.firstRear - layout.rearRadius - 120 - d : start
+    const sign = sideSign(cfg.spare.side)
+    const zc = Math.max(d / 2 + 180, layout.top - d / 2 + 60)
+    spare = part('SW_spare', 'spare', x0, x0 + d, zc - d / 2, zc + d / 2, sign * (layout.half + 60), sign * (layout.half + 60 + 320))
+  }
+  const lim = (side: Side) => (spare && cfg.spare!.side === side ? Math.min(limit, spare.side!.x0 - 80) : limit)
   const priority = ['fuel', 'exhaust', 'battery', 'adblue', 'air']
   const queue = (['left', 'right'] as const)
     .flatMap((side) => bySide[side].map((slot) => ({ slot, side })))
     .sort((p, q) => priority.indexOf(p.slot.kind) - priority.indexOf(q.slot.kind))
   for (const { slot, side } of queue) {
     const other: Side = side === 'left' ? 'right' : 'left'
-    if (cursor[side] + slot.len <= limit) {
+    if (cursor[side] + slot.len <= lim(side)) {
       place(slot, side, cursor[side])
       cursor[side] += slot.len + 80
-    } else if (slot.kind !== 'air' && slot.kind !== 'fuel' && cursor[other] + slot.len <= limit) {
+    } else if (slot.kind !== 'air' && slot.kind !== 'fuel' && cursor[other] + slot.len <= lim(other)) {
       place(slot, other, cursor[other])
       cursor[other] += slot.len + 80
     } else if (slot.kind === 'air' && inside + slot.len <= limit) {
@@ -333,6 +344,17 @@ function equipment(layout: Layout, warnings: string[]): PartModel[] {
       ...parts.filter((p) => p.kind === 'fuel' && p.top && Math.sign(p.top.y0 + p.top.y1) === sign && p.side!.x1 < limit).map((p) => p.side!.x1 + 40),
     )
     if (limit - tankEnd > 400) free[side].push([tankEnd, limit])
+  }
+
+  if (spare) {
+    const sx = spare.side!.x0
+    const ss = cfg.spare!.side
+    free[ss] = free[ss].map(([a, b]) => [a, Math.min(b, sx - 40)] as [number, number]).filter(([a, b]) => b - a > 400)
+    parts.push(spare)
+  }
+  if (cfg.coupling) {
+    // Rear end crossmember with the trailer coupling jaw below it (geometry symbolic – not in the spec).
+    parts.push(part('RC_coupling', 'coupling', layout.xRear - 220, layout.xRear, layout.bottom - 40, layout.top - 40, -380, 380))
   }
 
   if (cfg.exhaust.kind === 'vertical') {

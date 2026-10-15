@@ -31,3 +31,12 @@ Rules learned from real body-builder drawings. Read this before you change `anal
 - BEP: dvojmontáž jen na první `dual` nápravě (hnací), vlečná náprava singl. Defaultní `addRearBar`/profilové blatníky z výkresu u BEP vypnout – jinak vznikají duplicitní černé bloky.
 - Vrstvy 45_ (vzduch), 21_ (baterie), 27_ (AdBlue) mají vlastní buildery; zadní světla se kreslí na koncích trubky nárazníku (výška = horní hrana 19_ − 60 mm).
 - Srovnávací snímky: `pwnode/shots.sh` – skryje `env`, bílé pozadí, ořez na obsah (jako Creo).
+
+## Specifikace výrobce (PDF, MAN „Popis vozidla“) → podvozek (src/spec)
+- PDF číst v prohlížeči přes pdf.js (`pdfjs-dist`, worker přes `?url`). Text skládat po řádcích podle y, mezery mezi sloupci = víc mezer – MAN má dvousloupcová TD data na jednom řádku.
+- TD řádky: hodnota je poslední číslo/`-` segmentu; `TD078 270 x 85` pokračuje `x 10` na dalším řádku. `-` = hodnota není (null), nikdy 0.
+- MAN 6x4: TD057 = 0, rozvor je v „Rozvor kol“ (1. → 1. zadní), rozteč zadních náprav TD059. TD071 ≠ TD063 + rozvory + TD064 (o 355 mm – přesah spojky/ochrany) → jen varování, rám kreslit podle TD064.
+- TD035 = výška rámu nenaložené, TD036 naložené. TD072 = 1. náprava → nástavba (ne zadní stěna kabiny) → kabina = TD072 − 100 mm jako předpoklad.
+- Průměr kola z ISO rozměru je přesná matematika (rim·25.4 + 2·šířka·profil), ne odhad. Dvojmontáž MAN neuvádí → odvozená, označená jako předpoklad.
+- Strany výbavy (nádrž, AdBlue, tlumič, baterie, rezerva) jsou ve výbavových řádcích; podélné polohy a rozměry nejsou nikde → vždy seznam předpokladů v UI (`SpecImport.assumptions`) + `approx` v předloze.
+- Firemní PDF jen v `test-local/` (`*.local.test.ts`); do repa jen syntetický fixture s TD řádky.

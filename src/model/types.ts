@@ -158,6 +158,8 @@ export interface ParametricCabSpec {
   tyreWidth: number
   /** Side air collars behind the cab also on rigid trucks (Volvo BEP renders). */
   collars?: boolean
+  /** Manufacturer cab code (MAN TM/GN/…) – picks the parametric sub-variant. */
+  code?: string
 }
 
 /** Mirrors mesh/silhouette CabFeature, kept here so the model stays free of mesh imports. */
