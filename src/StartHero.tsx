@@ -16,11 +16,14 @@ import { StudioLights } from './view/Viewport'
  * exhibits are decimated single-mesh GLBs (scripts/hero-models.mjs, ~24k tris each, meshopt), baked floor shadows,
  * HTML labels are moved through refs (no React re-render per frame).
  */
-const TARGET = new THREE.Vector3(6000, 3600, H.z1 + 2500)
+const TARGET = new THREE.Vector3(500, 3200, H.z1 + 500)
 /** Dummy chassis in front of the middle door: centre x, z; length along X. */
-const CH = { x: 6000, z: H.z1 + 7500, len: 9000 }
-const CRANE_AT = { x: CH.x - CH.len / 2 - 3800, z: CH.z }
-const HOOK_AT = { x: CH.x + CH.len / 2 + 7200, z: CH.z, len: 5900 }
+/** Configurator dummy + any vehicle shown on the home scene: well out in the yard, clear of the door aprons. */
+export const VEHICLE_SPOT = { x: 6000, z: H.z1 + 12000 }
+const CH = { ...VEHICLE_SPOT, len: 9000 }
+// Exhibits stand on the yard beside the LEFT gable wall of the hall (x < H.x0), not in front of the doors.
+const CRANE_AT = { x: H.x0 - 3200, z: H.z1 - 2000 }
+const HOOK_AT = { x: H.x0 - 5000, z: H.z1 - 13500, len: 5900 }
 const FRAME_TOP = 1000
 const MODELS = `${import.meta.env.BASE_URL}models/hero/`
 
@@ -118,8 +121,8 @@ function Exhibit({ name, x, z, r, standLen, children, ...h }: Hover & { name: st
   )
 }
 
-const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 15500 * k, 9200 + 1500 * (k - 1), H.z1 + 21000 * k)
-const ANCHORS: [number, number, number][] = [...DOORS.slice(0, 2).map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [DOORS[1], 1700, H.z1 + 300], [CH.x, 2700, CH.z], [CRANE_AT.x, 4300, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z]]
+const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 13000 * k, 11500 + 1500 * (k - 1), H.z1 + 29000 * k)
+const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 2400, CRANE_AT.z + 600], [HOOK_AT.x, 3600, HOOK_AT.z]]
 
 /** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
 function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
