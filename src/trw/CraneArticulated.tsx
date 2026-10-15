@@ -237,9 +237,11 @@ type Side = 'left' | 'right'
 /** Outrigger extension [m] per side for a trw spread (foot axis to foot axis, mm, symmetric about the vehicle centre line). */
 export function stabFromSpread(st: StabDef, spreadMm: number | null): Record<Side, number> {
   if (spreadMm == null || !Number.isFinite(spreadMm)) return { left: 0, right: 0 }
-  const half = spreadMm / 2000
-  const c = (v: number) => Math.min(st.maxExt, Math.max(0, v))
-  return { left: c(half - Math.abs(st.footX.left)), right: c(half - Math.abs(st.footX.right)) }
+  // the spread (TrailerWIN / table 6-11) is foot-to-foot, symmetric about the outrigger-box centre, NOT about the
+  // slewing axis (column R/L is offset sideways) → both sides extend equally; one telescope per side
+  const half = spreadMm / 2000, w = (st.footX.right - st.footX.left) / 2
+  const e = Math.min(st.maxExt, Math.max(0, half - w))
+  return { left: e, right: e }
 }
 /** Leg extension [m] so the foot touches the ground (frameTop = mounting plane height, mm). */
 export function legToGroundM(st: StabDef, frameTop: number): number {

@@ -114,7 +114,7 @@ export interface CraneDef {
   extStrokes?: number[]
   /** derived from a template + drawing (src/craneTpl): mesh adaptation of the template parts */
   /** crane outriggers in the mesh (groups stabL/stabR = beam + leg housing, legL/legR = inner leg + foot), base frame [m] */
-  stab?: { footX: { left: number; right: number }; footBottom: number; maxExt: number; legStroke: number; source: string }
+  stab?: { footX: { left: number; right: number }; footBottom: number; maxExt: number; legStroke: number; telescopes?: number; source: string }
   adapt?: { dh: number; baseX: number; template: string; /** stroke of each template telescope [m] (sections are lengthened when a variant needs more) */ secStroke?: number[] }
 }
 
@@ -180,9 +180,11 @@ export const CRANE_DEFS: CraneDef[] = [
     defaultVariantId: '100', loads: null, meshExtSections: 2, noLoadText: 'nosnost n/a (Jonsered – jen dosahy z výkresu)',
     folded: { slew: -94.5, a1: 0, rel: 0, ext: 0 }, // parked = mesh pose; boom plane is slewed 4.5° in the GLB (MEASURED from pin axes)
     unfolded: { a1: 6.3, rel: -15.9, ext: 0 }, // MAX OUTREACH view of the drawing (P1→P2 6.3°, outer −9.6° absolute)
-    // outriggers B4500: foot axes in the GLB ±1116 mm around the stabiliser centre (slewing axis 335 mm off it, MEASURED);
-    // max extension per side = (6-11 4457 − 2232) / 2; leg stroke 580 = leg H (6-1 1298 drawn = leg H, ASSUMED same in the GLB)
-    stab: { footX: { left: -1.451, right: 0.781 }, footBottom: -0.946, maxExt: 1.1125, legStroke: 0.58, source: '465-1037 tabulka 6 (B4500, noha H) + GLB' },
+    // outriggers B4500: ONE telescope per side (Jakub). Foot axes in the GLB ±1116 mm around the outrigger-box centre;
+    // the slewing axis is 335 mm to the right of it = real "column R" placement (column ring fit x 0.23–0.33 vs box
+    // centre 0, trw line "column R"), not a measuring error → spread is split about the box centre, not the axis.
+    // stroke per side = (6-11 4457 − 2232) / 2 = 1112.5 (derived from the table, both sides equal); leg stroke 580 = leg H (6-1 1298 drawn = leg H, ASSUMED same in the GLB)
+    stab: { footX: { left: -1.451, right: 0.781 }, footBottom: -0.946, maxExt: 1.1125, legStroke: 0.58, telescopes: 1, source: '465-1037 tabulka 6 (B4500, noha H) + GLB' },
   },
 ]
 

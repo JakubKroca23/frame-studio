@@ -59,3 +59,9 @@ drawing values, or kept from the template — and the report says which.
 4. Every value that no drawing dimension backs is marked ASSUMED in craneKinematics.ts and in the report.
 5. Check min/max reach and outrigger spread in a test against the drawing tables (tolerance ≤ 70 mm).
 6. Do not commit company drawings or .trw files, only the resulting GLB.
+- **L10 — outrigger spread vs. slewing-axis offset (Jonsered iZ.18R "column R").** The spread from the table / TrailerWIN
+  (6-11 = 4457) is foot-to-foot and symmetric about the outrigger box, not about the slewing axis. The 335 mm
+  offset of the axis is real (column R option: the column ring fit sits right of the box centre), not a measuring
+  error. Splitting the spread about the axis needed 777/1447 mm per side (unreachable). About the box centre it is
+  1112.5 mm on both sides = ONE telescope per side (confirmed by Jakub). Rule: always split the spread about the
+  outrigger box, and keep `telescopes` in the def.

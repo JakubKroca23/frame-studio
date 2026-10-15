@@ -33,7 +33,9 @@ describe('Jonsered iZ.18R HD', () => {
   it('outriggers: full extension gives the table spread 6-11 (B4500 H 4457), legs to ground within stroke', () => {
     const st = def.stab!
     const e = stabFromSpread(st, 4457)
-    expect((Math.abs(st.footX.left) + e.left + Math.abs(st.footX.right) + e.right) * 1000).toBeLessThan(4457 + 1)
+    expect(st.telescopes).toBe(1)
+    expect((st.footX.right + e.right - (st.footX.left - e.left)) * 1000).toBeCloseTo(4457, 0)
+    expect(e.left).toBeCloseTo(e.right, 6)
     expect(e.left).toBeLessThanOrEqual(st.maxExt)
     expect(legToGroundM(st, 1200)).toBeCloseTo(0.254, 3)
     expect(legToGroundM(st, 3000)).toBe(st.legStroke)
