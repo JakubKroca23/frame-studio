@@ -1,7 +1,8 @@
 import { TopBar } from '../components/TopBar'
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Bounds, Center, ContactShadows, Environment, OrbitControls } from '@react-three/drei'
+import { Bounds, Center, Environment, OrbitControls } from '@react-three/drei'
+import { ConcreteFloor } from '../view/ConcreteFloor'
 import * as THREE from 'three'
 import { Button } from '../components/ui/button'
 import { downloadBlob, exportGlb } from '../export/download'
@@ -439,11 +440,11 @@ function SolidView({ geometry }: { geometry: THREE.BufferGeometry }) {
       <directionalLight position={[4, 6, 2]} intensity={1.1} />
       <Environment preset="city" />
       <Bounds fit clip observe margin={1.25}>
-        <Center>
+        <Center top>
           <mesh geometry={geometry} material={mat} />
         </Center>
       </Bounds>
-      <ContactShadows opacity={0.35} scale={20} blur={2.5} far={8} />
+      <ConcreteFloor size={60} />
       <OrbitControls makeDefault />
     </Canvas>
   )

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ConcreteFloor } from '../view/ConcreteFloor'
 import { Canvas } from '@react-three/fiber'
 import { Environment, Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -93,7 +94,7 @@ export function MultiliftPage() {
           <ambientLight intensity={0.6} />
           <directionalLight position={[6000, 9000, 5000]} intensity={1.3} />
           <Environment preset="city" />
-          <gridHelper args={[16000, 16, '#3a4659', '#253043']} />
+          <ConcreteFloor size={40000} />
           <group position={[-spec.subframeLengthMm / 2, 0, 0]}>
             <HookliftModel key={spec.name} xRear={spec.subframeLengthMm} frameTop={0} params={params} mesh={mesh} fallback={null} />
           </group>

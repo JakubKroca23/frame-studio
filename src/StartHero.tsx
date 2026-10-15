@@ -38,10 +38,10 @@ const shadowMat = (() => {
   const c = cv.getContext('2d')!, g = c.createRadialGradient(32, 32, 4, 32, 32, 32)
   g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)')
   c.fillStyle = g; c.fillRect(0, 0, 64, 64)
-  return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 })
+  return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })
 })()
 function FloorShadow({ x, z = 0, sx, sz }: { x: number; z?: number; sx: number; sz: number }) {
-  return <mesh position={[x, 3, z]} rotation={[-Math.PI / 2, 0, 0]} scale={[sx, sz, 1]} material={shadowMat}><planeGeometry args={[1, 1]} /></mesh>
+  return <mesh position={[x, 10, z]} rotation={[-Math.PI / 2, 0, 0]} scale={[sx, sz, 1]} material={shadowMat}><planeGeometry args={[1, 1]} /></mesh>
 }
 
 type Hover = { hot: boolean; setHot: (h: boolean) => void; open: () => void }
@@ -108,9 +108,9 @@ function Exhibit({ name, x, z, r, standLen, children, ...h }: Hover & { name: st
   return (
     <group name={name} position={[0, 0, z]} {...hoverProps(h)}>
       <FloorShadow x={x} sx={standLen + 2200} sz={3000} />
-      <mesh position={[x, 6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[x, 16, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[r - 140, r, 64]} />
-        <meshBasicMaterial color={h.hot ? '#3ee6c4' : '#5b6573'} transparent opacity={h.hot ? 0.95 : 0.45} />
+        <meshBasicMaterial color={h.hot ? '#3ee6c4' : '#5b6573'} transparent opacity={h.hot ? 0.95 : 0.45} depthWrite={false} polygonOffset polygonOffsetFactor={-6} polygonOffsetUnits={-6} />
       </mesh>
       <mesh position={[x, FRAME_TOP / 2, 0]} material={standMat}><boxGeometry args={[standLen, FRAME_TOP, 900]} /></mesh>
       <Boundary fallback={null}><Suspense fallback={null}>{children}</Suspense></Boundary>
@@ -159,7 +159,7 @@ export function StartHero() {
   const items: Label[] = [
     { label: 'Import DXF podvozku', sub: 'bokorys / půdorys · DXF, DWG', onClick: () => dxf.current?.click(), testid: 'door-dxf' },
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
-    { label: 'Specifikace PDF', sub: 'popis vozidla výrobce · MAN', onClick: () => spec.current?.click(), testid: 'door-spec' },
+    { label: 'Specifikace PDF', sub: 'specifikace výrobce · MAN, Volvo, DAF', onClick: () => spec.current?.click(), testid: 'door-spec' },
     { label: 'Konfigurátor', sub: 'podvozek, rám, nápravy', onClick: () => go('#novy'), testid: 'start-cfg', hot, setHot, cfg: true },
     { label: 'Jeřáby HIAB', sub: 'katalog, X-HiPro 142', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
     { label: 'Multilift', sub: 'nosiče kontejnerů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },

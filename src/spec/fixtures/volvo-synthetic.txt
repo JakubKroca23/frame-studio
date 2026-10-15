@@ -1,0 +1,22 @@
+Synthetic fixture (not a real Volvo document) – invented values, glyph loss as in the real PDF font.
+Volvo Group Czech Republic, s.r.o.
+Technick speciRkace
+FM D13 62 Rigid Tag Axle Diesel Rear Air
+● Vysoký podvozek, cca 950 mm
+● Vlečen n prava, jednomont ž, řízen elektrohydraulicky
+● Spací kabina FM
+● Rozvor 5000 mm
+● Zatížení přední n pravy 9 t
+● Omezovač zatížení hnací n pravy 11 t
+● Zatížení vlečené n pravy 7 tun
+● ProRl r mu 300 mm
+● Tloušťka r mu 7.0 mm
+● Schr nka na akumul tory na levé straně vozidla
+● Prav n drž 400 L, Alu, tvar D
+● AdBlue n drž vlevo
+● AdBlue n drž 60 litrů
+● Délka zadního převisu 2500 mm
+● Tažné zařízení Testcoupler 1
+● Přední n prava, 385/65R22.5
+● Hnací n prava, 315/70R22.5
+● Vlečen n prava, 385/55R22.5

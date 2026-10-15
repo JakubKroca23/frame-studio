@@ -1,15 +1,13 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { ConcreteFloor } from './ConcreteFloor'
 
 /**
  * Lightweight procedural surroundings: concrete yard + assembly hall (montážní hala) behind the truck
  * (−Z side, so the default three-quarter camera at +Z looks past the truck towards the hall).
  * Units mm, X rearward from axle 1, Y up. A handful of shared materials, merged box geometry, no shadows cast.
  */
-const mats = {
-  concrete: new THREE.MeshStandardMaterial({ color: '#9a9d9e', roughness: 0.92, metalness: 0.04, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-}
 
 /** Hall (Contsystem style): ridge along Z, gable end with 3 sectional doors facing the yard (+Z). */
 export const H = { x0: -9000, x1: 21000, z0: -48000, z1: -12000, wall: 8500, ridge: 11000 }
@@ -94,7 +92,7 @@ export function buildHall() {
     add(panel(DW, DH, 1 / DW, 1 / DH).translate(d, DH / 2, z1 - 250), 'door')
     B(d, DH + 200, z1 + 120, DW + 1400, 400, 240, 'pil')
     B(d, DH + 1300, z1 + 260, 450, 160, 520, 'lamp')
-    add(panel(DW, 300, 1 / 600, 1 / 300).rotateX(-Math.PI / 2).translate(d, 4, z1 + 600), 'stripe')
+    add(panel(DW, 300, 1 / 600, 1 / 300).rotateX(-Math.PI / 2).translate(d, 12, z1 + 600), 'stripe')
     for (const sx of [-1, 1]) {
       const bx = d + sx * (DW / 2 + 450)
       add(new THREE.CylinderGeometry(110, 110, 1100, 10).translate(bx, 550, z1 + 600), 'bollard')
@@ -115,7 +113,7 @@ const hallMats = () => {
     door: new THREE.MeshStandardMaterial({ map: doorTex(), envMapIntensity: 0.35, roughness: 0.55, metalness: 0.3 }),
     pil: new THREE.MeshStandardMaterial({ color: '#6e767c', envMapIntensity: 0.35, roughness: 0.55, metalness: 0.35 }),
     lamp: new THREE.MeshStandardMaterial({ color: '#4a4f54', emissive: '#fff4d6', emissiveIntensity: 0.25, envMapIntensity: 0.35, roughness: 0.5 }),
-    stripe: new THREE.MeshStandardMaterial({ map: st, envMapIntensity: 0.35, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2 }),
+    stripe: new THREE.MeshStandardMaterial({ map: st, envMapIntensity: 0.35, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
     bollard: new THREE.MeshStandardMaterial({ map: st, envMapIntensity: 0.35, roughness: 0.6 }),
     logo: new THREE.MeshBasicMaterial({ map: logoTex(), transparent: true, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 }),
   } as Record<string, THREE.Material>
@@ -139,10 +137,8 @@ export function Surroundings() {
   const hm = useMemo(hallMats, [])
   return (
     <group name="env">
-      {/* single ground plane (concrete yard), slightly below 0 with polygon offset → no z-fighting with the grid / tyres */}
-      <mesh name="env-ground" rotation={[-Math.PI / 2, 0, 0]} position={[4000, -2, -8000]} material={mats.concrete} receiveShadow>
-        <planeGeometry args={[80000, 80000]} />
-      </mesh>
+      {/* the only floor: plain concrete plane (no grid on top of it any more → no z-fighting / moiré) */}
+      <ConcreteFloor name="env-ground" x={4000} z={-8000} size={80000} />
       <group name="env-hall">
         {hall.map((p, i) => <mesh key={i} geometry={p.g} material={hm[p.m]} />)}
       </group>

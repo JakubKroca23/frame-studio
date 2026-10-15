@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ConcreteFloor } from '../view/ConcreteFloor'
 import { Canvas, useThree } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import { CraneArticulated } from '../trw/CraneArticulated'
@@ -52,7 +53,7 @@ export function CraneStage({ def, variant, joints, onJoints }: { def: CraneDef; 
       <ambientLight intensity={0.5} />
       <directionalLight position={[8000, 15000, 6000]} intensity={1.4} castShadow />
       <Environment preset="city" />
-      <gridHelper args={[30000, 30, '#3a4659', '#253043']} />
+      <ConcreteFloor size={60000} />
       <CraneArticulated key={`${def.key}-${variant.id}`} x={0} frameTop={0} joints={joints} variant={variant} onJoints={onJoints} fallback={null} />
       <OrbitControls makeDefault target={[0, 1800, 5500]} />
       <CamHook />

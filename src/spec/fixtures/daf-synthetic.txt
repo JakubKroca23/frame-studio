@@ -1,0 +1,25 @@
+Synthetic fixture (not a real DAF document) – invented values in the dealer prose format.
+Specifikace XF 450 FAN 6X2 Podvozek
+Kabina - exteriér  -  Kabina Space Cab. Délka kabiny: 2300 mm; šířka
+kabiny: 2490 mm.
+Odpružení a nápravy  -  Přední náprava typu 1X, s přesazením 100 mm. Odpružení s
+parabolickými pružinami. Maximální zatížení 8,0 t.
+-  Poháněná zadní náprava a nepoháněná řízená zadní vlečená
+náprava s elektronicky řízeným vzduchovým odpružením. Max. zatížení skupiny: 19,0 t.
+-  Zatížení vlečené nápravy 7,0 t.
+-  Zvedací zařízení pro řízenou zadní vlečenou nápravu.
+-  Přední náprava(-y): rozměr pneumatik 385/65R22,5, rozměr kola
+22,5 x 11,75.
+-  Hnaná zadní náprava (nápravy): rozměr pneumatik 315/70R22,5,
+rozměr kola 22,5 x 9,00.
+-  Vlečená náprava, rozměr pneumatik 315/70R22,5, rozměr kola
+22,5 x 9,00.
+-  Rozvor 4,90 m / zadní převis 2,50m.
+-  Podélný nosník, výška 300 mm, tloušťka 8,0 mm.
+-  Vyústění výfuku vpravo.
+-  Jednotka EAS na pravé straně podvozku, svislá skříň
+akumulátoru na levé straně a 60litrová nádrž kapaliny AdBlue(R)
+umístěná nad levým blatníkem.
+Podvozek  -  430 litrová hliníková palivová nádrž na pravé straně, výška 600
+mm.
+-  Držák náhradního kola levá strana.

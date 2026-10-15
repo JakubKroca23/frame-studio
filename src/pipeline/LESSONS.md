@@ -40,3 +40,9 @@ Rules learned from real body-builder drawings. Read this before you change `anal
 - Průměr kola z ISO rozměru je přesná matematika (rim·25.4 + 2·šířka·profil), ne odhad. Dvojmontáž MAN neuvádí → odvozená, označená jako předpoklad.
 - Strany výbavy (nádrž, AdBlue, tlumič, baterie, rezerva) jsou ve výbavových řádcích; podélné polohy a rozměry nejsou nikde → vždy seznam předpokladů v UI (`SpecImport.assumptions`) + `approx` v předloze.
 - Firemní PDF jen v `test-local/` (`*.local.test.ts`); do repa jen syntetický fixture s TD řádky.
+- Volvo „Technická specifikace“: font PDF ztrácí glyf „á“ (mezera/nic) a ligaturu „fi“ (→ „R“). Vzory psát přes `rx()` – nikdy nedávat „á“ dovnitř `[...]` (rx ho nahrazuje třídou). Rozvor, zadní převis, profil 300/8 a výška „cca 1000“ (= odhad, `approx`) jsou v odrážkách; přední převis, šířka rámu, délka kabiny chybí → předpoklady.
+- DAF (NAPA): prosté věty zalomené přes řádky → spojit vše kromě odrážek „-  “. Rozvor „5,60 m / zadní převis 3,15m“, „Délka kabiny: 2360 mm; šířka kabiny: 2500 mm“, nosník „výška 310 mm, tloušťka 7,0 mm“. Zatížení hnané = skupina − vlečená (odvozeno, ve zdroji tak označeno).
+- Značka: MAN = řádky TDxxx, Volvo = „Volvo Group“ + „Technická specifikace“, DAF = „Specifikace XF/XG/XD/CF…“. Společný mezimodel `SpecData` (src/spec/specModel.ts) → `specToConfig`.
+
+## 3D podlaha
+- Jediná podlaha všude: `ConcreteFloor` (src/view/ConcreteFloor.tsx) – jedna šedá rovina, polygonOffset +2, mírně pod 0. Žádné `Grid`/`gridHelper`/`ContactShadows` přes podlahu (nekonečná mřížka nad rovinou = moiré/z-fighting). Značení na podlaze (pruhy, kruhy, stíny) zvednout o ≥ 10 mm a dát polygonOffset záporný + depthWrite false.

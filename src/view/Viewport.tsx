@@ -1,4 +1,4 @@
-import { OrbitControls, GizmoHelper, GizmoViewport, Grid } from '@react-three/drei'
+import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react'
 import * as THREE from 'three'
@@ -66,18 +66,6 @@ export function Viewport({
         <Surroundings />
         {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} fit={fit} /> : null}
         {children}
-        <Grid
-          args={[40000, 40000]}
-          position={[3000, 3, 0]}
-          cellSize={500}
-          cellThickness={0.5}
-          cellColor="#868b8e"
-          sectionSize={2000}
-          sectionThickness={1}
-          sectionColor="#767c80"
-          fadeDistance={22000}
-          infiniteGrid
-        />
         <OrbitControls makeDefault enableDamping={false} maxPolarAngle={Math.PI * 0.485} minDistance={400} maxDistance={70000} />
         <GizmoHelper alignment="bottom-right" margin={[64, 64]}>
           <GizmoViewport axisColors={['#c24e28', '#7d9a78', '#d7d2c8']} labelColor="#111" />
