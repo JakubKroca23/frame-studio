@@ -33,7 +33,7 @@ import type { TrwImport } from '../trw/trwConfig'
 import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
 import { parseCsSimResult, type CsSimResult } from '../trw/csSimResult'
-import { CS_SIM_ORIGIN, TRW_ORIGIN, csSimLink, csSimMessageData, fetchTrwUrl, stripLinkParams, trwFromCsSim, type LinkRequest } from '../trw/links'
+import { CS_SIM_ORIGIN, MANAGER_ORIGIN, MANAGER_TIMEOUT_MS, TRW_ORIGIN, managerMessageFile, csSimLink, csSimMessageData, fetchTrwUrl, stripLinkParams, trwFromCsSim, type LinkRequest } from '../trw/links'
 import { TrwAuthError, liveDocOf, mapTrwExport } from '../trw/trwConfig'
 import { useLiveStatus } from '../trw/useLiveStatus'
 import { importBlockReason } from '../trw/fromTrw'
@@ -180,6 +180,31 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
         })
       return () => {
         cancelled = true
+      }
+    }
+    if (link.kind === 'manager') {
+      setLinkStatus({ text: 'Čekám na soubor z Contsystem Manageru…', level: 'info' })
+      let done = false
+      const onManager = (event: MessageEvent) => {
+        if (done) return
+        const f = managerMessageFile(event)
+        if (f === null) return
+        done = true
+        window.clearTimeout(mTimer)
+        if (!(f instanceof File)) return setLinkStatus({ text: f.error, level: 'error' })
+        setLinkStatus(null)
+        // same path as opening the file by hand (trw conversion needs the trw login – same messages)
+        void openFile(f)
+      }
+      window.addEventListener('message', onManager)
+      const mTimer = window.setTimeout(() => {
+        if (!done) setLinkStatus({ text: `Z Contsystem Manageru nepřišel žádný soubor (${MANAGER_TIMEOUT_MS / 1000} s). Otevřete studio z Manageru znovu nebo nahrajte .trw ručně („Otevřít .trw“).`, level: 'error' })
+      }, MANAGER_TIMEOUT_MS)
+      if (window.opener) (window.opener as Window).postMessage({ type: 'ready' }, MANAGER_ORIGIN)
+      else setLinkStatus({ text: 'Okno nebylo otevřeno z Contsystem Manageru – čekám na soubor…', level: 'info' })
+      return () => {
+        window.removeEventListener('message', onManager)
+        window.clearTimeout(mTimer)
       }
     }
     if (link.kind !== 'cssim') return

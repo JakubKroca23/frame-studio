@@ -5,8 +5,14 @@ import { TRW_SCHEMA, TRW_URL, TrwAuthError, mapTrwExport, type TrwImport } from 
 
 export const TRW_ORIGIN = 'https://trw.propoj.app'
 export const CS_SIM_ORIGIN = 'https://sim.propoj.app'
+/** Contsystem Manager (zakázky) – the only origin allowed to push a .trw into the studio (?from=manager). Exact match. */
+export const MANAGER_ORIGIN = 'https://zakazky.contsystem.cz'
+export const MANAGER_ALLOWED_ORIGINS: readonly string[] = [MANAGER_ORIGIN]
+export const MANAGER_MESSAGE_TYPE = 'cs-studio/open-trw'
+export const MANAGER_MAX_BYTES = 20 * 1024 * 1024
+export const MANAGER_TIMEOUT_MS = 30000
 
-export type LinkRequest = { kind: 'trw'; url: string } | { kind: 'cssim' } | { kind: 'invalid'; error: string } | null
+export type LinkRequest = { kind: 'trw'; url: string } | { kind: 'cssim' } | { kind: 'manager' } | { kind: 'invalid'; error: string } | null
 
 /** Accepts only absolute https URLs on exactly https://trw.propoj.app. */
 export function validateTrwUrl(raw: string): { url: string } | { error: string } {
@@ -29,6 +35,7 @@ export function parseLinkParams(search: string): LinkRequest {
     return 'url' in v ? { kind: 'trw', url: v.url } : { kind: 'invalid', error: v.error }
   }
   if (p.get('from') === 'cssim') return { kind: 'cssim' }
+  if (p.get('from') === 'manager') return { kind: 'manager' }
   return null
 }
 
@@ -47,6 +54,31 @@ export function csSimMessageData(event: { origin: string; data: unknown }): unkn
   const d = event.data as { type?: unknown; data?: unknown } | null
   if (!d || typeof d !== 'object' || d.type !== CS_SIM_SCHEMA || !d.data || typeof d.data !== 'object') return null
   return d.data
+}
+
+/**
+ * Validates a Contsystem Manager message: {type:'cs-studio/open-trw', name, data} from exactly MANAGER_ORIGIN.
+ * data = ArrayBuffer / typed array / Blob (.trw project or JSON export) or a trw/config@1 JSON object / string.
+ * Returns null for messages to ignore (other origin or type), {error} for a bad payload, else a File for openFile().
+ */
+export function managerMessageFile(event: { origin: string; data: unknown }): File | { error: string } | null {
+  if (!MANAGER_ALLOWED_ORIGINS.includes(event.origin)) return null
+  const d = event.data as { type?: unknown; name?: unknown; data?: unknown } | null
+  if (!d || typeof d !== 'object' || d.type !== MANAGER_MESSAGE_TYPE) return null
+  const rawName = typeof d.name === 'string' ? d.name.split(/[\\/]/).pop()!.trim().slice(0, 200) : ''
+  const v = d.data
+  let part: BlobPart
+  let isJson = false
+  if (v instanceof ArrayBuffer) part = v
+  else if (ArrayBuffer.isView(v)) part = new Uint8Array(v.buffer, v.byteOffset, v.byteLength).slice()
+  else if (typeof Blob !== 'undefined' && v instanceof Blob) part = v
+  else if (typeof v === 'string') { part = v; isJson = true }
+  else if (v && typeof v === 'object') { part = JSON.stringify(v); isJson = true }
+  else return { error: 'Zpráva z Manageru neobsahuje data souboru.' }
+  const file = new File([part], rawName && /\.(trw|json)$/i.test(rawName) ? rawName : `${rawName.replace(/\.[^.]*$/, '') || 'zakazka'}${isJson ? '.json' : '.trw'}`)
+  if (file.size === 0) return { error: 'Soubor z Manageru je prázdný.' }
+  if (file.size > MANAGER_MAX_BYTES) return { error: `Soubor z Manageru je příliš velký (${(file.size / 1048576).toFixed(1)} MB, max ${MANAGER_MAX_BYTES / 1048576} MB).` }
+  return file
 }
 
 export function csSimLink(trwUrl: string | null): string {
