@@ -20,3 +20,10 @@ Rules learned from real body-builder drawings. Read this before you change `anal
 
 ## Tests
 - Company drawings stay out of the public repo. Put them in `test-local/` (gitignored) and write tests as `*.local.test.ts` that skip when the fixture is missing.
+
+## Volvo BEP – vizuál (truckDetail.ts)
+- Extrudované DXF siluety BEP dílů (32_ boční ochrana, 19_ zadní nárazník, 49_ blatník) vypadají jako černé bloky → nahradit typovanými procedurálními buildery podle prefixu vrstvy.
+- `Placed` (detail.ts) má y = příčně, z = nahoru; `PlacedPart` (truckDetail) y = nahoru, z = příčně → adaptér v `take()`. Ověřit debug výpisem souřadnic, ne odhadem.
+- `ReviewElement` musí nést `layer`, jinak `isBep` v prohlížeči nikdy neplatí.
+- Nikdy `Object.assign(mesh, {position})` – position je read-only → `position.set`.
+- Barvy dle Creo: rám černý, příčky modré, boční rámy zelené, nárazník šedá trubka, spojka žlutá. Kabina: parametrická FM/FH podle hlavičky, barva `params.cabColor`.

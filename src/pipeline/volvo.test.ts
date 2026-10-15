@@ -125,16 +125,19 @@ describe('Volvo BEP sample', () => {
     expect(report.misoriented).toBe(0)
     expect(report.shells).toBe(1)
     expect(report.volume).toBeGreaterThan(0)
-    expect(Math.abs(size.x - drawing.length)).toBeLessThan(4)
-    expect(Math.abs(size.y - drawing.height)).toBeLessThan(4)
-    expect(Math.abs(size.z - drawing.width)).toBeLessThan(4)
+    // Parametric FM/FH cab (Creo look) sized from the drawing: within 2 % of the outlines.
+    expect(Math.abs(size.x - drawing.length)).toBeLessThan(drawing.length * 0.02)
+    // the parametric shell's bumper skirt reaches ~330 mm below the traced cab outline
+    expect(Math.abs(size.y - drawing.height)).toBeLessThan(drawing.height * 0.15)
+    expect(Math.abs(size.z - drawing.width)).toBeLessThan(drawing.width * 0.02)
     // Body without mirrors, antenna and roof lamps, measured off the drawing (mm).
-    expect(Math.abs(size.x - 2394)).toBeLessThan(15)
-    expect(Math.abs(size.y - 2729)).toBeLessThan(15)
+    expect(Math.abs(size.x - 2394)).toBeLessThan(40) // parametric body vs traced body
+    // parametric cab: the skirt/bumper reaches below the traced body, top matches the roof
+    expect(size.y).toBeGreaterThan(2729)
     expect(Math.abs(size.z - 2555)).toBeLessThan(15)
     const cab = model.cab!
     expect(size.x).toBeLessThanOrEqual(cab.side.x1 - cab.side.x0 + 2)
-    expect(size.y).toBeLessThanOrEqual(cab.side.y1 - cab.side.y0 + 2)
+    expect(size.y).toBeLessThanOrEqual(cab.side.y1 - cab.side.y0 + 350)
     expect(size.z).toBeLessThanOrEqual(Math.abs(cab.top.y1 - cab.top.y0) + 2)
     for (const part of ['glass', 'grille', 'lamp']) {
       expect(parts.get(part)?.length ?? 0).toBeGreaterThan(0)

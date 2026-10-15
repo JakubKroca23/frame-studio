@@ -20,6 +20,8 @@ export interface ReviewElement {
   role: ReviewRole
   title: string
   kind?: string
+  /** Source drawing layer of an equipment part (Volvo BEP layer names drive the typed geometry). */
+  layer?: string
   confidence: number
   source: 'measured' | 'estimated' | 'user'
   evidence: string
@@ -226,6 +228,7 @@ export function buildReview(model: ChassisModel): ReviewElement[] {
       role: 'equipment',
       title: partLabel(part),
       kind,
+      layer: part.layer,
       confidence: part.confidence ?? 0.5,
       source: part.source ?? 'estimated',
       evidence: part.evidence ?? 'Díl z bloku ve výkresu.',
@@ -385,6 +388,7 @@ function equipmentPart(el: ReviewElement, index: number): PartModel {
     id: el.id || `user-${index}`,
     partNumber: el.title.replace(/^.*\s/, '') || kind,
     kind,
+    layer: el.layer,
     confidence: el.confidence,
     source: el.source,
     evidence: el.evidence,

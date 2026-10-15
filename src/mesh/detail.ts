@@ -28,6 +28,8 @@ import {
 } from './materials'
 import { extrudePlan, extrudeProfile, profileShape, revolveProfile } from './profile'
 import { parametricCabGroup } from './cabParametric'
+import { addCoupling, addFuelTank, addIntakeTower, addMufflerBox, addRearBumper, addRearFenders, addSideGuards, addTailLamps, crossmemberMat, type TruckCtx } from './truckDetail'
+import { CAB_GREY } from './materials'
 import { cabFeatures, tracedCab, type CabPartGeometry, type CabSolid } from './silhouette'
 
 export interface World {
@@ -93,6 +95,10 @@ function railZ(world: World, drawingX: number, side: -1 | 1): number | null {
   return y - world.centerY
 }
 
+/** Body-builder drawing with component layers (Volvo BEP): typed, render-matched component geometry. */
+export const isBep = (world: World) => world.model.components.some((c) => /^\d{2}_/.test(c.layer ?? ''))
+const truckCtx = (world: World): TruckCtx => ({ frameHalf: world.frame.outerWidthStraight / 2, frameBottom: world.frame.bottomZ - world.ground, frameTop: world.frame.topZ - world.ground, ground: world.ground, originX: world.originX, centerY: world.centerY })
+
 export function axleIsDriven(axles: Axle[], index: number): boolean {
   const explicit = axles[index]?.driven
   if (explicit !== undefined) return explicit
@@ -127,7 +133,7 @@ export function addCrossmemberAssembly(
   const height = clamp(railH * 0.46, 90, 210)
   const cz = zBot + railH * 0.42
   const thick = clamp(member.thickness, 46, 130)
-  const web = solid([thick, height, span - webT], paint, [x, cz, (innerL + innerR) / 2])
+  const web = solid([thick, height, span - webT], isBep(world) ? crossmemberMat() : paint, [x, cz, (innerL + innerR) / 2])
   web.userData.noShadow = false
   parent.add(web)
   parent.add(solid([thick + 8, 12, span - webT - 8], paintDark, [x, cz + height / 2, (innerL + innerR) / 2]))
@@ -173,7 +179,7 @@ export function addAxleAssembly(parent: THREE.Group, axle: Axle, index: number, 
   }
 
   if (axle.steered ?? !axle.dual) addSteering(parent, world, x, z, track, index === 0)
-  if (!world.model.skipMudguards?.includes(axle.index)) {
+  if (!world.model.skipMudguards?.includes(axle.index) && !(isBep(world) && index > 0)) {
     const profile = world.model.mudProfiles?.find((item) => item.axle === axle.index)?.points
     if (profile && profile.length >= 3) addProfileMudguards(parent, profile, track, dual ? width * 2 + 90 : width + 80, world)
     else addMudguards(parent, x, z, radius, width, track, dual)
@@ -590,6 +596,23 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   ]
 
   let fuel = 0
+  if (isBep(world)) {
+    const ctx = truckCtx(world)
+    const take = (re: RegExp) => { const out = placed.filter((p) => re.test(p.part.layer ?? '')); for (const o of out) placed.splice(placed.indexOf(o), 1); return out.map((p) => ({ ...p, y: p.z, z: p.y })) }
+    const bars = take(/^32_/), guardBrackets = take(/^31_/)
+    if (bars.length) addSideGuards(equipment, bars, guardBrackets, ctx)
+    for (const p of take(/^19_/)) addRearBumper(equipment, p, ctx)
+    for (const p of take(/^67_/)) addTailLamps(equipment, p, ctx)
+    for (const p of take(/^41_/)) { addFuelTank(equipment, p, ctx); fuel++ }
+    for (const p of take(/^(23|73)_/)) addMufflerBox(equipment, p, ctx)
+    for (const p of take(/^16_/)) addCoupling(equipment, p)
+    take(/^(49|20)_/) // front fender belongs to the cab; rear fender stays → rear fenders below
+    const axles = world.model.axles.slice(1).map((a) => {
+      const w = clamp(Number(a.tireSpec?.match(/^(\d{3})/)?.[1] ?? 315), 180, 480)
+      return { x: a.x - world.originX, y: a.z - world.ground, radius: a.tireDiameter / 2, width: a.dual ? w * 2 + 46 : w, track: world.params.tracks[a.index] || a.track || 1850 }
+    })
+    if (axles.length) addRearFenders(equipment, axles)
+  }
   let batteryCount = 0
   let air = 0
   let exhaust = 0
@@ -1109,6 +1132,19 @@ function solidBox(size: [number, number, number], mat: THREE.Material, at: [numb
 }
 
 export function buildCab(cab: CabModel, world: World): THREE.Group {
+  if (!cab.parametric && world.model.profileId.startsWith('volvo')) {
+    const spec = volvoCabSpec(cab, world)
+    if (spec) {
+      try {
+        const lift = world.lift((cab.side.x0 + cab.side.x1) / 2)
+        const g = parametricCabGroup(spec, cab.color ?? world.params.cabColor ?? CAB_GREY, new THREE.Vector3(-world.originX, lift, 0))
+        if (isBep(world)) addIntakeTower(g, spec.xRear - world.originX, spec.height + lift, spec.frameTop + lift, -(spec.width / 2 - 230))
+        return g
+      } catch {
+        /* traced fallback */
+      }
+    }
+  }
   if (cab.parametric) {
     const liftY = world.lift((cab.side.x0 + cab.side.x1) / 2)
     try {
@@ -1280,5 +1316,32 @@ function fake(x: number, y: number, z: number, len: number, height: number, widt
     x,
     y,
     z,
+  }
+}
+
+/** Parametric Volvo cab sized from the drawing: cab x range, height, width, first axle and tyre; series from the title block. */
+function volvoCabSpec(cab: CabModel, world: World) {
+  const a0 = world.model?.axles?.[0]
+  if (!a0) return null
+  const series = /\bFMX\b/i.test(world.model.header?.cabType ?? '') ? 'FMX' : /\bFM\b/i.test(world.model.header?.cabType ?? '') ? 'FM' : 'FH'
+  const len = cab.side.x1 - cab.side.x0
+  const height = cab.side.y1 - world.ground
+  const width = clamp(Math.abs(cab.top.y1 - cab.top.y0), 2300, 2550)
+  const tyre = Number(a0.tireSpec?.match(/^(\d{3})/)?.[1] ?? 315)
+  return {
+    brand: 'volvo' as const,
+    variant: series,
+    kind: len > 2150 ? ('sleeper' as const) : ('day' as const),
+    roof: height > 3700 ? ('high' as const) : ('normal' as const),
+    tractor: false,
+    xFront: cab.side.x0,
+    xRear: cab.side.x1,
+    height,
+    width,
+    frameTop: world.frame.topZ - world.ground,
+    axleZ: a0.z - world.ground,
+    wheelRadius: a0.tireDiameter / 2,
+    frontTrack: world.params.tracks[0] || a0.track || 2050,
+    tyreWidth: tyre,
   }
 }

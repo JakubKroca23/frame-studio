@@ -129,3 +129,18 @@ export function cabMaterials(brand: string, variant: string, color?: number): Ca
     reflector,
   }
 }
+
+/* Body-builder (BEP) colour scheme as in the Volvo Creo renders: green side guards, blue crossmembers, black fenders. */
+export const guardGreen = std(0xa9c46c, 0.35, 0.5)
+export const guardBracket = std(0x3f8a45, 0.3, 0.5)
+export const crossBlue = std(0x2f8fd6, 0.3, 0.45)
+export const fenderBlack = std(0x24272b, 0.05, 0.62)
+export const bumperGrey = std(0xc9cdd1, 0.7, 0.3)
+export const couplingYellow = std(0xf2d21b, 0.3, 0.45)
+export const fuelBlack = std(0x1d2024, 0.35, 0.42)
+export const mufflerGrey = std(0x8f969c, 0.55, 0.42)
+export const intakeBrown = std(0xa65a2a, 0.15, 0.5)
+export const lampAmber = std(0xd98a14, 0.2, 0.35, { emissive: 0x6a3a00, emissiveIntensity: 0.35 })
+export const lampWhite = std(0xf3f3ee, 0.1, 0.25, { emissive: 0x77776f, emissiveIntensity: 0.3 })
+/** Default cab paint for drawing-generated cabs (grey metallic; the user can pick another colour). */
+export const CAB_GREY = 0x8d939a

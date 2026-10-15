@@ -247,6 +247,8 @@ export interface ChassisParams {
   suspension: 'mixed' | 'leaf' | 'air'
   /** 0 = use the dimension extracted for that axle. One entry per axle. */
   tracks: number[]
+  /** Cab paint for drawing-generated cabs (default grey metallic). */
+  cabColor?: number
   lod: 0 | 1 | 2
   holes: 'off' | 'markers' | 'geometry'
   show: {
