@@ -17,14 +17,14 @@ import { StudioLights } from './view/Viewport'
  * exhibits are decimated single-mesh GLBs (scripts/hero-models.mjs, ~24k tris each, meshopt), baked floor shadows,
  * HTML labels are moved through refs (no React re-render per frame).
  */
-const TARGET = new THREE.Vector3(500, 3200, H.z1 + 500)
+const TARGET = new THREE.Vector3(-1500, 3200, H.z1 + 500)
 /** Dummy chassis in front of the middle door: centre x, z; length along X. */
 /** Configurator dummy + any vehicle shown on the home scene: well out in the yard, clear of the door aprons. */
 export const VEHICLE_SPOT = { x: 6000, z: H.z1 + 12000 }
 const CH = { ...VEHICLE_SPOT, len: 9000 }
 // Exhibits stand on the yard beside the LEFT gable wall of the hall (x < H.x0), not in front of the doors.
-const CRANE_AT = { x: H.x0 - 3200, z: H.z1 - 2000 }
-const HOOK_AT = { x: H.x0 - 5000, z: H.z1 - 13500, len: 5900 }
+const CRANE_AT = { x: H.x0 - 7500, z: H.z1 - 8500 }
+const HOOK_AT = { x: H.x0 - 3300, z: H.z1 - 3000, len: 5900, rot: Math.PI / 2 }
 const FRAME_TOP = 1000
 const MODELS = `${import.meta.env.BASE_URL}models/hero/`
 
@@ -109,8 +109,9 @@ function ExhibitMesh({ file, x, y, hot, alignBottom }: { file: string; x: number
 
 /** Open steel stand: top rectangular frame on 4 legs + light X bracing, merged into one geometry. */
 const standCache = new Map<number, THREE.BufferGeometry>()
-function steelStandGeo(len: number, h = FRAME_TOP, w = 900, p = 80): THREE.BufferGeometry {
-  const hit = standCache.get(len)
+function steelStandGeo(len: number, brace = true, h = FRAME_TOP, w = 900, p = 80): THREE.BufferGeometry {
+  const key = len * 2 + (brace ? 1 : 0)
+  const hit = standCache.get(key)
   if (hit) return hit
   const parts: THREE.BufferGeometry[] = []
   const box = (sx: number, sy: number, sz: number, x: number, y: number, z: number, rx = 0, rz = 0) => {
@@ -128,32 +129,32 @@ function steelStandGeo(len: number, h = FRAME_TOP, w = 900, p = 80): THREE.Buffe
   // diagonal X bracing on long sides (thin flats)
   const bh = h - p - 260, bl = len - 2 * p
   const d = Math.hypot(bl, bh), a = Math.atan2(bh, bl)
-  for (const s of [-1, 1]) for (const k of [-1, 1]) box(d, 36, 18, 0, y0 + 260 + bh / 2 - 40, s * lz, 0, k * a)
+  if (brace) for (const s of [-1, 1]) for (const k of [-1, 1]) box(d, 36, 18, 0, y0 + 260 + bh / 2 - 40, s * lz, 0, k * a)
   const g = mergeGeometries(parts.map((q) => q.toNonIndexed()))!
-  standCache.set(len, g)
+  standCache.set(key, g)
   return g
 }
-function SteelStand({ x, len }: { x: number; len: number }) {
-  return <mesh geometry={steelStandGeo(len)} material={standMat} position={[x, 0, 0]} castShadow />
+function SteelStand({ x, len, brace = true }: { x: number; len: number; brace?: boolean }) {
+  return <mesh geometry={steelStandGeo(len, brace)} material={standMat} position={[x, 0, 0]} castShadow />
 }
 
 /** Clickable showpiece on a stand: hover ring + glow, click (not drag) opens the link. */
-function Exhibit({ name, x, z, r, standLen, children, ...h }: Hover & { name: string; x: number; z: number; r: number; standLen: number; children: ReactNode }) {
+function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & { name: string; x: number; z: number; r: number; standLen: number; rot?: number; children: ReactNode }) {
   return (
-    <group name={name} position={[0, 0, z]} {...hoverProps(h)}>
+    <group name={name} position={[x, 0, z]} rotation={[0, rot, 0]} {...hoverProps(h)}><group position={[-x, 0, 0]}>
       <FloorShadow x={x} sx={standLen + 2200} sz={3000} />
       <mesh position={[x, 16, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[r - 140, r, 64]} />
         <meshBasicMaterial color={h.hot ? '#3ee6c4' : '#5b6573'} transparent opacity={h.hot ? 0.95 : 0.45} depthWrite={false} polygonOffset polygonOffsetFactor={-6} polygonOffsetUnits={-6} />
       </mesh>
-      <SteelStand x={x} len={standLen} />
+      <SteelStand x={x} len={standLen} brace={!rot} />
       <Boundary fallback={null}><Suspense fallback={null}>{children}</Suspense></Boundary>
-    </group>
+    </group></group>
   )
 }
 
 const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 13000 * k, 11500 + 1500 * (k - 1), H.z1 + 29000 * k)
-const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 2400, CRANE_AT.z + 600], [HOOK_AT.x, 3600, HOOK_AT.z]]
+const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 5600, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z]]
 
 /** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
 function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
@@ -195,8 +196,8 @@ export function StartHero() {
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
     { label: 'Specifikace PDF', sub: 'specifikace výrobce · MAN, Volvo, DAF', onClick: () => spec.current?.click(), testid: 'door-spec' },
     { label: 'Konfigurátor', sub: 'podvozek, rám, nápravy', onClick: () => go('#novy'), testid: 'start-cfg', hot, setHot, cfg: true },
-    { label: 'Jeřáby HIAB', sub: 'katalog, X-HiPro 142', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
-    { label: 'Multilift', sub: 'nosiče kontejnerů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
+    { label: 'HIAB', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
+    { label: 'MULTILIFT', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
   ]
   return (
     <section className="start-hero" aria-label="Hala ContSystem – vstup do CS Studia">
@@ -213,7 +214,7 @@ export function StartHero() {
         <Exhibit name="start-crane" x={CRANE_AT.x} z={CRANE_AT.z} r={1900} standLen={1400} hot={craneHot} setHot={setCraneHot} open={() => go('#jeraby')}>
           <ExhibitMesh file="crane142.glb" x={CRANE_AT.x} y={FRAME_TOP} hot={craneHot} alignBottom={false} />
         </Exhibit>
-        <Exhibit name="start-multilift" x={HOOK_AT.x} z={HOOK_AT.z} r={3600} standLen={HOOK_AT.len} hot={hookHot} setHot={setHookHot} open={() => go('#multilift')}>
+        <Exhibit name="start-multilift" x={HOOK_AT.x} z={HOOK_AT.z} r={3600} standLen={HOOK_AT.len} rot={HOOK_AT.rot} hot={hookHot} setHot={setHookHot} open={() => go('#multilift')}>
           <ExhibitMesh file="multilift21s.glb" x={HOOK_AT.x} y={FRAME_TOP} hot={hookHot} alignBottom />
         </Exhibit>
         <OrbitControls makeDefault target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
