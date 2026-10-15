@@ -114,6 +114,8 @@ export interface CraneDef {
   extStrokes?: number[]
   /** derived from a template + drawing (src/craneTpl): mesh adaptation of the template parts */
   /** crane outriggers in the mesh (groups stabL/stabR = beam + leg housing, legL/legR = inner leg + foot), base frame [m] */
+  /** lift cylinder pins (A on the column, B on the main boom, mesh pose) — groups liftCyl (barrel) / liftRod */
+  liftCyl?: { a: RH; b: RH; source: string }
   stab?: { footX: { left: number; right: number }; footBottom: number; maxExt: number; legStroke: number; telescopes?: number; source: string }
   adapt?: { dh: number; baseX: number; template: string; /** stroke of each template telescope [m] (sections are lengthened when a variant needs more) */ secStroke?: number[] }
 }
@@ -163,28 +165,33 @@ export const CRANE_DEFS: CraneDef[] = [
   },
   {
     // Jonsered iZ.18R 100 HD (HiSeat, Platform, B4500), drawing 465-1037 sheet 1 (real-mm model space) + user's SolidWorks
-    // GLB (1 mesh, parked pose) split by connectivity + planes (/workspace/jons/build.py, LESSONS L9). Mesh frame: origin on
-    // the slewing axis (GLB x 0.335, z −0.325, MEASURED: slewing-ring fit), mounting plane GLB y 0.034 (= P1 − kóta 1-4).
-    // P1 (main boom pivot) and P2 (knuckle) = pin bores in the GLB matched to the drawing pins (|P1P2| 3287 drawing,
-    // P2–outer cylinder pin 558 drawing / 558 mesh). Tip = drawing retracted tip pin mapped through the outer boom.
-    // DEVIATION: P1 is 243 mm behind the axis in the mesh vs. 296 (kóta 1-7) on the drawing.
+    // GLB (1 mesh, parked pose) split by connectivity + planes + contact-island check (/workspace/jons/build2.py, LESSONS L9, L11).
+    // Mesh frame: origin on the slewing axis = column spline-shaft ring fit (GLB x 0.345, z −0.3235, MEASURED ±0.1 mm),
+    // mounting plane = P1 − 2449 (kóta 1-4). Pins = concentric pin-bore rings in the GLB (MEASURED):
+    // P1 r 40 mm rings → 296 mm behind the axis = kóta 1-7 296 (exact), P2 r 40/66 mm, |P1P2| 3287.5 (drawing 3297).
+    // Lift cylinder pins A (column, rings r 35–38) and B (main, rod eye r 72): MEASURED; the rod tube is not in the
+    // CAD (hidden in the barrel) → synthetic Ø90 rod (ASSUMED Ø, visual only). Outer cylinder + knuckle links ride on the
+    // main boom (ASSUMED: link system not articulated). Tip = drawing retracted tip pin mapped through the outer boom.
     key: 'iz18r', name: 'Jonsered iZ.18R HD', match: /jonsered|\bi\s*z[._ ]?\s*18\s*r/i,
     file: 'jonsered-iz18r-articulated.glb',
-    geom: { p1: { r: -0.233, h: 2.449 }, p2: { r: 1.414, h: -0.393 }, tipRetracted: { r: 0.662, h: 2.517 }, lateralOffset: 0, extDir: { r: -0.409, h: 0.912 } },
+    geom: { p1: { r: -0.296, h: 2.449 }, p2: { r: 1.4191, h: -0.3557 }, tipRetracted: { r: 0.6721, h: 2.5543 }, lateralOffset: 0, extDir: { r: -0.409, h: 0.912 } },
+    liftCyl: { a: { r: 0.2481, h: 0.6563 }, b: { r: -0.035, h: 1.9535 }, source: 'GLB pin rings (A column, B main)' },
     refMinOutreachMm: 5933,
-    // ASSUMED limits (drawing gives no angles); must contain the parked mesh pose (a1 −59.9°, rel +164°)
-    limits: { a1: [-62, 80], rel: [-30, 170], slew: [-207.5, 207.5] },
+    // ASSUMED limits: 465-1037 has no working diagram / end positions (only MAX OUTREACH, CLOSE IN, PARKED views).
+    // Must contain the parked mesh pose (a1 −58.6°, rel +165°). Outer boom down to −90° relative (typical knuckle
+    // crane, Jakub: tip must go below the knuckle pin); lift cylinder 1320→2373 mm over a1 −62…80 (barrel 1.25 m, fits).
+    limits: { a1: [-62, 80], rel: [-90, 170], slew: [-207.5, 207.5] },
     // 2 hydraulic extensions (drawing: 2nd head ring set moves 2016 mm, tip 4028 mm = kóta 1-3 4030)
     extStrokes: [2.016, 2.012],
     variants: [{ id: '100', family: 'E', extensions: 2, minOutreachMm: 5933, hydMaxMm: 9963, manMaxMm: 9963, model: 'iz18r' }],
     defaultVariantId: '100', loads: null, meshExtSections: 2, noLoadText: 'nosnost n/a (Jonsered – jen dosahy z výkresu)',
     folded: { slew: -94.5, a1: 0, rel: 0, ext: 0 }, // parked = mesh pose; boom plane is slewed 4.5° in the GLB (MEASURED from pin axes)
-    unfolded: { a1: 6.3, rel: -15.9, ext: 0 }, // MAX OUTREACH view of the drawing (P1→P2 6.3°, outer −9.6° absolute)
+    unfolded: { a1: 7.6, rel: -18.7, ext: 0 }, // MAX OUTREACH view of the drawing: P1(−296,2449)→P2(2972,2886) 7.6°, P2→tip(5935,2308) −11.0°
     // outriggers B4500: ONE telescope per side (Jakub). Foot axes in the GLB ±1116 mm around the outrigger-box centre;
-    // the slewing axis is 335 mm to the right of it = real "column R" placement (column ring fit x 0.23–0.33 vs box
+    // the slewing axis is 345 mm to the right of it = real "column R" placement (column ring fit x 0.23–0.33 vs box
     // centre 0, trw line "column R"), not a measuring error → spread is split about the box centre, not the axis.
     // stroke per side = (6-11 4457 − 2232) / 2 = 1112.5 (derived from the table, both sides equal); leg stroke 580 = leg H (6-1 1298 drawn = leg H, ASSUMED same in the GLB)
-    stab: { footX: { left: -1.451, right: 0.781 }, footBottom: -0.946, maxExt: 1.1125, legStroke: 0.58, telescopes: 1, source: '465-1037 tabulka 6 (B4500, noha H) + GLB' },
+    stab: { footX: { left: -1.4635, right: 0.7735 }, footBottom: -0.9087, maxExt: 1.1125, legStroke: 0.58, telescopes: 1, source: '465-1037 tabulka 6 (B4500, noha H) + GLB' },
   },
 ]
 

@@ -1,3 +1,4 @@
+import { SceneFilterBar } from '../view/SceneFilterBar'
 import { TopBar } from '../components/TopBar'
 import { useEffect, useState } from 'react'
 import { CRANE_CATALOG, CRANE_DEFS, meshAngles, variantBoom } from '../trw/craneKinematics'
@@ -67,6 +68,7 @@ function Inner({ defKey, setKey, def, entry }: { defKey: string; setKey: (k: str
       </aside>
       <main className="app-main" style={{ position: 'relative', minHeight: 420 }}>
         <CraneStage def={def} variant={variant} joints={pose.joints} onJoints={pose.setJoints} />
+        <SceneFilterBar />
       </main>
     </div>
   )

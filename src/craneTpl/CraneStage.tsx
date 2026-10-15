@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import { CraneArticulated } from '../trw/CraneArticulated'
 import { forwardKinematics, meshAngles, unfoldedPose, variantBoom, type CraneDef, type CraneJoints, type CraneVariant } from '../trw/craneKinematics'
@@ -10,6 +10,7 @@ export type Row = { name: string; drawing: number | null; template: number | nul
 /** Pose buttons + reach readout for a crane def / variant. */
 export function usePose(def: CraneDef, variant: CraneVariant) {
   const [joints, setJoints] = useState<CraneJoints>(() => unfoldedPose(def, 90))
+  ;(window as unknown as { __setCraneJoints?: (j: Partial<CraneJoints>) => void }).__setCraneJoints = (j) => setJoints((o) => ({ ...o, ...j })) // capture/test hook
   const stroke = variantBoom(variant).stroke
   const straight = -meshAngles(def).delta // extension axis horizontal
   const tip = forwardKinematics({ ...joints, a1: 0, rel: straight, ext: stroke }, variant).tip
@@ -54,6 +55,18 @@ export function CraneStage({ def, variant, joints, onJoints }: { def: CraneDef; 
       <gridHelper args={[30000, 30, '#3a4659', '#253043']} />
       <CraneArticulated key={`${def.key}-${variant.id}`} x={0} frameTop={0} joints={joints} variant={variant} onJoints={onJoints} fallback={null} />
       <OrbitControls makeDefault target={[0, 1800, 5500]} />
+      <CamHook />
     </Canvas>
   )
+}
+
+/** capture/test hook: window.__craneCam([x,y,z] camera, [x,y,z] target) in scene mm */
+function CamHook() {
+  const { camera, controls } = useThree()
+  ;(window as unknown as { __craneCam?: (p: number[], t: number[]) => void }).__craneCam = (p, t) => {
+    camera.position.set(p[0], p[1], p[2])
+    const c = controls as unknown as { target?: { set: (x: number, y: number, z: number) => void }; update?: () => void } | null
+    c?.target?.set(t[0], t[1], t[2]); c?.update?.()
+  }
+  return null
 }

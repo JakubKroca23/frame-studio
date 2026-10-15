@@ -49,7 +49,7 @@ drawing values, or kept from the template — and the report says which.
   GLB first so the pin axes are parallel to one axis. Extensions are split by nested profile half-width (±116/±78/±64)
   and by axial end. Result: groups base/stabL/stabR/legL/legR/column/main/outer/ext1/ext2. Reach check: MIN 5 995
   vs 5 933, MAX 10 025 vs 9 963 (+62 mm, from P1 −243 in mesh vs −296 in drawing). Flagged assumptions: ext2 inner
-  tube, cylinders bolted to booms, slew ±207.5°, outrigger beam telescopes (beam ~0.9 m vs 1.1125 m needed), the
+  tube, slew ±207.5°, outrigger beam telescopes (beam ~0.9 m vs 1.1125 m needed), the
   slew axis 335 mm off the outrigger centre (asymmetric spread), loads (no table → null).
 
 ## Rules for splitting a one-mesh model
@@ -65,3 +65,27 @@ drawing values, or kept from the template — and the report says which.
   error. Splitting the spread about the axis needed 777/1447 mm per side (unreachable). About the box centre it is
   1112.5 mm on both sides = ONE telescope per side (confirmed by Jakub). Rule: always split the spread about the
   outrigger box, and keep `telescopes` in the def.
+- **L11 — part split must be checked automatically, not by eye (Jonsered fix).** In the parked pose the outer boom
+  box lay in the "column" band and the outer heel plates (with the P2 bore) in the "main" band → after unfolding the
+  boom tube stayed next to the column and plates hung in the air. Two checks now run on every build
+  (`scripts/crane/jonsered/build2.py`, `samples.py`) and in vitest (`src/trw/jonseredParts.test.ts`):
+  (1) contact islands: surface samples every 6 mm hashed into 10 mm cells → contact graph; every group must be one
+  contact cluster, except a documented list of islands; (2) posed contact: joint-region samples of every child/parent
+  pair are posed with the app transforms (rozloženo, a1 max/min, outer −90°) and must stay within 35 mm.
+  Contact alone does NOT catch a wrong pivot (a 63 mm P1 error still passed) → (3) the def pins must equal the
+  concentric pin-bore ring fits of the GLB (≤ 3 mm).
+- **L12 — find pins from pin bores, not from silhouettes.** Concentric ring components (algebraic circle fit, residual
+  < 2 mm) at the same centre across the full boom width are the pin. P1 = 12 rings r 40–42 mm → exactly 296 mm
+  behind the column spline-shaft axis = kóta 1-7 296. The earlier P1 (rigid view matching) was 73 mm off; the
+  slewing axis is the column shaft ring fit (±0.1 mm), not the base housing (housing fit is 10–20 mm off-centre).
+  Mounting plane = P1 − kóta 1-4. With the correct P1 the reach matches the table without fudging (5911 / 9940
+  vs 5933 / 9963).
+- **L13 — hydraulic cylinders as two bodies.** Barrel = parts inside the A–B envelope (r ≤ 135 mm), pivots on A
+  (column) and aims at B; rod = parts near B, pivots on B (on the main boom). Both turn by the same β (barrel axis
+  stays A–B). The rod tube is hidden in the barrel in the CAD → synthetic rod (ASSUMED Ø) long enough to stay in the
+  barrel at max stroke (test). Link systems (Jonsered outer cylinder + knuckle links) are not articulated → ride on
+  the main boom, flagged.
+- **L14 — limits without a working diagram.** 465-1037 has only MAX OUTREACH / CLOSE IN / PARKED views, no angle
+  limits. Typical knuckle-crane values are used and flagged ASSUMED; the outer boom goes to −90° relative so the tip
+  can go below the knuckle pin. No paint colour in the CAD (materials grey + one teal) → no brand red, grey-black as
+  the other models.

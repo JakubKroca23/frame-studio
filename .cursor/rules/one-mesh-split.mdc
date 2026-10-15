@@ -1,5 +1,9 @@
 ---
 description: Splitting a single-mesh supplier GLB (e.g. Jonsered) into articulated groups
-globs: public/models/crane/**,src/trw/craneKinematics.ts
+globs: public/models/crane/**,src/trw/craneKinematics.ts,scripts/crane/**
 ---
-See src/craneTpl/LESSONS.md L9 and "Rules for splitting a one-mesh model". Use connectivity + drawing planes, put the pins from drawing dimensions, mark everything else ASSUMED, never invent dimensions, and test reach against the drawing table. Never commit drawings or .trw.
+See src/craneTpl/LESSONS.md L9–L14 and "Rules for splitting a one-mesh model".
+- Use connectivity + drawing planes. Put pins on the measured pin-bore rings (concentric circle fits), never invent dimensions, and mark everything else ASSUMED.
+- After every split, run the automatic checks: contact islands, posed child/parent contact, def pins vs ring fits (scripts/crane/jonsered/build2.py + samples.py → src/trw/*parts.fixture.json, vitest). Test reach against the drawing table.
+- Split cylinders into barrel (parent pin) and rod (child pin).
+- Never commit drawings or .trw files.

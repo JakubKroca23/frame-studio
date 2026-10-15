@@ -1322,6 +1322,7 @@ body.hide-side .app-side { display: none !important; }
 .sf-btn.is-on { background: rgba(62,230,196,0.9); color: #0b1118; border-color: #3ee6c4; }
 @media (max-width: 720px) { .scene-filters { top: auto; bottom: 64px; right: 8px; max-width: 90%; } .sf-btn { padding: 6px 8px; font-size: 11px; } }
 .sf-no-labels .sf-label, .sf-no-forces .stab-reaction-label, .sf-no-forces .sf-force, .sf-no-stability .stab-label, .sf-no-dims .sf-dim, .sf-no-controls .sf-control { display: none !important; }
+.sf-no-controlLabels .crane-gizmo-label { display: none !important; }
 /* leader labels */
 .leader-label { background: rgba(29,78,158,0.92); color: #fff; font: 11px/1.25 system-ui, sans-serif; padding: 3px 7px; border-radius: 4px; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.25); transform: translateY(-50%); }
 /* CraneWIN capacity diagram */

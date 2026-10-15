@@ -18,8 +18,9 @@ describe('Jonsered iZ.18R HD', () => {
   })
   it('mesh pins reproduce the drawing boom lengths (465-1037)', () => {
     const m = meshAngles(def)
-    expect(m.l1 * 1000).toBeCloseTo(3287, -1) // P1–P2 drawing 3287
-    expect(m.l2 * 1000).toBeCloseTo(3006, -1) // P2–retracted tip drawing 3006
+    expect(m.l1 * 1000).toBeCloseTo(3287, -1) // P1–P2 mesh 3287.5 (drawing 3297, −10)
+    expect(m.l2 * 1000).toBeCloseTo(3004, -1) // P2–retracted tip (drawing 3019)
+    expect(-def.geom.p1.r * 1000).toBeCloseTo(296, 0) // kóta 1-7
   })
   it('min / max outreach in the drawing pose within 70 mm of table 1-0 (5933 / 9963)', () => {
     const v = def.variants[0]
@@ -37,7 +38,7 @@ describe('Jonsered iZ.18R HD', () => {
     expect((st.footX.right + e.right - (st.footX.left - e.left)) * 1000).toBeCloseTo(4457, 0)
     expect(e.left).toBeCloseTo(e.right, 6)
     expect(e.left).toBeLessThanOrEqual(st.maxExt)
-    expect(legToGroundM(st, 1200)).toBeCloseTo(0.254, 3)
+    expect(legToGroundM(st, 1200)).toBeCloseTo(0.2913, 3)
     expect(legToGroundM(st, 3000)).toBe(st.legStroke)
   })
 })

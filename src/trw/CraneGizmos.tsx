@@ -189,6 +189,7 @@ export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap, ge
 
 /** One double-headed arrow along local +X at the boom tip: drag along the axis (either way) = continuous extension. */
 function TelescopeArrowsInner({ value, max, size = 0.75, k, onValue }: { value: number; max: number; size?: number; k?: number; onValue: (m: number) => void }) {
+  const showLabel = useSceneFilters((s) => s.controlLabels)
   const ref = useRef<THREE.Group>(null)
   const start = useRef<{ x: number; v: number } | null>(null)
   const clamp = (m: number) => Math.min(max, Math.max(0, m))
@@ -202,9 +203,11 @@ function TelescopeArrowsInner({ value, max, size = 0.75, k, onValue }: { value: 
     <group ref={ref} name="crane-ext-arrows">
       <ScreenScale k={k ?? 0}>
       <ArrowHandle size={size} name="crane-ext-arrow" label="Výsuv: táhněte šipkou" geom={dblArrow} hit={dblHit} outline={1} onDown={begin} onMove={drag.move} onUp={finish} />
-      <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, size * 1.05, 0]} center zIndexRange={[20, 10]}>
-        <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm / {fmt(max * 1000)} mm</div>
-      </Html>
+      {showLabel ? (
+        <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0, size * 1.05, 0]} center zIndexRange={[20, 10]}>
+          <div className="crane-gizmo-label">Výsuv: {fmt(value * 1000)} mm / {fmt(max * 1000)} mm</div>
+        </Html>
+      ) : null}
       </ScreenScale>
     </group>
   )
@@ -306,6 +309,7 @@ function outlineOf(g: THREE.BufferGeometry) { return outlines.get(g) ?? g }
  * Lies in local XY like the Protractor (φ = atan2(y, x), value = φ − offset). Constant screen size.
  */
 function JointArcHandlesInner({ id, offset, value, limits, label, k = 0.055, onAngle, onGrab }: { id: string; offset: number; value: number; limits: [number, number]; label: string; k?: number; onAngle: (deg: number) => void; onGrab?: () => void }) {
+  const showLabel = useSceneFilters((s) => s.controlLabels)
   const ref = useRef<THREE.Group>(null)
   const start = useRef<{ phi: number; v: number } | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -327,9 +331,11 @@ function JointArcHandlesInner({ id, offset, value, limits, label, k = 0.055, onA
       <ScreenScale k={k}>
         <group rotation={[0, 0, a]}>
           <ArrowHandle size={1} name={`crane-arc-${id}-h`} label={`${label}: táhněte šipkou oběma směry`} geom={arcDbl} hit={arcDblHit} outline={1} onDown={begin} onMove={drag.move} onUp={finish} />
-          <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[-2.1, 0, 0]} center zIndexRange={[20, 10]}>
-            <div className={dragging ? 'crane-gizmo-label is-active' : 'crane-gizmo-label'}>{label}: {fmt(value, 1)}°</div>
-          </Html>
+          {showLabel ? (
+            <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[-2.1, 0, 0]} center zIndexRange={[20, 10]}>
+              <div className={dragging ? 'crane-gizmo-label is-active' : 'crane-gizmo-label'}>{label}: {fmt(value, 1)}°</div>
+            </Html>
+          ) : null}
         </group>
       </ScreenScale>
     </group>
@@ -341,13 +347,14 @@ function BText({ position, ...rest }: ComponentProps<typeof Text>) {
   return <Billboard position={position}><Text {...rest} /></Billboard>
 }
 
-/* Scene filters: dimensions/scales and drag controls can be hidden from the scene toolbar. */
+/* Scene filters: "Ovládání" = arrows + protractors + extension scales (functional), "Popisky ovládání" = their value
+   texts only (the controls keep working), "Kóty" = height / reach dimension lines. */
 export function Protractor(props: ComponentProps<typeof ProtractorInner>) {
-  const on = useSceneFilters((s) => s.dims)
+  const on = useSceneFilters((s) => s.controls)
   return on ? <ProtractorInner {...props} /> : null
 }
 export function LinearScale(props: ComponentProps<typeof LinearScaleInner>) {
-  const on = useSceneFilters((s) => s.dims)
+  const on = useSceneFilters((s) => s.controls)
   return on ? <LinearScaleInner {...props} /> : null
 }
 export function CraneDimensions(props: ComponentProps<typeof CraneDimensionsInner>) {

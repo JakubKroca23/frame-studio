@@ -2,17 +2,18 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 
 /** What the 3D scene shows on top of the model. Persisted in localStorage; HTML overlays also follow root classes `sf-no-<key>`. */
-export type SceneFilterKey = 'labels' | 'dims' | 'controls' | 'forces' | 'stability'
+export type SceneFilterKey = 'labels' | 'dims' | 'controls' | 'controlLabels' | 'forces' | 'stability'
 export const SCENE_FILTERS: { key: SceneFilterKey; label: string; title: string }[] = [
   { key: 'labels', label: 'Popisky', title: 'Popisky nástavby a hmotností' },
-  { key: 'dims', label: 'Kóty', title: 'Kóty, stupnice a měřítka jeřábu' },
-  { key: 'controls', label: 'Ovládání', title: 'Ovládací šipky jeřábu a podpěr' },
+  { key: 'dims', label: 'Kóty', title: 'Kóty výšky a dosahu jeřábu' },
+  { key: 'controls', label: 'Ovládání', title: 'Ovládací šipky, úhloměry a stupnice výsuvů (funkční)' },
+  { key: 'controlLabels', label: 'Popisky ovládání', title: 'Texty úhlů a výsuvů u ovládacích šipek (ovládání zůstává)' },
   { key: 'forces', label: 'Síly kN', title: 'Reakce v podpěrách a nápravách (kN)' },
   { key: 'stability', label: 'Stabilita', title: 'Diagram nosnosti a stability kolem vozidla' },
 ]
 const KEY = 'frame-studio.scene-filters.v1'
 type State = Record<SceneFilterKey, boolean> & { toggle: (k: SceneFilterKey) => void }
-const defaults: Record<SceneFilterKey, boolean> = { labels: true, dims: true, controls: true, forces: true, stability: true }
+const defaults: Record<SceneFilterKey, boolean> = { labels: true, dims: true, controls: true, controlLabels: true, forces: true, stability: true }
 
 export function loadFilters(raw: string | null): Record<SceneFilterKey, boolean> {
   try {

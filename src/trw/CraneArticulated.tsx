@@ -7,6 +7,7 @@ import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
 import { adaptGroups } from '../craneTpl/adaptMesh'
+import { useSceneFilters } from '../view/sceneFilters'
 import { defOf, extFraction, templateSectionStrokes, forwardKinematics, jointLimits, loadAt, meshAngles, nearestEquivalent, setJoint, variantBoom, type CraneJoints, type CraneVariant, type JointKey } from './craneKinematics'
 
 const material = new THREE.MeshStandardMaterial({ color: '#222222', metalness: 0.35, roughness: 0.5, emissive: '#0b0d10', side: THREE.DoubleSide })
@@ -113,6 +114,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const tipLocal = { r: D2.r + Ud.r * dl + U.r * joints.ext, h: D2.h + Ud.h * dl + U.h * joints.ext }
 
   const tipRef = useRef<THREE.Mesh>(null)
+  const ctl = useSceneFilters((s) => s.controls) // joint pick markers follow the "Ovládání" filter
 
   // ---- joint handles / protractors ----
   const [, setSel] = useState<JointKey | null>(null)
@@ -142,7 +144,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
    <>
     <CraneDimensions column={[x, 0]} tip={[ro.x * 1000, ro.y * 1000]} height={ro.height} reach={ro.reach} loadText={loadText} />
     <group name="trw-crane-model" position={[x, frameTop, 0]} scale={1000} onPointerMissed={() => setSel(null)}>
-      <mesh name="crane-joint-slew" position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]} material={jointMat} {...pick('slew')}>
+      <mesh name="crane-joint-slew" visible={ctl} position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]} material={jointMat} {...pick('slew')}>
         <torusGeometry args={[0.55, 0.06, 10, 40]} />
       </mesh>
       {(
@@ -157,7 +159,8 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
       <group name="trw-crane-slew" rotation={[0, -Math.PI / 2 + joints.slew * rad, 0]}>
         {meshes('column')}
         {meshes('cyl1')}
-        <mesh name="crane-joint-a1" position={[lat, P1.h, P1.r]} material={jointMat} {...pick('a1')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
+        {def.liftCyl ? <LiftCylinder lc={def.liftCyl} p1={def.geom.p1} phi={-(joints.a1 - A1_CAD) * rad} meshes={meshes} /> : null}
+        <mesh name="crane-joint-a1" visible={ctl} position={[lat, P1.h, P1.r]} material={jointMat} {...pick('a1')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
         {(
           <group position={[lat + 0.25, P1.h, P1.r]} rotation={[0, -Math.PI / 2, 0]}>
             <Suspense fallback={null}><Protractor offset={0} value={joints.a1} limits={lim('a1')} radius={0.7} /></Suspense>
@@ -169,7 +172,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
         <group position={[0, P1.h, P1.r]} rotation={[-(joints.a1 - A1_CAD) * rad, 0, 0]}>
           <group position={[0, -P1.h, -P1.r]}>{meshes('main')}</group>
           <group position={[0, P2.h - P1.h, P2.r - P1.r]}>
-          <mesh name="crane-joint-rel" position={[lat, 0, 0]} material={jointMat} {...pick('rel')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
+          <mesh name="crane-joint-rel" visible={ctl} position={[lat, 0, 0]} material={jointMat} {...pick('rel')}><sphereGeometry args={[0.16, 18, 12]} /></mesh>
           {(
             <group position={[lat + 0.25, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
               {/* frame rotates with the main boom: absolute = φ + a1 − A1_CAD, so rel = φ − A1_CAD */}
@@ -191,7 +194,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
               ))}
             </group>
             {/* tip marker only (no IK drag: angles change only via the ring arrows, the telescope via its arrows) */}
-            <mesh ref={tipRef} name="crane-tip-handle" position={[lat, tipLocal.h, tipLocal.r]} material={handleMat} {...pick('ext')}>
+            <mesh ref={tipRef} name="crane-tip-handle" visible={ctl} position={[lat, tipLocal.h, tipLocal.r]} material={handleMat} {...pick('ext')}>
               <sphereGeometry args={[0.18, 20, 14]} />
             </mesh>
             <group position={[lat + 0.3, tipLocal.h, tipLocal.r]} rotation={[0, -Math.PI / 2, 0]}>
@@ -200,7 +203,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
               </group>
             </group>
             <group position={[0, -P2.h, -P2.r]}>
-              <mesh name="crane-joint-ext" position={[lat, extBase.h + 0.25, extBase.r]} rotation={[-Math.atan2(U.h, U.r), 0, 0]} material={jointMat} {...pick('ext')}>
+              <mesh name="crane-joint-ext" visible={ctl} position={[lat, extBase.h + 0.25, extBase.r]} rotation={[-Math.atan2(U.h, U.r), 0, 0]} material={jointMat} {...pick('ext')}>
                 <boxGeometry args={[0.18, 0.18, 0.4]} />
               </mesh>
               {(
@@ -230,6 +233,25 @@ export function craneReadout(joints: CraneJoints, variant: CraneVariant, craneX:
     x: craneX / 1000 - Math.cos(s) * t.r,
     y: Math.sin(s) * t.r,
   }
+}
+
+type RHp = { r: number; h: number }
+/** Lift cylinder pose in the column frame: barrel pivots on A (column) and aims at B, rod eye B rides on the main boom
+ *  (rotated by φ about P1); both keep the CAD axis, so they turn by the same angle β. */
+export function liftCylinderPose(lc: { a: RHp; b: RHp }, p1: RHp, phi: number) {
+  const y = lc.b.h - p1.h, z = lc.b.r - p1.r
+  const b2 = { h: p1.h + y * Math.cos(phi) - z * Math.sin(phi), r: p1.r + y * Math.sin(phi) + z * Math.cos(phi) }
+  const beta = Math.atan2(b2.r - lc.a.r, b2.h - lc.a.h) - Math.atan2(lc.b.r - lc.a.r, lc.b.h - lc.a.h)
+  return { b2, beta, length: Math.hypot(b2.r - lc.a.r, b2.h - lc.a.h) }
+}
+function LiftCylinder({ lc, p1, phi, meshes }: { lc: { a: RHp; b: RHp }; p1: RHp; phi: number; meshes: (g: string) => ReactNode }) {
+  const { b2, beta } = liftCylinderPose(lc, p1, phi)
+  return (
+    <>
+      <group position={[0, lc.a.h, lc.a.r]} rotation={[beta, 0, 0]}><group position={[0, -lc.a.h, -lc.a.r]}>{meshes('liftCyl')}</group></group>
+      <group position={[0, b2.h, b2.r]} rotation={[beta, 0, 0]}><group position={[0, -lc.b.h, -lc.b.r]}>{meshes('liftRod')}</group></group>
+    </>
+  )
 }
 
 type StabDef = NonNullable<ReturnType<typeof defOf>['stab']>
