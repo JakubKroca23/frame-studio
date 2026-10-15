@@ -1,4 +1,4 @@
-import { Html } from '@react-three/drei'
+import { LeaderLabel } from '../view/LeaderLabel'
 import type { TrwMarkers as Markers } from './trwConfig'
 import { CraneModel, craneModelFor, type CranePose } from './CraneModel'
 import { CraneArticulated } from './CraneArticulated'
@@ -62,18 +62,10 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
               <sphereGeometry args={[90, 16, 12]} />
               <meshStandardMaterial color="#1d4e9e" />
             </mesh>
-            <Label position={[p.x, frameTop + 800, 0]} text={`${p.name}${p.massKg != null ? ` · ${Math.round(p.massKg)} kg` : ' · ? kg'}`} />
+            <LeaderLabel position={[p.x, frameTop + 450, 0]} text={`${p.name}${p.massKg != null ? ` · ${Math.round(p.massKg)} kg` : ' · ? kg'}`} />
           </group>
         )
       })}
     </group>
-  )
-}
-
-function Label({ position, text }: { position: [number, number, number]; text: string }) {
-  return (
-    <Html position={position} center style={{ pointerEvents: 'none' }}>
-      <div style={{ background: 'rgba(29,78,158,0.85)', color: '#fff', font: '11px sans-serif', padding: '2px 6px', borderRadius: 3, whiteSpace: 'nowrap' }}>{text}</div>
-    </Html>
   )
 }

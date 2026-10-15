@@ -4,6 +4,8 @@ import { bodyHookliftPlacement, hookliftPlacement, isHookliftAccessory, pickHook
 import { HookliftModel } from './HookliftModel'
 import { AuxOutriggerModel, pickAuxStab } from './AuxOutriggerModel'
 import { StabilitySectors } from './StabilitySectors'
+import { LeaderLabel } from '../view/LeaderLabel'
+import { useSceneFilters } from '../view/sceneFilters'
 import { BODY_TYPE_LABEL, nearestAngle, type ExtAccessory, type ExtBody, type ExtStability, type TrwExtended } from './trwExtended'
 
 const EMPTY_STABILITY: ExtStability = { angles: [], pass: null, verified: false, minFactor: null, requiredN: null } as ExtStability
@@ -12,11 +14,12 @@ const EMPTY_STABILITY: ExtStability = { angles: [], pass: null, verified: false,
 export function TrwExtendedView({ ext, frameTop, slewDeg, frameRear, craneX, sectorRadius = 8000, showSectors = true, liveDoc }: { liveDoc?: { document?: unknown; document_id?: number | string } | null; ext: TrwExtended; frameTop: number; slewDeg: number; frameRear?: number; craneX?: number | null; sectorRadius?: number; showSectors?: boolean }) {
   const rear = frameRear ?? Math.max(ext.body?.xTo ?? 0, 8000)
   const hl = pickHooklift(ext)
+  const showStab = useSceneFilters((s) => s.stability)
   return (
     <group name="trw-extended">
       {ext.body && !(ext.body.type === 'hooklift' && hl !== 'body') ? <Body body={ext.body} frameTop={frameTop} frameRear={rear} /> : null}
       {(ext.accessories ?? []).map((a, i) => (a.isOutrigger ? <ExtraOutrigger key={i} a={a} frameTop={frameTop} /> : isHookliftAccessory(a) ? (hl === i ? <HookliftAccessory key={i} a={a} frameTop={frameTop} frameRear={rear} /> : null) : <Accessory key={i} a={a} frameTop={frameTop} />))}
-      {ext.stability || (liveDoc && craneX != null) ? (craneX != null && (ext.stability?.angles.length || liveDoc) ? <StabilitySectors st={ext.stability ?? EMPTY_STABILITY} craneX={craneX} radius={sectorRadius} showSectors={showSectors} slewDeg={slewDeg} liveDoc={liveDoc} />   : <Stability st={ext.stability!} slewDeg={slewDeg} frameTop={frameTop} />) : null}
+      {showStab && (ext.stability || (liveDoc && craneX != null)) ? (craneX != null && (ext.stability?.angles.length || liveDoc) ? <StabilitySectors st={ext.stability ?? EMPTY_STABILITY} craneX={craneX} radius={sectorRadius} showSectors={showSectors} slewDeg={slewDeg} liveDoc={liveDoc} />   : <Stability st={ext.stability!} slewDeg={slewDeg} frameTop={frameTop} />) : null}
     </group>
   )
 }
@@ -37,7 +40,7 @@ function HookliftAccessory({ a, frameTop, frameRear }: { a: ExtAccessory; frameT
   return (
     <group name={`trw-accessory-${a.name}`}>
       <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} fallback={fallback} />
-      <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${a.name}${spec && !a.name.includes(spec.name) ? ` (${spec.name})` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''} · ${a.massKg != null ? `${Math.round(a.massKg)} kg` : spec ? `${spec.massKg} kg (katalog)` : '? kg'}`} bg="rgba(110,50,140,0.9)" />
+      <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${a.name}${spec && !a.name.includes(spec.name) ? ` (${spec.name})` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''} · ${a.massKg != null ? `${Math.round(a.massKg)} kg` : spec ? `${spec.massKg} kg (katalog)` : '? kg'}`} bg="rgba(110,50,140,0.9)" />
     </group>
   )
 }
@@ -49,7 +52,7 @@ function Body({ body, frameTop, frameRear, simple }: { body: ExtBody; frameTop: 
     return (
       <group name="trw-body">
         <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} fallback={<Body body={{ ...body, xFrom: xFront, xTo: xRear }} frameTop={frameTop} frameRear={frameRear} simple />} />
-        <Label position={[(xFront + xRear) / 2, frameTop + params.hookHeightMm + 900, 0]} text={`${BODY_TYPE_LABEL.hooklift}${spec ? ` ${spec.name}` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
+        <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${BODY_TYPE_LABEL.hooklift}${spec ? ` ${spec.name}` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
       </group>
     )
   }
@@ -91,7 +94,7 @@ function Body({ body, frameTop, frameRear, simple }: { body: ExtBody; frameTop: 
           <meshStandardMaterial color="#222" />
         </mesh>
       ) : null}
-      {simple ? null : <Label position={[cx, top + 250, 0]} text={`${BODY_TYPE_LABEL[body.type]}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />}
+      {simple ? null : <LeaderLabel position={[cx, top, 0]} text={`${BODY_TYPE_LABEL[body.type]}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />}
     </group>
   )
 }
@@ -106,7 +109,7 @@ function Accessory({ a, frameTop }: { a: ExtAccessory; frameTop: number }) {
   return (
     <group name={`trw-accessory-${a.name}`}>
       <Box pos={[cx, y, a.y ?? a.cog.y ?? 0]} size={[L, H, W]} color="#8e44ad" />
-      <Label position={[cx, Math.max(y, frameTop) + H / 2 + 300, a.y ?? 0]} text={`${a.name} · ${a.massKg != null ? Math.round(a.massKg) : '?'} kg`} bg="rgba(110,50,140,0.9)" />
+      <LeaderLabel position={[cx, Math.max(y, frameTop) + H / 2, a.y ?? 0]} text={`${a.name} · ${a.massKg != null ? Math.round(a.massKg) : '?'} kg`} bg="rgba(110,50,140,0.9)" />
     </group>
   )
 }
@@ -137,7 +140,7 @@ function ExtraOutrigger({ a, frameTop }: { a: ExtAccessory; frameTop: number }) 
   return (
     <group name={`trw-extra-outrigger-${a.name}`}>
       <AuxOutriggerModel kind={pickAuxStab((a.reachLeft ?? 0) + (a.reachRight ?? 0) || null)} x={a.x} top={frameTop - 60} reachLeft={a.reachLeft} reachRight={a.reachRight} fallback={<>{boxes}</>} />
-      <Label position={[a.x, frameTop + 350, 0]} text={`${a.name} · ${a.massKg != null ? Math.round(a.massKg) : '?'} kg`} bg="rgba(180,70,0,0.9)" />
+      <LeaderLabel position={[a.x, frameTop, 0]} text={`${a.name} · ${a.massKg != null ? Math.round(a.massKg) : '?'} kg`} bg="rgba(180,70,0,0.9)" />
     </group>
   )
 }
@@ -145,6 +148,7 @@ function ExtraOutrigger({ a, frameTop }: { a: ExtAccessory; frameTop: number }) 
 function Stability({ st, slewDeg, frameTop }: { st: ExtStability; slewDeg: number; frameTop: number }) {
   const e = nearestAngle(st, slewDeg)
   if (!e) return null
+  const forces = useSceneFilters((s) => s.forces)
   const color = e.pass === false ? '#d62828' : e.pass === true ? '#2a9d3a' : '#888'
   return (
     <group name="trw-stability">
@@ -157,7 +161,7 @@ function Stability({ st, slewDeg, frameTop }: { st: ExtStability; slewDeg: numbe
         const len = Math.min(1500, Math.max(200, Math.abs(r.kN ?? 0) * 8))
         const c = r.kN != null && r.kN <= 0 ? '#d62828' : r.kind === 'outrigger' ? '#1f6fd1' : '#555'
         return (
-          <group key={i} position={[r.x, 0, z]}>
+          <group key={i} position={[r.x, 0, z]} visible={forces}>
             <mesh position={[0, len / 2 + 120, 0]}>
               <cylinderGeometry args={[25, 25, len, 10]} />
               <meshStandardMaterial color={c} />
@@ -167,7 +171,7 @@ function Stability({ st, slewDeg, frameTop }: { st: ExtStability; slewDeg: numbe
               <meshStandardMaterial color={c} />
             </mesh>
             <Html position={[0, len + 220, 0]} center style={{ pointerEvents: 'none' }}>
-              <div style={{ background: 'rgba(255,255,255,0.9)', color: c, border: `1px solid ${c}`, font: '11px sans-serif', padding: '1px 5px', borderRadius: 3, whiteSpace: 'nowrap' }}>
+              <div className="sf-force" style={{ background: 'rgba(255,255,255,0.9)', color: c, border: `1px solid ${c}`, font: '11px sans-serif', padding: '1px 5px', borderRadius: 3, whiteSpace: 'nowrap' }}>
                 {r.kN != null ? `${r.kN.toFixed(1)} kN` : '? kN'}
               </div>
             </Html>
@@ -175,19 +179,11 @@ function Stability({ st, slewDeg, frameTop }: { st: ExtStability; slewDeg: numbe
         )
       })}
       <Html position={[0, frameTop + 2600, 0]} center style={{ pointerEvents: 'none' }}>
-        <div style={{ background: color, color: '#fff', font: '12px sans-serif', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+        <div className="stab-label" style={{ background: color, color: '#fff', font: '12px sans-serif', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
           {e.angleDeg}° · k={e.factor != null ? e.factor.toFixed(2) : '?'} · {e.pass === true ? 'vyhovuje' : e.pass === false ? 'nevyhovuje' : '?'}
           {!st.verified ? <span style={{ marginLeft: 6, background: '#f4c430', color: '#222', padding: '0 4px', borderRadius: 3 }}>neověřeno proti CraneWIN</span> : null}
         </div>
       </Html>
     </group>
-  )
-}
-
-function Label({ position, text, bg }: { position: [number, number, number]; text: string; bg: string }) {
-  return (
-    <Html position={position} center style={{ pointerEvents: 'none' }}>
-      <div style={{ background: bg, color: '#fff', font: '11px sans-serif', padding: '2px 6px', borderRadius: 3, whiteSpace: 'nowrap' }}>{text}</div>
-    </Html>
   )
 }

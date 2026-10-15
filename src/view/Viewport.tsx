@@ -15,6 +15,7 @@ export function Viewport({
   groupRef,
   fit = 1,
   children,
+  overlay,
 }: {
   model: ChassisModel | null
   params: ChassisParams
@@ -23,6 +24,8 @@ export function Viewport({
   fit?: number
   /** Extra scene content (e.g. markers) in viewport coordinates: X rearward from the first axle, Y up, Z lateral. */
   children?: ReactNode
+  /** HTML on top of the canvas (e.g. the scene filter toolbar). */
+  overlay?: ReactNode
 }) {
   const setView = useRef<(view: string) => void>(() => {})
   const wheelFocus = useRef({ x: 4800, z: 1100 })
@@ -81,6 +84,7 @@ export function Viewport({
         </GizmoHelper>
         <CameraBridge setView={setView} wheelFocus={wheelFocus} />
       </Canvas>
+      {overlay}
       {model ? (
         <div className="view-buttons">
           <Button variant="view" size="sm" onClick={() => setView.current('persp')}>

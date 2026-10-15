@@ -1315,3 +1315,12 @@ body.hide-side .app-side { display: none !important; }
   .start-v3-main { display: block; overflow: auto; }
   .start-v3 .start-hero { height: calc(100dvh - 56px); }
 }
+
+/* scene filter toolbar (configurator 3D view) */
+.scene-filters { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+.sf-btn { font: 600 12px/1 system-ui, sans-serif; padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); background: rgba(20,24,30,0.72); color: #9aa4ae; cursor: pointer; }
+.sf-btn.is-on { background: rgba(62,230,196,0.9); color: #0b1118; border-color: #3ee6c4; }
+@media (max-width: 720px) { .scene-filters { top: auto; bottom: 64px; right: 8px; max-width: 90%; } .sf-btn { padding: 6px 8px; font-size: 11px; } }
+.sf-no-labels .sf-label, .sf-no-forces .stab-reaction-label, .sf-no-forces .sf-force, .sf-no-stability .stab-label, .sf-no-dims .sf-dim, .sf-no-controls .sf-control { display: none !important; }
+/* leader labels */
+.leader-label { background: rgba(29,78,158,0.92); color: #fff; font: 11px/1.25 system-ui, sans-serif; padding: 3px 7px; border-radius: 4px; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.25); transform: translateY(-50%); }

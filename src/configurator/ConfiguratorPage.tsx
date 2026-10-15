@@ -1,3 +1,4 @@
+import { SceneFilterBar } from '../view/SceneFilterBar'
 import { hookliftPlacement } from '../trw/hooklift'
 import { HookliftModel } from '../trw/HookliftModel'
 import { takePendingProject } from '../openProject'
@@ -782,7 +783,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
         </section>
       </aside>
 
-      <Viewport model={model} params={params} groupRef={groupRef} fit={1.75}>
+      <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
         {hooklift && !trw?.markers.extended ? <CatalogHooklift name={hooklift} frameTop={built.frame.topHeight} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} /> : null}
         {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={((slewDeg % 360) + 360) % 360} craneX={trw.markers.crane?.x ?? null} sectorRadius={trw.markers.crane && craneModelFor(trw.markers.crane.name) ? craneVariantMatch(trw.markers.crane.name)!.variant.hydMaxMm : 8000} showSectors={showSectors} liveDoc={trw.liveDoc} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}

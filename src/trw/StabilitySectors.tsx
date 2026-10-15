@@ -1,3 +1,4 @@
+import { useSceneFilters } from '../view/sceneFilters'
 import { Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -47,6 +48,7 @@ export interface StabilitySectorsProps {
 export function StabilitySectors({ st, craneX, radius, showSectors, slewDeg, liveDoc }: StabilitySectorsProps) {
   const live = !!liveDoc
   const invalidate = useThree((s) => s.invalidate)
+  const forces = useSceneFilters((s) => s.forces)
   const [srvSectors, setSrvSectors] = useState<Sector[] | null>(null)
   const sectors = useMemo(() => srvSectors ?? mergeSectors(st, 1), [st, srvSectors])
   const fan = useMemo(() => {
@@ -160,6 +162,7 @@ export function StabilitySectors({ st, craneX, radius, showSectors, slewDeg, liv
       {Array.from({ length: MAX_LINES }, (_, i) => (
         <mesh key={i} ref={(m) => { lines.current[i] = m }} name={`stability-tipping-${i}`} geometry={unitBox} material={lineMats.unknown} visible={false} raycast={() => null} />
       ))}
+      <group visible={forces}>
       {Array.from({ length: nReact }, (_, i) => (
         <group key={i} ref={(g) => { arrows.current[i] = g }} name={`stability-reaction-${i}`} visible={false}>
           <mesh geometry={unitCyl} material={arrowMats.push} />
@@ -171,6 +174,7 @@ export function StabilitySectors({ st, craneX, radius, showSectors, slewDeg, liv
           </group>
         </group>
       ))}
+      </group>
       <group ref={labelAnchor}>
         <Html center pointerEvents="none" style={{ pointerEvents: 'none' }}>
           <div ref={labelEl} className="stab-label" />

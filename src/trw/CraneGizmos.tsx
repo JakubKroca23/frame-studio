@@ -1,3 +1,4 @@
+import { useSceneFilters } from '../view/sceneFilters'
 import { Billboard, Html, Text } from '@react-three/drei'
 import type { ComponentProps } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
@@ -87,7 +88,7 @@ export interface ProtractorProps {
 }
 
 /** Circular protractor: ticks every 5°, labels every 10°, limits shaded, needle + live value; the angle changes only by dragging the arrow handle. */
-export function Protractor({ offset, value, limits, radius: R }: Omit<ProtractorProps, 'label' | 'onAngle'> & Partial<ProtractorProps>) {
+function ProtractorInner({ offset, value, limits, radius: R }: Omit<ProtractorProps, 'label' | 'onAngle'> & Partial<ProtractorProps>) {
   const ref = useRef<THREE.Group>(null)
     const ticks = useMemo(() => {
     const pts: THREE.Vector3[] = []
@@ -187,7 +188,7 @@ export function ArrowHandle({ size, name, label, onDown, onMove, onUp, onTap, ge
 }
 
 /** One double-headed arrow along local +X at the boom tip: drag along the axis (either way) = continuous extension. */
-export function TelescopeArrows({ value, max, size = 0.75, k, onValue }: { value: number; max: number; size?: number; k?: number; onValue: (m: number) => void }) {
+function TelescopeArrowsInner({ value, max, size = 0.75, k, onValue }: { value: number; max: number; size?: number; k?: number; onValue: (m: number) => void }) {
   const ref = useRef<THREE.Group>(null)
   const start = useRef<{ x: number; v: number } | null>(null)
   const clamp = (m: number) => Math.min(max, Math.max(0, m))
@@ -210,7 +211,7 @@ export function TelescopeArrows({ value, max, size = 0.75, k, onValue }: { value
 }
 
 /** Linear mm scale along local +X from 0 to `max` [m] (read-only; the value is changed by the TelescopeArrows at the tip). */
-export function LinearScale({ value, max }: { value: number; max: number }) {
+function LinearScaleInner({ value, max }: { value: number; max: number }) {
   const ref = useRef<THREE.Group>(null)
   const ticks = useMemo(() => {
     const pts: THREE.Vector3[] = []
@@ -242,7 +243,7 @@ export function LinearScale({ value, max }: { value: number; max: number }) {
 }
 
 /** Live dimension lines in world mm: ground → tip height, column axis → tip projection, label at tip. */
-export function CraneDimensions({ column, tip, height, reach, loadText }: { column: [number, number]; tip: [number, number]; height: number; reach: number; loadText: string }) {
+function CraneDimensionsInner({ column, tip, height, reach, loadText }: { column: [number, number]; tip: [number, number]; height: number; reach: number; loadText: string }) {
   const [cx, cz] = column, [tx, tz] = tip, y = height * 1000, g = 15
   return (
     <group name="crane-dimensions">
@@ -304,7 +305,7 @@ function outlineOf(g: THREE.BufferGeometry) { return outlines.get(g) ?? g }
  * current angle; dragging either rotates the joint by the pointer's angular delta, clamped to the limits.
  * Lies in local XY like the Protractor (φ = atan2(y, x), value = φ − offset). Constant screen size.
  */
-export function JointArcHandles({ id, offset, value, limits, label, k = 0.055, onAngle, onGrab }: { id: string; offset: number; value: number; limits: [number, number]; label: string; k?: number; onAngle: (deg: number) => void; onGrab?: () => void }) {
+function JointArcHandlesInner({ id, offset, value, limits, label, k = 0.055, onAngle, onGrab }: { id: string; offset: number; value: number; limits: [number, number]; label: string; k?: number; onAngle: (deg: number) => void; onGrab?: () => void }) {
   const ref = useRef<THREE.Group>(null)
   const start = useRef<{ phi: number; v: number } | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -338,4 +339,26 @@ export function JointArcHandles({ id, offset, value, limits, label, k = 0.055, o
 /** Text that always faces the camera (never mirrored when the scale is seen from the other side). */
 function BText({ position, ...rest }: ComponentProps<typeof Text>) {
   return <Billboard position={position}><Text {...rest} /></Billboard>
+}
+
+/* Scene filters: dimensions/scales and drag controls can be hidden from the scene toolbar. */
+export function Protractor(props: ComponentProps<typeof ProtractorInner>) {
+  const on = useSceneFilters((s) => s.dims)
+  return on ? <ProtractorInner {...props} /> : null
+}
+export function LinearScale(props: ComponentProps<typeof LinearScaleInner>) {
+  const on = useSceneFilters((s) => s.dims)
+  return on ? <LinearScaleInner {...props} /> : null
+}
+export function CraneDimensions(props: ComponentProps<typeof CraneDimensionsInner>) {
+  const on = useSceneFilters((s) => s.dims)
+  return on ? <CraneDimensionsInner {...props} /> : null
+}
+export function JointArcHandles(props: ComponentProps<typeof JointArcHandlesInner>) {
+  const on = useSceneFilters((s) => s.controls)
+  return on ? <JointArcHandlesInner {...props} /> : null
+}
+export function TelescopeArrows(props: ComponentProps<typeof TelescopeArrowsInner>) {
+  const on = useSceneFilters((s) => s.controls)
+  return on ? <TelescopeArrowsInner {...props} /> : null
 }
