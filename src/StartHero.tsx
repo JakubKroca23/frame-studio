@@ -1,3 +1,4 @@
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
@@ -33,7 +34,7 @@ const tyreMat = new THREE.MeshStandardMaterial({ color: '#16181b', roughness: 0.
 const rimMat = new THREE.MeshStandardMaterial({ color: '#b9c0c6', metalness: 0.6, roughness: 0.35 })
 const exhibitMat = new THREE.MeshStandardMaterial({ color: '#202225', metalness: 0.35, roughness: 0.5, side: THREE.DoubleSide })
 const exhibitHot = new THREE.MeshStandardMaterial({ color: '#202225', metalness: 0.35, roughness: 0.5, side: THREE.DoubleSide, emissive: '#3ee6c4', emissiveIntensity: 0.35 })
-const standMat = new THREE.MeshStandardMaterial({ color: '#3a4048', roughness: 0.7 })
+const standMat = new THREE.MeshStandardMaterial({ color: '#3a4048', roughness: 0.45, metalness: 0.55 })
 
 /** Baked soft shadow (radial gradient) – static, no shadow map. */
 const shadowMat = (() => {
@@ -106,6 +107,36 @@ function ExhibitMesh({ file, x, y, hot, alignBottom }: { file: string; x: number
   return <mesh geometry={geo} material={hot ? exhibitHot : exhibitMat} position={[x, y, 0]} />
 }
 
+/** Open steel stand: top rectangular frame on 4 legs + light X bracing, merged into one geometry. */
+const standCache = new Map<number, THREE.BufferGeometry>()
+function steelStandGeo(len: number, h = FRAME_TOP, w = 900, p = 80): THREE.BufferGeometry {
+  const hit = standCache.get(len)
+  if (hit) return hit
+  const parts: THREE.BufferGeometry[] = []
+  const box = (sx: number, sy: number, sz: number, x: number, y: number, z: number, rx = 0, rz = 0) => {
+    const g = new THREE.BoxGeometry(sx, sy, sz)
+    if (rx || rz) g.rotateX(rx).rotateZ(rz)
+    parts.push(g.translate(x, y, z))
+  }
+  const lx = len / 2 - p / 2, lz = w / 2 - p / 2, y0 = 3 // lift off floor -> no z-fighting
+  // top frame (rails along X and Z)
+  for (const s of [-1, 1]) box(len, p, p, 0, h - p / 2, s * lz)
+  for (const s of [-1, 1]) box(p, p, w - 2 * p, s * lx, h - p / 2, 0)
+  // legs + low stretchers
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(p, h - p - y0, p, sx * lx, y0 + (h - p - y0) / 2, sz * lz)
+  for (const s of [-1, 1]) box(len - 2 * p, p * 0.6, p * 0.6, 0, y0 + 220, s * lz)
+  // diagonal X bracing on long sides (thin flats)
+  const bh = h - p - 260, bl = len - 2 * p
+  const d = Math.hypot(bl, bh), a = Math.atan2(bh, bl)
+  for (const s of [-1, 1]) for (const k of [-1, 1]) box(d, 36, 18, 0, y0 + 260 + bh / 2 - 40, s * lz, 0, k * a)
+  const g = mergeGeometries(parts.map((q) => q.toNonIndexed()))!
+  standCache.set(len, g)
+  return g
+}
+function SteelStand({ x, len }: { x: number; len: number }) {
+  return <mesh geometry={steelStandGeo(len)} material={standMat} position={[x, 0, 0]} castShadow />
+}
+
 /** Clickable showpiece on a stand: hover ring + glow, click (not drag) opens the link. */
 function Exhibit({ name, x, z, r, standLen, children, ...h }: Hover & { name: string; x: number; z: number; r: number; standLen: number; children: ReactNode }) {
   return (
@@ -115,7 +146,7 @@ function Exhibit({ name, x, z, r, standLen, children, ...h }: Hover & { name: st
         <ringGeometry args={[r - 140, r, 64]} />
         <meshBasicMaterial color={h.hot ? '#3ee6c4' : '#5b6573'} transparent opacity={h.hot ? 0.95 : 0.45} depthWrite={false} polygonOffset polygonOffsetFactor={-6} polygonOffsetUnits={-6} />
       </mesh>
-      <mesh position={[x, FRAME_TOP / 2, 0]} material={standMat}><boxGeometry args={[standLen, FRAME_TOP, 900]} /></mesh>
+      <SteelStand x={x} len={standLen} />
       <Boundary fallback={null}><Suspense fallback={null}>{children}</Suspense></Boundary>
     </group>
   )
