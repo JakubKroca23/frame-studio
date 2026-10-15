@@ -28,8 +28,8 @@ import {
 } from './materials'
 import { extrudePlan, extrudeProfile, profileShape, revolveProfile } from './profile'
 import { parametricCabGroup } from './cabParametric'
-import { addCoupling, addFuelTank, addIntakeTower, addMufflerBox, addRearBumper, addRearFenders, addSideGuards, addTailLamps, crossmemberMat, type TruckCtx } from './truckDetail'
-import { CAB_GREY } from './materials'
+import { addAirReservoir, addBatteryBox, addCoupling, addFuelTank, addUreaBox, addIntakeTower, addMufflerBox, addRearBumper, addRearFenders, addSideGuards, crossmemberMat, type TruckCtx } from './truckDetail'
+import { CAB_GREY, fenderBlack, intakeBrown } from './materials'
 import { cabFeatures, tracedCab, type CabPartGeometry, type CabSolid } from './silhouette'
 
 export interface World {
@@ -147,7 +147,8 @@ export function addAxleAssembly(parent: THREE.Group, axle: Axle, index: number, 
   const diameter = axle.tireDiameter
   const radius = diameter / 2
   const track = (params.tracks[index] ?? 0) > 0 ? params.tracks[index] : axle.track ?? 2000
-  const dual = params.dualDrive && axle.dual
+  // BEP: twin tyres on the drive axle only (the tag axle runs singles, as in the Creo renders)
+  const dual = isBep(world) ? index === model.axles.findIndex((a) => a.dual) : params.dualDrive && axle.dual
   const x = axle.x - originX
   const z = axle.z - ground
   const driven = axleIsDriven(model.axles, index)
@@ -179,7 +180,7 @@ export function addAxleAssembly(parent: THREE.Group, axle: Axle, index: number, 
   }
 
   if (axle.steered ?? !axle.dual) addSteering(parent, world, x, z, track, index === 0)
-  if (!world.model.skipMudguards?.includes(axle.index) && !(isBep(world) && index > 0)) {
+  if (!world.model.skipMudguards?.includes(axle.index) && !isBep(world)) {
     const profile = world.model.mudProfiles?.find((item) => item.axle === axle.index)?.points
     if (profile && profile.length >= 3) addProfileMudguards(parent, profile, track, dual ? width * 2 + 90 : width + 80, world)
     else addMudguards(parent, x, z, radius, width, track, dual)
@@ -314,6 +315,7 @@ function makeWheel(radius: number, width: number, x: number, y: number, z: numbe
   cap.position.z = outward * width * 0.58
   if (outward < 0) disc.rotation.y = Math.PI
   g.add(tire, barrel, back, disc, cap)
+  if (radius > 380) g.add(treadLugs(radius, width), sidewallRing(radius, width, outward))
   const pcd = radius * 0.22
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2 + 0.15
@@ -325,6 +327,42 @@ function makeWheel(radius: number, width: number, x: number, y: number, z: numbe
   }
   g.position.set(x, y, z)
   return g
+}
+
+/** Tread: two staggered rows of shoulder lugs + a centre rib (instanced, one draw call per wheel). */
+const lugGeo = new THREE.BoxGeometry(1, 1, 1)
+lugGeo.userData.shared = true
+function treadLugs(radius: number, width: number) {
+  const n = 40
+  const mesh = new THREE.InstancedMesh(lugGeo, rubber, n * 2)
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(46, 18, width * 0.24), pos = new THREE.Vector3()
+  const zAxis = new THREE.Vector3(0, 0, 1)
+  for (let row = 0; row < 2; row++)
+    for (let i = 0; i < n; i++) {
+      const a = ((i + row * 0.5) / n) * Math.PI * 2
+      q.setFromAxisAngle(zAxis, a + Math.PI / 2 + (row ? 0.18 : -0.18))
+      pos.set(Math.cos(a) * (radius - 10), Math.sin(a) * (radius - 10), (row ? 1 : -1) * width * 0.17)
+      mesh.setMatrixAt(row * n + i, m.compose(pos, q, sc))
+    }
+  mesh.name = 'tread'
+  mesh.userData.noShadow = true
+  return mesh
+}
+
+/** Sidewall: raised bead ring + lettering band on the outer face. */
+const ringCache = new Map<string, THREE.TorusGeometry>()
+function sidewallRing(radius: number, width: number, outward: number) {
+  const key = `${Math.round(radius)}`
+  let geo = ringCache.get(key)
+  if (!geo) {
+    geo = new THREE.TorusGeometry(radius * 0.84, 7, 6, 64)
+    geo.userData.shared = true
+    ringCache.set(key, geo)
+  }
+  const ring = new THREE.Mesh(geo, plastic)
+  ring.position.z = outward * width * 0.44
+  ring.userData.noShadow = true
+  return ring
 }
 
 const tireCache = new Map<string, THREE.LatheGeometry>()
@@ -596,16 +634,21 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
   ]
 
   let fuel = 0
+  let batteryCount = 0
+  let air = 0
   if (isBep(world)) {
     const ctx = truckCtx(world)
     const take = (re: RegExp) => { const out = placed.filter((p) => re.test(p.part.layer ?? '')); for (const o of out) placed.splice(placed.indexOf(o), 1); return out.map((p) => ({ ...p, y: p.z, z: p.y })) }
     const bars = take(/^32_/), guardBrackets = take(/^31_/)
     if (bars.length) addSideGuards(equipment, bars, guardBrackets, ctx)
     for (const p of take(/^19_/)) addRearBumper(equipment, p, ctx)
-    for (const p of take(/^67_/)) addTailLamps(equipment, p, ctx)
+    take(/^67_/) // tail lamps hang off the underrun tube ends (addRearBumper)
     for (const p of take(/^41_/)) { addFuelTank(equipment, p, ctx); fuel++ }
     for (const p of take(/^(23|73)_/)) addMufflerBox(equipment, p, ctx)
     for (const p of take(/^16_/)) addCoupling(equipment, p)
+    for (const p of take(/^45_/)) { addAirReservoir(equipment, p); air++ }
+    for (const p of take(/^27_/)) addUreaBox(equipment, p)
+    for (const p of take(/^21_/)) { addBatteryBox(equipment, p); batteryCount++ }
     take(/^(49|20)_/) // front fender belongs to the cab; rear fender stays → rear fenders below
     const axles = world.model.axles.slice(1).map((a) => {
       const w = clamp(Number(a.tireSpec?.match(/^(\d{3})/)?.[1] ?? 315), 180, 480)
@@ -613,8 +656,6 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
     })
     if (axles.length) addRearFenders(equipment, axles)
   }
-  let batteryCount = 0
-  let air = 0
   let exhaust = 0
   let shields = 0
 
@@ -687,7 +728,7 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
     if (air === 0 && drawn < 3) addDefaultAir(equipment, world)
     if (exhaust === 0 && drawn < 3) addDefaultExhaust(equipment, world)
   }
-  addRearBar(equipment, world, shields > 0)
+  if (!isBep(world)) addRearBar(equipment, world, shields > 0)
   return { equipment, brackets }
 }
 
@@ -1137,8 +1178,9 @@ export function buildCab(cab: CabModel, world: World): THREE.Group {
     if (spec) {
       try {
         const lift = world.lift((cab.side.x0 + cab.side.x1) / 2)
-        const g = parametricCabGroup(spec, cab.color ?? world.params.cabColor ?? CAB_GREY, new THREE.Vector3(-world.originX, lift, 0))
-        if (isBep(world)) addIntakeTower(g, spec.xRear - world.originX, spec.height + lift, spec.frameTop + lift, -(spec.width / 2 - 230))
+        const g = parametricCabGroup(spec, cab.color ?? world.params.cabColor ?? CAB_GREY, new THREE.Vector3(world.model.axles[0].x - world.originX, lift, 0))
+        if (isBep(world)) tintCabParts(g)
+        if (isBep(world)) addIntakeTower(g, spec.xRear + world.model.axles[0].x - world.originX, spec.height + lift, spec.frameTop + lift, -(spec.width / 2 - 230))
         return g
       } catch {
         /* traced fallback */
@@ -1319,6 +1361,18 @@ function fake(x: number, y: number, z: number, len: number, height: number, widt
   }
 }
 
+/** Per-part cab colours like the Volvo Creo renders: brown roof/side collars, dark visor, black steps and fenders. */
+function tintCabParts(g: THREE.Group) {
+  g.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh) return
+    const part = o.userData.part
+    if (part === 'deflector') mesh.material = intakeBrown
+    else if (part === 'visor') mesh.material = fenderBlack
+    else if (part === 'fender') mesh.material = fenderBlack
+  })
+}
+
 /** Parametric Volvo cab sized from the drawing: cab x range, height, width, first axle and tyre; series from the title block. */
 function volvoCabSpec(cab: CabModel, world: World) {
   const a0 = world.model?.axles?.[0]
@@ -1334,8 +1388,9 @@ function volvoCabSpec(cab: CabModel, world: World) {
     kind: len > 2150 ? ('sleeper' as const) : ('day' as const),
     roof: height > 3700 ? ('high' as const) : ('normal' as const),
     tractor: false,
-    xFront: cab.side.x0,
-    xRear: cab.side.x1,
+    // spec x is relative to the front axle (the cab kit puts the wheel arch at x = 0)
+    xFront: cab.side.x0 - a0.x,
+    xRear: cab.side.x1 - a0.x,
     height,
     width,
     frameTop: world.frame.topZ - world.ground,

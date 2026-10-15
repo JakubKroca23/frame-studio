@@ -27,3 +27,7 @@ Rules learned from real body-builder drawings. Read this before you change `anal
 - `ReviewElement` musí nést `layer`, jinak `isBep` v prohlížeči nikdy neplatí.
 - Nikdy `Object.assign(mesh, {position})` – position je read-only → `position.set`.
 - Barvy dle Creo: rám černý, příčky modré, boční rámy zelené, nárazník šedá trubka, spojka žlutá. Kabina: parametrická FM/FH podle hlavičky, barva `params.cabColor`.
+- Kola 2. kolo: oblouk blatníku „před kabinou“ byl blatník kabinové sady – `ParametricCabSpec` má x relativně k přední nápravě (blatník je na x = 0), ne v absolutních x výkresu. Spec posílat relativně + offset `a0.x − originX`.
+- BEP: dvojmontáž jen na první `dual` nápravě (hnací), vlečná náprava singl. Defaultní `addRearBar`/profilové blatníky z výkresu u BEP vypnout – jinak vznikají duplicitní černé bloky.
+- Vrstvy 45_ (vzduch), 21_ (baterie), 27_ (AdBlue) mají vlastní buildery; zadní světla se kreslí na koncích trubky nárazníku (výška = horní hrana 19_ − 60 mm).
+- Srovnávací snímky: `pwnode/shots.sh` – skryje `env`, bílé pozadí, ořez na obsah (jako Creo).

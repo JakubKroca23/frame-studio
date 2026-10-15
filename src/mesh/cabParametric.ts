@@ -964,9 +964,8 @@ function roofKit(ctx: Ctx) {
   const { L, spec, mats } = ctx
   const H = spec.height
   const top = L.plan(H)
-  if (!spec.tractor) return
   const low = spec.roof === 'low' || spec.roof === 'normal'
-  if (low) {
+  if (spec.tractor && low) {
     // Adjustable roof air deflector rising towards the trailer height.
     const rise = Math.max(250, Math.min(4000 - H - 20, 720))
     const x0 = top.xf + 80
@@ -989,6 +988,7 @@ function roofKit(ctx: Ctx) {
     }
     ctx.add('deflector', 'roof-deflector', loftRings(sections), mats.paint)
   }
+  if (!spec.tractor && !spec.collars) return
   // Side collars extending the cab sides towards the trailer.
   for (const sign of [-1, 1] as const) {
     const z0 = L.zScreenLow + 40

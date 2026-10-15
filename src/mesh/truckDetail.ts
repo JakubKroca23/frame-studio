@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { clamp } from '../lib/geom'
 import type { PartModel } from '../model/types'
-import { bumperGrey, couplingYellow, crossBlue, fenderBlack, fuelBlack, guardBracket, guardGreen, intakeBrown, lampAmber, lampRed, lampWhite, mufflerGrey, plastic, rubber, steel, tankStrap } from './materials'
+import { bumperGrey, couplingYellow, crossBlue, fenderBlack, fuelBlack, guardBracket, guardGreen, intakeBrown, lampWhite, bepLampRed, bepLampAmber, airTankAlu, batteryBlack, terminalRed, mufflerGrey, plastic, rubber, steel, tankStrap } from './materials'
 
 /**
  * Typed component geometry for body-builder drawings (Volvo BEP), matched to the manufacturer Creo renders.
@@ -63,13 +63,20 @@ export function addRearBumper(parent: THREE.Group, p: PlacedPart, ctx: TruckCtx)
   g.name = p.part.partNumber
   const [, hi] = zRange(p)
   const half = p.width / 2
-  const x = p.x + p.len / 2 - 70, y = Math.min(hi - 90, ctx.frameBottom - 140)
+  const x = p.x + p.len / 2 - 70, y = hi - 60
   const tube = new THREE.Mesh(new THREE.CylinderGeometry(55, 55, half * 2, 24), bumperGrey)
   tube.rotation.x = Math.PI / 2
   tube.position.set(x, y, p.z)
   g.add(tube)
+  // Tail lamp clusters at the tube ends (red / amber / white / red), as in the Creo renders.
   for (const s of [-1, 1]) {
-    g.add(blk([300, ctx.frameBottom - y + 40, 16], crossBlue, [x - 120, (ctx.frameBottom + y) / 2, p.z + s * (ctx.frameHalf - 30)]))
+    const z = p.z + s * (half - 230)
+    g.add(blk([90, 190, 470], plastic, [x + 10, y - 150, z]))
+    ;[bepLampRed, bepLampAmber, lampWhite, bepLampRed].forEach((m, i) => g.add(blk([24, 150, 100], m, [x + 62, y - 150, z - 165 + i * 110])))
+    g.add(blk([60, 120, 60], crossBlue, [x, y - 60, z]))
+  }
+  for (const s of [-1, 1]) {
+    g.add(blk([300, Math.abs(ctx.frameBottom - y) + 160, 16], crossBlue, [x - 120, (ctx.frameBottom + y) / 2, p.z + s * (ctx.frameHalf - 30)]))
     g.add(blk([60, 40, 140], crossBlue, [x, y + 60, p.z + s * (ctx.frameHalf - 30)]))
   }
   parent.add(g)
@@ -81,10 +88,11 @@ export function addTailLamps(parent: THREE.Group, p: PlacedPart, ctx: TruckCtx) 
   g.name = p.part.partNumber
   const ends = spansBoth(p, ctx) ? [p.z - p.width / 2 + 220, p.z + p.width / 2 - 220] : [p.z]
   const h = clamp(p.height, 120, 220)
+  const xr = p.x + p.len / 2
   for (const z of ends) {
-    g.add(blk([60, h, 420], plastic, [p.x, p.y, z]))
-    ;[lampRed, lampAmber, lampWhite, lampRed].forEach((m, i) => g.add(blk([14, h * 0.7, 90], m, [p.x + 34, p.y, z - 150 + i * 100])))
-    g.add(blk([200, 30, 60], crossBlue, [p.x - 100, p.y + h / 2 + 10, z]))
+    g.add(blk([80, h + 30, 470], plastic, [xr - 30, p.y, z]))
+    ;[bepLampRed, bepLampAmber, lampWhite, bepLampRed].forEach((m, i) => g.add(blk([22, h * 0.8, 100], m, [xr + 18, p.y, z - 165 + i * 110])))
+    g.add(blk([240, 34, 70], crossBlue, [xr - 150, p.y + h / 2 + 20, z]))
   }
   parent.add(g)
 }
@@ -215,3 +223,50 @@ export function addIntakeTower(parent: THREE.Group, xRear: number, roofZ: number
 
 /** Blue crossmember with flanges and a lightening-hole row (BEP renders: blue, flanged ends). */
 export function crossmemberMat() { return crossBlue }
+
+/** Compressed-air reservoir: aluminium cylinder along x with domed ends and two straps. */
+export function addAirReservoir(parent: THREE.Group, p: PlacedPart) {
+  const g = new THREE.Group()
+  g.name = p.part.partNumber
+  const r = clamp(Math.min(p.height, p.width) / 2, 80, 220)
+  const len = clamp(p.len, r * 2.2, 2000)
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(10, len - 2 * r), 6, 24), airTankAlu)
+  body.rotation.z = Math.PI / 2
+  body.position.set(p.x, p.y, p.z)
+  g.add(body)
+  for (const t of [-0.3, 0.3]) {
+    const strap = new THREE.Mesh(new THREE.TorusGeometry(r + 4, 6, 6, 28), steel)
+    strap.rotation.y = Math.PI / 2
+    strap.position.set(p.x + t * len, p.y, p.z)
+    g.add(strap)
+  }
+  parent.add(g)
+}
+
+/** Battery box: black tray, lid with ribs, red terminal covers. */
+export function addBatteryBox(parent: THREE.Group, p: PlacedPart) {
+  const g = new THREE.Group()
+  g.name = p.part.partNumber
+  const [lo, hi] = zRange(p)
+  const h = hi - lo
+  g.add(blk([p.len, h * 0.86, p.width], batteryBlack, [p.x, lo + h * 0.43, p.z]))
+  g.add(blk([p.len + 20, h * 0.12, p.width + 20], fenderBlack, [p.x, hi - h * 0.06, p.z]))
+  const ribs = Math.max(3, Math.round(p.len / 120))
+  for (let i = 0; i < ribs; i++) g.add(blk([18, h * 0.6, p.width + 26], fenderBlack, [p.x - p.len / 2 + ((i + 0.5) * p.len) / ribs, lo + h * 0.45, p.z]))
+  for (const t of [-0.3, 0.3]) g.add(blk([90, 40, 90], terminalRed, [p.x + t * p.len, hi + 18, p.z]))
+  parent.add(g)
+}
+
+/** AdBlue (urea) tank in its brushed-aluminium box with a black filler cap, as on the Volvo BEP. */
+export function addUreaBox(parent: THREE.Group, p: PlacedPart) {
+  const g = new THREE.Group()
+  g.name = p.part.partNumber
+  const [lo, hi] = zRange(p)
+  const h = hi - lo
+  g.add(blk([p.len, h, p.width], airTankAlu, [p.x, lo + h / 2, p.z]))
+  for (const t of [-0.35, 0, 0.35]) g.add(blk([12, h + 6, p.width + 6], mufflerGrey, [p.x + t * p.len, lo + h / 2, p.z]))
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(45, 45, 40, 18), plastic)
+  cap.position.set(p.x, hi + 20, p.z)
+  g.add(cap)
+  parent.add(g)
+}

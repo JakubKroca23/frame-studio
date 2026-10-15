@@ -156,6 +156,8 @@ export interface ParametricCabSpec {
   wheelRadius: number
   frontTrack: number
   tyreWidth: number
+  /** Side air collars behind the cab also on rigid trucks (Volvo BEP renders). */
+  collars?: boolean
 }
 
 /** Mirrors mesh/silhouette CabFeature, kept here so the model stays free of mesh imports. */

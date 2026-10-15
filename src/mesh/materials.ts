@@ -121,7 +121,7 @@ export function cabMaterials(brand: string, variant: string, color?: number): Ca
     amber,
     badgeDark: brand === 'scania' ? badgeNavy : badgeInk,
     badgeAccent: badgeSilver,
-    bumperUpper: lowerGrey ? factoryGrey : rugged || brand === 'mercedes' ? darkGrey : paint,
+    bumperUpper: lowerGrey ? factoryGrey : rugged || brand === 'mercedes' || brand === 'volvo' ? darkGrey : paint,
     bumperLower: lowerGrey ? factoryGrey : cabBlack,
     step: stepGrip,
     mirror: mirrorPane,
@@ -131,7 +131,7 @@ export function cabMaterials(brand: string, variant: string, color?: number): Ca
 }
 
 /* Body-builder (BEP) colour scheme as in the Volvo Creo renders: green side guards, blue crossmembers, black fenders. */
-export const guardGreen = std(0xa9c46c, 0.35, 0.5)
+export const guardGreen = std(0x8fa95c, 0.35, 0.5)
 export const guardBracket = std(0x3f8a45, 0.3, 0.5)
 export const crossBlue = std(0x2f8fd6, 0.3, 0.45)
 export const fenderBlack = std(0x24272b, 0.05, 0.62)
@@ -144,3 +144,8 @@ export const lampAmber = std(0xd98a14, 0.2, 0.35, { emissive: 0x6a3a00, emissive
 export const lampWhite = std(0xf3f3ee, 0.1, 0.25, { emissive: 0x77776f, emissiveIntensity: 0.3 })
 /** Default cab paint for drawing-generated cabs (grey metallic; the user can pick another colour). */
 export const CAB_GREY = 0x8d939a
+export const bepLampRed = std(0xd8261a, 0.1, 0.3, { emissive: 0xb01810, emissiveIntensity: 0.9 })
+export const bepLampAmber = std(0xf0a020, 0.1, 0.3, { emissive: 0xb06a00, emissiveIntensity: 0.8 })
+export const airTankAlu = std(0xb9bec3, 0.75, 0.32)
+export const batteryBlack = std(0x1d1f22, 0.05, 0.7)
+export const terminalRed = std(0xb3241b, 0.1, 0.5)
