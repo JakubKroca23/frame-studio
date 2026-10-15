@@ -611,7 +611,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
               {trw.markers.crane && craneModelFor(trw.markers.crane.name) && cranePose === 'unfolded' ? (
                 <CranePanel joints={craneJoints} variant={craneVariantMatch(trw.markers.crane.name)!.variant} exact={craneVariantMatch(trw.markers.crane.name)!.exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} />
               ) : null}
-              {cap ? <CapacityPanel info={cap} variantLabel={capMatch ? `${capMatch.variant.model} ${capMatch.variant.id}` : '?'} /> : null}
+              {cap ? <CapacityPanel info={cap} stab={trw?.markers.craneStab} variantLabel={capMatch ? `${capMatch.variant.model} ${capMatch.variant.id}` : '?'} /> : null}
               {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} showSectors={showSectors} onShowSectors={setShowSectors} liveDoc={trw.liveDoc} /> : null}
               <ul className="hints">
                 {trw.warnings.map((warning) => (

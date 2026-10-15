@@ -1,0 +1,15 @@
+{
+  "_note": "SYNTETICKÁ fixtura (vymyšlená čísla ve tvaru exportu trw a1ce9b3), žádná firemní data",
+  "crane": {
+    "name": "Test Crane X1",
+    "manufacturer": "Test",
+    "mass_kg": 2000,
+    "x_mm": 1200,
+    "outrigger_spread_mm": 4400,
+    "outrigger_half_span_mm": { "left": 2300, "right": 2100 },
+    "outrigger_x_mm": { "left": 3000, "right": 3000 },
+    "outrigger_variant": "B4400, Leg: A D100/80-700",
+    "outrigger_stroke_mm": 700,
+    "cp_mm": 1500
+  }
+}

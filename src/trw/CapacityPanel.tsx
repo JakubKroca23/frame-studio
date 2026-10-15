@@ -1,8 +1,9 @@
 import type { CapacityInfo } from './capacityDiagram'
+import type { TrwMarkers } from './trwConfig'
 import { STATUS_COLOR, STATUS_LABEL } from './stabilitySectors'
 
 /** Side-panel block: load chart (current row highlighted), capacity at reach, stability at slew, trw design case, missing data. */
-export function CapacityPanel({ info, variantLabel }: { info: CapacityInfo; variantLabel: string }) {
+export function CapacityPanel({ info, variantLabel, stab }: { info: CapacityInfo; variantLabel: string; stab?: TrwMarkers['craneStab'] }) {
   const rows = info.rings
   const cur = info.atReach ? rows.findIndex((r, i) => info.atReach!.reachMm <= r.rMm && (i === 0 || info.atReach!.reachMm > rows[i - 1].rMm)) : -1
   return (
@@ -17,6 +18,11 @@ export function CapacityPanel({ info, variantLabel }: { info: CapacityInfo; vari
       {info.design ? (
         <p>Návrhový případ trw: {info.design.hookKg ?? '?'} kg @ {info.design.radiusM ?? '?'} m{info.design.momentKNm != null ? ` (${info.design.momentKNm.toFixed(0)} kNm)` : ''}
           {info.design.chartKg != null ? <> · tabulka {info.design.chartKg} kg <span style={{ color: info.design.withinChart ? STATUS_COLOR.ok : STATUS_COLOR.fail }}>{info.design.withinChart ? 'v tabulce' : 'nad tabulkou'}</span></> : null}</p>
+      ) : null}
+      {stab && (stab.variant || stab.spreadMm || stab.strokeMm) ? (
+        <p data-testid="crane-stab-info">Podpěry: <b>{stab.variant ?? '?'}</b>
+          {stab.halfSpanMm ? ` · rozpětí L ${stab.halfSpanMm.left} / P ${stab.halfSpanMm.right} mm` : stab.spreadMm ? ` · rozpětí ${stab.spreadMm} mm` : ''}
+          {stab.strokeMm ? ` · zdvih nohy ${stab.strokeMm} mm` : ''}{stab.cpMm != null ? ` · cp ${stab.cpMm} mm` : ''} <span className="muted">· trw</span></p>
       ) : null}
       {rows.length ? (
         <table className="cap-table">

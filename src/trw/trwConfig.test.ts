@@ -39,8 +39,8 @@ describe('trw/config@1 mapper', () => {
   it('converts crane and outrigger positions', () => {
     expect(r.markers.crane?.x).toBe(4104 - 1475)
     expect(r.markers.outriggers).toEqual([
-      { x: 3675 - 1475, side: 'left', spread: 5788 },
-      { x: 3845 - 1475, side: 'right', spread: 5788 },
+      { x: 3675 - 1475, side: 'left', spread: 5788, halfSpan: null },
+      { x: 3845 - 1475, side: 'right', spread: 5788, halfSpan: null },
     ])
   })
 

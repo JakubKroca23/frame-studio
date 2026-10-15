@@ -19,10 +19,10 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
     <group name="trw-markers">
       {markers.crane && craneModel ? (
         cranePose === 'unfolded' && craneJoints && onCraneJoints ? (
-          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneJoints} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} stabSpread={stabSpread} />
+          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneJoints} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} stabSpread={stabSpread} stabHalfSpan={markers.craneStab?.halfSpanMm ?? null} stabStrokeMm={markers.craneStab?.strokeMm ?? null} />
         ) : !craneModel.def.foldedFile && craneModel.def.folded && onCraneJoints ? (
           // no separate folded mesh (408): articulated mesh in its measured transport pose
-          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneModel.def.folded} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} stabSpread={stabSpread} />
+          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneModel.def.folded} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} stabSpread={stabSpread} stabHalfSpan={markers.craneStab?.halfSpanMm ?? null} stabStrokeMm={markers.craneStab?.strokeMm ?? null} />
         ) : (
           <CraneModel file={craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} fallback={craneBox} />
         )
@@ -30,7 +30,7 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
         craneBox
       )}
       {(meshStabs ? [] : markers.outriggers).map((leg) => {
-        const z = ((leg.side === 'left' ? -1 : 1) * (leg.spread || 2500)) / 2
+        const z = (leg.side === 'left' ? -1 : 1) * (leg.halfSpan ?? (leg.spread || 2500) / 2)
         return (
           <group key={leg.side}>
             <mesh position={[leg.x, frameTop - 60, z / 2]}>

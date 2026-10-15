@@ -65,6 +65,11 @@ export interface TrwExport {
     x_mm?: Num
     outrigger_spread_mm?: Num
     outrigger_x_mm?: { left?: Num; right?: Num } | null
+    /** trw a1ce9b3+: spread per side from the crane axis (foot axis), outrigger variant text, leg stroke, crane CoG */
+    outrigger_half_span_mm?: { left?: Num; right?: Num } | null
+    outrigger_variant?: string | null
+    outrigger_stroke_mm?: Num
+    cp_mm?: Num
     /** Design load case of the trw project: hook load at radius, lifting moment (CraneWIN input). */
     hook_kg?: Num
     radius_m?: Num
@@ -124,7 +129,9 @@ export function mapPayload(p: unknown, i: number, x0: number): TrwPayloadMarker 
 /** Marker positions in configurator coordinates (x behind the first axle, mm). */
 export interface TrwMarkers {
   crane?: { x: number; name: string; massKg?: number | null; hookKg?: number | null; radiusM?: number | null; momentKNm?: number | null }
-  outriggers: { x: number; side: 'left' | 'right'; spread: number }[]
+  outriggers: { x: number; side: 'left' | 'right'; spread: number; halfSpan?: number | null }[]
+  /** crane outrigger data from trw (null fields = not in the export) */
+  craneStab?: { spreadMm: number | null; halfSpanMm: { left: number; right: number } | null; strokeMm: number | null; variant: string | null; cpMm: number | null }
   payloads?: TrwPayloadMarker[]
   /** body / accessories / stability (extended export, tolerant parse). */
   extended?: TrwExtended
@@ -301,10 +308,16 @@ export function mapTrwExport(data: unknown): TrwImport {
   const c = t.crane
   if (c) {
     if (ok(c.x_mm)) markers.crane = { x: c.x_mm - x0, name: c.name ?? 'jeřáb', massKg: ok(c.mass_kg) ? c.mass_kg : null, hookKg: ok(c.hook_kg) ? c.hook_kg : null, radiusM: ok(c.radius_m) ? c.radius_m : null, momentKNm: ok(c.Mk_kNm) ? c.Mk_kNm : null }
-    const spread = ok(c.outrigger_spread_mm) ? c.outrigger_spread_mm : 0
+    const hs = c.outrigger_half_span_mm
+    const half = hs && ok(hs.left) && ok(hs.right) ? { left: hs.left, right: hs.right } : null
+    const spread = ok(c.outrigger_spread_mm) ? c.outrigger_spread_mm : half ? half.left + half.right : 0
     for (const side of ['left', 'right'] as const) {
       const ox = c.outrigger_x_mm?.[side]
-      if (ok(ox)) markers.outriggers.push({ x: ox - x0, side, spread })
+      if (ok(ox)) markers.outriggers.push({ x: ox - x0, side, spread, halfSpan: half ? half[side] : null })
+    }
+    markers.craneStab = {
+      spreadMm: spread || null, halfSpanMm: half, strokeMm: ok(c.outrigger_stroke_mm) && c.outrigger_stroke_mm > 0 ? c.outrigger_stroke_mm : null,
+      variant: typeof c.outrigger_variant === 'string' && c.outrigger_variant.trim() ? c.outrigger_variant.trim() : null, cpMm: ok(c.cp_mm) ? c.cp_mm : null,
     }
     if (!spread && markers.outriggers.length) warnings.push('Rozpětí podpěr jeřábu chybí.')
   }
