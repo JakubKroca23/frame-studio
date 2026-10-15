@@ -47,6 +47,16 @@ export function useOpenAny() {
   return { input, open: () => ref.current?.click() }
 }
 
+/** "Nový": drop any loaded drawing/project state and go to the home (3D hall) start screen. */
+export function goHome() {
+  useApp.setState(useApp.getInitialState(), true)
+  document.body.classList.remove('hide-side')
+  // ?trw= / ?from= link params pin the configurator (read once in Root) → full reload without them.
+  if (window.location.search) { window.location.replace(window.location.pathname); return }
+  if (window.location.hash) window.location.hash = ''
+  window.scrollTo(0, 0)
+}
+
 const togglePanels = () => document.body.classList.toggle('hide-side')
 
 /** Top bar on every screen: logo only, then icon buttons (global + page actions). */
@@ -57,7 +67,7 @@ export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykre
     <header className="app-header topbar">
       <a className="topbar-logo" href="#" title="Úvod" aria-label="Úvod – CS Studio"><img src="/cs-mark.svg" alt="CS Studio" width="40" height="40" /></a>
       <nav className="topbar-actions" aria-label="Hlavní ovládání">
-        <IconButton icon="plus" label="Nový projekt (konfigurátor)" href="#novy" active={page === 'novy'} />
+        <IconButton icon="plus" label="Nový – zpět na úvodní obrazovku" onClick={goHome} />
         <IconButton icon="open" label="Otevřít projekt nebo výkres (.trw, .json, DXF, DWG)" onClick={open} />
         <IconButton icon="drawing" label="Výkres podvozku → 3D rám" href="#vykres" active={page === 'vykres'} />
         <IconButton icon="cube" label="Import DXF → 3D" href="#dxf3d" active={page === 'dxf3d'} />
