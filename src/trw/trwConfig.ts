@@ -65,6 +65,11 @@ export interface TrwExport {
     x_mm?: Num
     outrigger_spread_mm?: Num
     outrigger_x_mm?: { left?: Num; right?: Num } | null
+    /** Design load case of the trw project: hook load at radius, lifting moment (CraneWIN input). */
+    hook_kg?: Num
+    radius_m?: Num
+    Mk_kNm?: Num
+    lifting_moment_raw?: unknown
   } | null
   body?: { x_from_mm?: Num; x_to_mm?: Num; height_mm?: Num } | null
   /** User-entered payload items (cargo, hookloader, exhaust, bumper…). Field names parsed tolerantly. */
@@ -118,7 +123,7 @@ export function mapPayload(p: unknown, i: number, x0: number): TrwPayloadMarker 
 
 /** Marker positions in configurator coordinates (x behind the first axle, mm). */
 export interface TrwMarkers {
-  crane?: { x: number; name: string }
+  crane?: { x: number; name: string; massKg?: number | null; hookKg?: number | null; radiusM?: number | null; momentKNm?: number | null }
   outriggers: { x: number; side: 'left' | 'right'; spread: number }[]
   payloads?: TrwPayloadMarker[]
   /** body / accessories / stability (extended export, tolerant parse). */
@@ -295,7 +300,7 @@ export function mapTrwExport(data: unknown): TrwImport {
   const markers: TrwMarkers = { outriggers: [] }
   const c = t.crane
   if (c) {
-    if (ok(c.x_mm)) markers.crane = { x: c.x_mm - x0, name: c.name ?? 'jeřáb' }
+    if (ok(c.x_mm)) markers.crane = { x: c.x_mm - x0, name: c.name ?? 'jeřáb', massKg: ok(c.mass_kg) ? c.mass_kg : null, hookKg: ok(c.hook_kg) ? c.hook_kg : null, radiusM: ok(c.radius_m) ? c.radius_m : null, momentKNm: ok(c.Mk_kNm) ? c.Mk_kNm : null }
     const spread = ok(c.outrigger_spread_mm) ? c.outrigger_spread_mm : 0
     for (const side of ['left', 'right'] as const) {
       const ox = c.outrigger_x_mm?.[side]

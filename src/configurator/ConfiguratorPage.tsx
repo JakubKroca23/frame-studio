@@ -25,6 +25,10 @@ import { craneModelFor, type CranePose } from '../trw/CraneModel'
 import { CranePanel } from '../trw/CranePanel'
 import { setLiveCrane } from '../trw/liveCrane'
 import { craneVariantMatch, unfoldedPose, type CraneJoints } from '../trw/craneKinematics'
+import { craneReadout } from '../trw/CraneArticulated'
+import { capacityInfo, slewStatus } from '../trw/capacityDiagram'
+import { CapacityDiagram } from '../trw/CapacityDiagram'
+import { CapacityPanel } from '../trw/CapacityPanel'
 import type { TrwImport } from '../trw/trwConfig'
 import { CsSimLoadButton, CsSimSummary } from '../trw/CsSimPanel'
 import { CsSimOverlay } from '../trw/CsSimOverlay'
@@ -104,6 +108,10 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
     if (m) { const { a1, rel, ext } = unfoldedPose(m.def); setBoomJoints({ a1, rel, ext }) }
   }, [craneKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const craneJoints: CraneJoints = { slew: slewDeg, ...boomJoints }
+  const capMatch = craneVariantMatch(trw?.markers.crane?.name)
+  const capReach = capMatch && trw?.markers.crane && cranePose === 'unfolded' ? Math.round(craneReadout(craneJoints, capMatch.variant, trw.markers.crane.x, 0).reach * 1000) : null
+  const cap = trw?.markers.crane ? capacityInfo({ variant: capMatch?.variant ?? null, craneName: trw.markers.crane.name, reachMm: capReach, slewDeg, stability: trw.markers.extended?.stability ?? null, design: { hookKg: trw.markers.crane.hookKg, radiusM: trw.markers.crane.radiusM, momentKNm: trw.markers.crane.momentKNm } }) : null
+  const capStatus = useMemo(() => slewStatus(trw?.markers.extended?.stability), [trw?.markers.extended?.stability])
   const setCraneJoints = (j: CraneJoints) => {
     setBoomJoints({ a1: j.a1, rel: j.rel, ext: j.ext })
     setSlewDeg(j.slew)
@@ -578,6 +586,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
               {trw.markers.crane && craneModelFor(trw.markers.crane.name) && cranePose === 'unfolded' ? (
                 <CranePanel joints={craneJoints} variant={craneVariantMatch(trw.markers.crane.name)!.variant} exact={craneVariantMatch(trw.markers.crane.name)!.exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} />
               ) : null}
+              {cap ? <CapacityPanel info={cap} variantLabel={capMatch ? `${capMatch.variant.model} ${capMatch.variant.id}` : '?'} /> : null}
               {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} showSectors={showSectors} onShowSectors={setShowSectors} liveDoc={trw.liveDoc} /> : null}
               <ul className="hints">
                 {trw.warnings.map((warning) => (
@@ -786,6 +795,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
         {hooklift && !trw?.markers.extended ? <CatalogHooklift name={hooklift} frameTop={built.frame.topHeight} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} /> : null}
+        {cap && trw?.markers.crane ? <CapacityDiagram craneX={trw.markers.crane.x} info={cap} status={capStatus} slewDeg={((slewDeg % 360) + 360) % 360} reachMm={capReach} /> : null}
         {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={((slewDeg % 360) + 360) % 360} craneX={trw.markers.crane?.x ?? null} sectorRadius={trw.markers.crane && craneModelFor(trw.markers.crane.name) ? craneVariantMatch(trw.markers.crane.name)!.variant.hydMaxMm : 8000} showSectors={showSectors} liveDoc={trw.liveDoc} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>

@@ -1324,3 +1324,14 @@ body.hide-side .app-side { display: none !important; }
 .sf-no-labels .sf-label, .sf-no-forces .stab-reaction-label, .sf-no-forces .sf-force, .sf-no-stability .stab-label, .sf-no-dims .sf-dim, .sf-no-controls .sf-control { display: none !important; }
 /* leader labels */
 .leader-label { background: rgba(29,78,158,0.92); color: #fff; font: 11px/1.25 system-ui, sans-serif; padding: 3px 7px; border-radius: 4px; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.25); transform: translateY(-50%); }
+/* CraneWIN capacity diagram */
+.cap-ring-label { font: 600 11px/1.2 system-ui, sans-serif; color: #0b1118; background: rgba(255,255,255,0.88); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
+.cap-ring-label.is-design { background: rgba(20,24,30,0.85); color: #fff; }
+.cap-ring-label.is-now { background: #3ee6c4; }
+.sf-no-stability .sf-cap { display: none !important; }
+.cap-panel { margin: 8px 0; font-size: 12px; }
+.cap-panel p { margin: 4px 0; }
+.cap-table { border-collapse: collapse; margin: 4px 0; }
+.cap-table td, .cap-table th { padding: 1px 10px 1px 0; text-align: left; }
+.cap-table tr.is-cur td { color: #3ee6c4; font-weight: 700; }
+.cap-panel ul { margin: 4px 0; padding-left: 16px; color: #f0a35b; }
