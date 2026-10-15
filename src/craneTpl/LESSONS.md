@@ -42,3 +42,20 @@ drawing values, or kept from the template — and the report says which.
   and shown, the jib itself is not modelled → flagged.
 - **L8 — not derivable from 142/408.** Z-folding (Z-HiPro) and sheets without a reach table (S-HiPro 230W "W") are
   skipped. CL (forestry-line) sheets carry normal B/BS reach tables matching iX.188/228 → derived like B/BS, flagged.
+- **L9 — Jonsered iZ.18R HD: one-mesh GLB split by drawing (465-1037).** The supplier GLB is a single mesh (91 606
+  surface components). Segmentation = connectivity components + cutting planes, never silhouette intersection.
+  Pins were found by rigid matching of drawing views (MAX OUTREACH vs CLOSE IN) and concentric ring signatures
+  (P1 52/75/90, P2 52/95/100), not by naive ring detection. The boom plane in the GLB is slewed 4.5° → rotate the
+  GLB first so the pin axes are parallel to one axis. Extensions are split by nested profile half-width (±116/±78/±64)
+  and by axial end. Result: groups base/stabL/stabR/legL/legR/column/main/outer/ext1/ext2. Reach check: MIN 5 995
+  vs 5 933, MAX 10 025 vs 9 963 (+62 mm, from P1 −243 in mesh vs −296 in drawing). Flagged assumptions: ext2 inner
+  tube, cylinders bolted to booms, slew ±207.5°, outrigger beam telescopes (beam ~0.9 m vs 1.1125 m needed), the
+  slew axis 335 mm off the outrigger centre (asymmetric spread), loads (no table → null).
+
+## Rules for splitting a one-mesh model
+1. Weld + simplify + draco with gltf-transform; never `optimize` (it joins the group nodes).
+2. Find the pins from the drawing first (dimension texts in DIMENSION blocks, tables in ACAD_TABLE, model space in mm), then register the GLB to the drawing view.
+3. Classify each connected component by its centroid against planes and segments that come from the drawing. Each rule is in the build script with its source.
+4. Every value that no drawing dimension backs is marked ASSUMED in craneKinematics.ts and in the report.
+5. Check min/max reach and outrigger spread in a test against the drawing tables (tolerance ≤ 70 mm).
+6. Do not commit company drawings or .trw files, only the resulting GLB.

@@ -7,6 +7,8 @@ import { craneVariantMatch, type CraneJoints } from './craneKinematics'
 /** Simple markers for the crane column and outrigger legs (X rearward from axle 1, Y up, Z lateral). */
 export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded', craneJoints, onCraneJoints }: { markers: Markers; frameTop: number; slewDeg?: number; cranePose?: CranePose; craneJoints?: CraneJoints; onCraneJoints?: (j: CraneJoints) => void }) {
   const craneModel = craneModelFor(markers.crane?.name)
+  const stabSpread = markers.outriggers.length ? Math.max(...markers.outriggers.map((o) => o.spread || 0)) || null : null
+  const meshStabs = !!craneModel?.def.stab
   const craneBox = markers.crane ? (
     <mesh position={[markers.crane.x, frameTop + 900, 0]}>
       <boxGeometry args={[350, 1800, 350]} />
@@ -17,17 +19,17 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
     <group name="trw-markers">
       {markers.crane && craneModel ? (
         cranePose === 'unfolded' && craneJoints && onCraneJoints ? (
-          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneJoints} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} />
+          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneJoints} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} stabSpread={stabSpread} />
         ) : !craneModel.def.foldedFile && craneModel.def.folded && onCraneJoints ? (
           // no separate folded mesh (408): articulated mesh in its measured transport pose
-          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneModel.def.folded} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} />
+          <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneModel.def.folded} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} stabSpread={stabSpread} />
         ) : (
           <CraneModel file={craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} fallback={craneBox} />
         )
       ) : (
         craneBox
       )}
-      {markers.outriggers.map((leg) => {
+      {(meshStabs ? [] : markers.outriggers).map((leg) => {
         const z = ((leg.side === 'left' ? -1 : 1) * (leg.spread || 2500)) / 2
         return (
           <group key={leg.side}>

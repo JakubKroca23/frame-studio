@@ -113,6 +113,8 @@ export interface CraneDef {
    */
   extStrokes?: number[]
   /** derived from a template + drawing (src/craneTpl): mesh adaptation of the template parts */
+  /** crane outriggers in the mesh (groups stabL/stabR = beam + leg housing, legL/legR = inner leg + foot), base frame [m] */
+  stab?: { footX: { left: number; right: number }; footBottom: number; maxExt: number; legStroke: number; source: string }
   adapt?: { dh: number; baseX: number; template: string; /** stroke of each template telescope [m] (sections are lengthened when a variant needs more) */ secStroke?: number[] }
 }
 
@@ -158,6 +160,29 @@ export const CRANE_DEFS: CraneDef[] = [
     // folded = the GLB pose; booms over the right-hand side (ASSUMED side: the GLB does not say which side is which)
     folded: { slew: 90, a1: 0, rel: 0, ext: 0 },
     unfolded: { a1: 15, rel: -10, ext: 0 }, // ASSUMED working pose
+  },
+  {
+    // Jonsered iZ.18R 100 HD (HiSeat, Platform, B4500), drawing 465-1037 sheet 1 (real-mm model space) + user's SolidWorks
+    // GLB (1 mesh, parked pose) split by connectivity + planes (/workspace/jons/build.py, LESSONS L9). Mesh frame: origin on
+    // the slewing axis (GLB x 0.335, z −0.325, MEASURED: slewing-ring fit), mounting plane GLB y 0.034 (= P1 − kóta 1-4).
+    // P1 (main boom pivot) and P2 (knuckle) = pin bores in the GLB matched to the drawing pins (|P1P2| 3287 drawing,
+    // P2–outer cylinder pin 558 drawing / 558 mesh). Tip = drawing retracted tip pin mapped through the outer boom.
+    // DEVIATION: P1 is 243 mm behind the axis in the mesh vs. 296 (kóta 1-7) on the drawing.
+    key: 'iz18r', name: 'Jonsered iZ.18R HD', match: /jonsered|\bi\s*z[._ ]?\s*18\s*r/i,
+    file: 'jonsered-iz18r-articulated.glb',
+    geom: { p1: { r: -0.233, h: 2.449 }, p2: { r: 1.414, h: -0.393 }, tipRetracted: { r: 0.662, h: 2.517 }, lateralOffset: 0, extDir: { r: -0.409, h: 0.912 } },
+    refMinOutreachMm: 5933,
+    // ASSUMED limits (drawing gives no angles); must contain the parked mesh pose (a1 −59.9°, rel +164°)
+    limits: { a1: [-62, 80], rel: [-30, 170], slew: [-207.5, 207.5] },
+    // 2 hydraulic extensions (drawing: 2nd head ring set moves 2016 mm, tip 4028 mm = kóta 1-3 4030)
+    extStrokes: [2.016, 2.012],
+    variants: [{ id: '100', family: 'E', extensions: 2, minOutreachMm: 5933, hydMaxMm: 9963, manMaxMm: 9963, model: 'iz18r' }],
+    defaultVariantId: '100', loads: null, meshExtSections: 2, noLoadText: 'nosnost n/a (Jonsered – jen dosahy z výkresu)',
+    folded: { slew: -94.5, a1: 0, rel: 0, ext: 0 }, // parked = mesh pose; boom plane is slewed 4.5° in the GLB (MEASURED from pin axes)
+    unfolded: { a1: 6.3, rel: -15.9, ext: 0 }, // MAX OUTREACH view of the drawing (P1→P2 6.3°, outer −9.6° absolute)
+    // outriggers B4500: foot axes in the GLB ±1116 mm around the stabiliser centre (slewing axis 335 mm off it, MEASURED);
+    // max extension per side = (6-11 4457 − 2232) / 2; leg stroke 580 = leg H (6-1 1298 drawn = leg H, ASSUMED same in the GLB)
+    stab: { footX: { left: -1.451, right: 0.781 }, footBottom: -0.946, maxExt: 1.1125, legStroke: 0.58, source: '465-1037 tabulka 6 (B4500, noha H) + GLB' },
   },
 ]
 

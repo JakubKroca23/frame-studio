@@ -1,0 +1,5 @@
+---
+description: Splitting a single-mesh supplier GLB (e.g. Jonsered) into articulated groups
+globs: public/models/crane/**,src/trw/craneKinematics.ts
+---
+See src/craneTpl/LESSONS.md L9 and "Rules for splitting a one-mesh model". Use connectivity + drawing planes, put the pins from drawing dimensions, mark everything else ASSUMED, never invent dimensions, and test reach against the drawing table. Never commit drawings or .trw.

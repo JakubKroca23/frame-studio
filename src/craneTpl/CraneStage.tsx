@@ -19,6 +19,7 @@ export function usePose(def: CraneDef, variant: CraneVariant) {
         <button type="button" className="dxf3d-cand" onClick={() => setJoints(unfoldedPose(def, 90))}>Rozložit</button>
         <button type="button" className="dxf3d-cand" data-testid="tpl-extend" onClick={() => setJoints({ ...joints, a1: 0, rel: straight, ext: stroke })}>Rovně, vysunuto</button>
         <button type="button" className="dxf3d-cand" onClick={() => setJoints({ ...joints, ext: 0 })}>Zasunout</button>
+        {def.folded ? <button type="button" className="dxf3d-cand" data-testid="tpl-fold" onClick={() => setJoints({ ...def.folded! })}>Složit</button> : null}
       </div>
       <p className="muted" style={{ margin: '6px 0 0' }}>
         Rovně vysunuto: dosah {fmtMm(tip.r * 1000)} mm (výkres 1-3 MAX {fmtMm(variant.hydMaxMm)} mm, zasunuto {fmtMm(variant.minOutreachMm)} mm, ruční výsuv {fmtMm(variant.manMaxMm)} mm).

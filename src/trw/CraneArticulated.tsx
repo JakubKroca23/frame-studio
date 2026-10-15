@@ -1,5 +1,5 @@
 import { useGLTF } from '@react-three/drei'
-import { useThree, type ThreeEvent } from '@react-three/fiber'
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { setLiveCrane } from './liveCrane'
 import { CraneDimensions, JointArcHandles, LinearScale, Protractor, TelescopeArrows } from './CraneGizmos'
@@ -22,6 +22,8 @@ export interface ArticulatedProps {
   variant: CraneVariant
   onJoints: (j: CraneJoints) => void
   fallback: ReactNode
+  /** trw outrigger spread at the crane (foot axis to foot axis, mm) – drives the mesh outriggers (def.stab) */
+  stabSpread?: number | null
 }
 
 export function CraneArticulated(props: ArticulatedProps) {
@@ -34,7 +36,7 @@ export function CraneArticulated(props: ArticulatedProps) {
   )
 }
 
-function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoints }: ArticulatedProps) {
+function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoints, stabSpread }: ArticulatedProps) {
   // Live joints are local state, so a pointer move re-renders only the crane subtree. The page (panel,
   // stability, chassis) gets the value throttled (~8×/s) and on release.
   const [joints, setLive] = useState(propJoints)
@@ -151,7 +153,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
       <group position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <Suspense fallback={null}><JointArcHandles id="slew" offset={180} value={joints.slew} limits={lim('slew')} label={JOINT_NAMES.slew} onGrab={() => setSel('slew')} onAngle={(d) => setOne('slew', d)} /></Suspense>
       </group>
-      <group rotation={[0, -Math.PI / 2, 0]}>{meshes('base')}</group>
+      <group rotation={[0, -Math.PI / 2, 0]}>{meshes('base')}{def.stab ? <CraneStabs st={def.stab} spread={stabSpread ?? null} frameTop={frameTop} meshes={meshes} /> : null}</group>
       <group name="trw-crane-slew" rotation={[0, -Math.PI / 2 + joints.slew * rad, 0]}>
         {meshes('column')}
         {meshes('cyl1')}
@@ -228,4 +230,57 @@ export function craneReadout(joints: CraneJoints, variant: CraneVariant, craneX:
     x: craneX / 1000 - Math.cos(s) * t.r,
     y: Math.sin(s) * t.r,
   }
+}
+
+type StabDef = NonNullable<ReturnType<typeof defOf>['stab']>
+type Side = 'left' | 'right'
+/** Outrigger extension [m] per side for a trw spread (foot axis to foot axis, mm, symmetric about the vehicle centre line). */
+export function stabFromSpread(st: StabDef, spreadMm: number | null): Record<Side, number> {
+  if (spreadMm == null || !Number.isFinite(spreadMm)) return { left: 0, right: 0 }
+  const half = spreadMm / 2000
+  const c = (v: number) => Math.min(st.maxExt, Math.max(0, v))
+  return { left: c(half - Math.abs(st.footX.left)), right: c(half - Math.abs(st.footX.right)) }
+}
+/** Leg extension [m] so the foot touches the ground (frameTop = mounting plane height, mm). */
+export function legToGroundM(st: StabDef, frameTop: number): number {
+  return Math.min(st.legStroke, Math.max(0, frameTop / 1000 + st.footBottom))
+}
+
+function CraneStabs({ st, spread, frameTop, meshes }: { st: StabDef; spread: number | null; frameTop: number; meshes: (g: string) => ReactNode }) {
+  const [ext, setExt] = useState(() => stabFromSpread(st, spread))
+  const [down, setDown] = useState<Record<Side, number>>(() => { const e = stabFromSpread(st, spread); const d = legToGroundM(st, frameTop); return { left: e.left > 0 ? d : 0, right: e.right > 0 ? d : 0 } })
+  useEffect(() => { const e = stabFromSpread(st, spread); setExt(e); const d = legToGroundM(st, frameTop); setDown({ left: e.left > 0 ? d : 0, right: e.right > 0 ? d : 0 }) }, [st, spread, frameTop])
+  // animated values
+  const cur = useRef({ left: { e: 0, d: 0 }, right: { e: 0, d: 0 } })
+  const refs = { stabL: useRef<THREE.Group>(null), stabR: useRef<THREE.Group>(null), legL: useRef<THREE.Group>(null), legR: useRef<THREE.Group>(null) }
+  useFrame((_, dt) => {
+    const k = 1 - Math.exp(-dt * 4)
+    for (const side of ['left', 'right'] as Side[]) {
+      const c = cur.current[side]; c.e += (ext[side] - c.e) * k; c.d += (down[side] - c.d) * k
+      const sx = side === 'left' ? -c.e : c.e, L = side === 'left' ? 'L' : 'R'
+      refs[`stab${L}` as const].current?.position.set(sx, 0, 0)
+      refs[`leg${L}` as const].current?.position.set(sx, -c.d, 0)
+    }
+  })
+  return (
+    <>
+      <group ref={refs.stabL}>{meshes('stabL')}</group>
+      <group ref={refs.stabR}>{meshes('stabR')}</group>
+      <group ref={refs.legL}>{meshes('legL')}</group>
+      <group ref={refs.legR}>{meshes('legR')}</group>
+      {(['left', 'right'] as Side[]).map((side) => {
+        const dir = side === 'left' ? -1 : 1, fx = st.footX[side] + dir * ext[side]
+        return (
+          <group key={side}>
+            <group position={[fx + dir * 0.3, 0.15, 0]} rotation={[0, dir > 0 ? 0 : Math.PI, 0]}>
+              <Suspense fallback={null}><TelescopeArrows value={ext[side]} max={st.maxExt} size={0.3} onValue={(m) => setExt((o) => ({ ...o, [side]: m }))} /></Suspense>
+            </group>
+            <group position={[fx, st.footBottom - down[side] - 0.2, 0]} rotation={[0, 0, -Math.PI / 2]}>
+              <Suspense fallback={null}><TelescopeArrows value={down[side]} max={st.legStroke} size={0.22} onValue={(m) => setDown((o) => ({ ...o, [side]: m }))} /></Suspense>
+            </group>
+          </group>
+        )
+      })}
+    </>
+  )
 }
