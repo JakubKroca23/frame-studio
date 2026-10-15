@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 /**
  * Lightweight procedural surroundings: concrete yard + assembly hall (montážní hala) behind the truck
@@ -120,8 +121,21 @@ const hallMats = () => {
   } as Record<string, THREE.Material>
 }
 
+/** One merged geometry per material → ~8 draw calls for the whole hall instead of ~45. */
+function mergedHall() {
+  const by: Record<string, THREE.BufferGeometry[]> = {}
+  for (const p of buildHall()) {
+    let g = p.g.index ? p.g.toNonIndexed() : p.g
+    if (!g.getAttribute('uv')) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.getAttribute('position').count * 2), 2))
+    if (!g.getAttribute('normal')) g.computeVertexNormals()
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k)
+    ;(by[p.m] ??= []).push(g)
+  }
+  return Object.entries(by).map(([m, gs]) => ({ m, g: mergeGeometries(gs)! }))
+}
+
 export function Surroundings() {
-  const hall = useMemo(buildHall, [])
+  const hall = useMemo(mergedHall, [])
   const hm = useMemo(hallMats, [])
   return (
     <group name="env">
