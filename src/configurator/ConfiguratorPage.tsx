@@ -1,5 +1,5 @@
 import { SceneFilterBar } from '../view/SceneFilterBar'
-import { hookliftPlacement } from '../trw/hooklift'
+import { hookliftPlacement, isHookliftAccessory } from '../trw/hooklift'
 import { HookliftModel } from '../trw/HookliftModel'
 import { takePendingProject } from '../openProject'
 import { useSceneFilters } from '../view/sceneFilters'
@@ -8,6 +8,8 @@ import { parkedPose, takePendingDrive } from '../home/pose'
 import { isDwgMagic, parseDrawing } from '../state'
 import { decodeDrawing } from '../io/decodeDrawing'
 import { refineConfigFromDxf, type RefineResult } from './refineFromDxf'
+import { DxfLayerMeshes, DxfLayersPanel, useDxfLayers } from './DxfLayers'
+import type { Datums } from './dxfLayers'
 import { TopBar } from '../components/TopBar'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
@@ -139,6 +141,8 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
   const specFileRef = useRef<HTMLInputElement>(null)
   const [specImport, setSpecImport] = useState<SpecImport | null>(null)
   const [refine, setRefine] = useState<(RefineResult & { file: string }) | null>(null)
+  const refineRef = useRef<(f: File) => void>(() => {})
+  const dxfLayers = useDxfLayers((f) => refineRef.current(f))
   const [dragging, setDragging] = useState(false)
   const [showSectors, setShowSectors] = useState(true)
   useEffect(() => setLiveCrane({ slewDeg }), [slewDeg])
@@ -156,6 +160,12 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
 
   const model = useMemo(() => configToModel(built, preset.id), [built, preset.id])
   const params = useMemo(() => paramsForConfig(built), [built])
+  const layerDatums = useMemo<Datums>(() => {
+    const frameRear = built.axles[built.axles.length - 1].position + built.rearOverhang
+    const acc = trw?.markers.extended?.accessories?.find((a) => isHookliftAccessory(a))
+    const hp = hooklift ? hookliftPlacement({ name: hooklift, xFrom: null, xTo: null, length: null, height: null }, frameRear) : acc ? hookliftPlacement(acc, frameRear) : null
+    return { frontX: -built.frontOverhang, frameRear, frameTop: built.frame.topHeight, hook: hp ? { install: hp.params.installHeightMm ?? hp.mesh.installHeightMm, xRear: hp.xRear } : null }
+  }, [built, hooklift, trw])
   const hints = useMemo(() => validateConfig(cfg), [cfg])
 
   function choosePreset(next: ChassisPreset, fromTrw: TrwImport | null = null) {
@@ -314,6 +324,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
       setLinkStatus({ text: `${file.name}: ${err instanceof Error ? err.message : String(err)}`, level: 'error' })
     }
   }
+  refineRef.current = (f) => void refineFromDrawing(f)
   const openFileRef = useRef(openFile)
   openFileRef.current = openFile
   // "Otevřít" in the top bar / start page queues a .trw / .json for us
@@ -624,6 +635,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
               <ul>{refine.kept.map((t) => <li key={t}>{t}</li>)}</ul>
             </details>
           ) : null}
+          <DxfLayersPanel {...dxfLayers} datums={layerDatums} />
           <div className="row" style={{ marginTop: 4 }}>
             <a className="head-link" href={TRW_ORIGIN} target="_blank" rel="noreferrer">
               Otevřít v trw
@@ -868,9 +880,10 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} env={parkedPose} drive={drive ? { door: drive.door, ready: driveReady } : null} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
+        <DxfLayerMeshes layers={dxfLayers.layers} datums={layerDatums} />
         {hooklift && !trw?.markers.extended ? <CatalogHooklift name={hooklift} frameTop={built.frame.topHeight} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} /> : null}
         {cap && trw?.markers.crane ? <CapacityDiagram craneX={trw.markers.crane.x} info={cap} status={capStatus} slewDeg={((slewDeg % 360) + 360) % 360} reachMm={capReach} /> : null}
-        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={((slewDeg % 360) + 360) % 360} craneX={trw.markers.crane?.x ?? null} sectorRadius={trw.markers.crane && craneModelFor(trw.markers.crane.name) ? craneVariantMatch(trw.markers.crane.name)!.variant.hydMaxMm : 8000} showSectors={showSectors} liveDoc={trw.liveDoc} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
+        {trw?.markers.extended ? <TrwExtendedView ext={trw.markers.extended} slewDeg={((slewDeg % 360) + 360) % 360} craneX={trw.markers.crane?.x ?? null} sectorRadius={trw.markers.crane && craneModelFor(trw.markers.crane.name) ? craneVariantMatch(trw.markers.crane.name)!.variant.hydMaxMm : 8000} showSectors={showSectors} liveDoc={trw.liveDoc} hideBody={dxfLayers.layers.some((l) => l.replace && l.visible && l.status === 'ok')} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} frameTop={built.frame.topHeight + (sim ? sim.subframe.dims.H : 0)} /> : null}
         {sim ? (
           <>
             <CsSimOverlay result={sim} frameTop={built.frame.topHeight} frameHalfWidth={built.frame.widthRear / 2} railHeight={built.frame.sectionHeight} />

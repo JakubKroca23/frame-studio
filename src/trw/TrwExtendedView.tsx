@@ -11,13 +11,13 @@ import { BODY_TYPE_LABEL, nearestAngle, type ExtAccessory, type ExtBody, type Ex
 const EMPTY_STABILITY: ExtStability = { angles: [], pass: null, verified: false, minFactor: null, requiredN: null } as ExtStability
 
 /** 3D view of the extended trw blocks (X rearward from axle 1, Y up, Z lateral = trw y). */
-export function TrwExtendedView({ ext, frameTop, slewDeg, frameRear, craneX, sectorRadius = 8000, showSectors = true, liveDoc }: { liveDoc?: { document?: unknown; document_id?: number | string } | null; ext: TrwExtended; frameTop: number; slewDeg: number; frameRear?: number; craneX?: number | null; sectorRadius?: number; showSectors?: boolean }) {
+export function TrwExtendedView({ hideBody, ext, frameTop, slewDeg, frameRear, craneX, sectorRadius = 8000, showSectors = true, liveDoc }: { hideBody?: boolean; liveDoc?: { document?: unknown; document_id?: number | string } | null; ext: TrwExtended; frameTop: number; slewDeg: number; frameRear?: number; craneX?: number | null; sectorRadius?: number; showSectors?: boolean }) {
   const rear = frameRear ?? Math.max(ext.body?.xTo ?? 0, 8000)
   const hl = pickHooklift(ext)
   const showStab = useSceneFilters((s) => s.stability)
   return (
     <group name="trw-extended">
-      {ext.body && !(ext.body.type === 'hooklift' && hl !== 'body') ? <Body body={ext.body} frameTop={frameTop} frameRear={rear} /> : null}
+      {ext.body && !hideBody && !(ext.body.type === 'hooklift' && hl !== 'body') ? <Body body={ext.body} frameTop={frameTop} frameRear={rear} /> : null}
       {(ext.accessories ?? []).map((a, i) => (a.isOutrigger ? <ExtraOutrigger key={i} a={a} frameTop={frameTop} /> : isHookliftAccessory(a) ? (hl === i ? <HookliftAccessory key={i} a={a} frameTop={frameTop} frameRear={rear} /> : null) : <Accessory key={i} a={a} frameTop={frameTop} />))}
       {showStab && (ext.stability || (liveDoc && craneX != null)) ? (craneX != null && (ext.stability?.angles.length || liveDoc) ? <StabilitySectors st={ext.stability ?? EMPTY_STABILITY} craneX={craneX} radius={sectorRadius} showSectors={showSectors} slewDeg={slewDeg} liveDoc={liveDoc} />   : <Stability st={ext.stability!} slewDeg={slewDeg} frameTop={frameTop} />) : null}
     </group>
