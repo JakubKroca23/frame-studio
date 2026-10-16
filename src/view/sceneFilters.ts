@@ -12,7 +12,9 @@ export const SCENE_FILTERS: { key: SceneFilterKey; label: string; title: string 
   { key: 'stability', label: 'Stabilita', title: 'Diagram nosnosti a stability kolem vozidla' },
 ]
 const KEY = 'frame-studio.scene-filters.v1'
-type State = Record<SceneFilterKey, boolean> & { toggle: (k: SceneFilterKey) => void }
+type State = Record<SceneFilterKey, boolean> & { toggle: (k: SceneFilterKey) => void; importDefaults: () => void }
+/** After an import: a clean model, only the value labels of the crane controls. */
+export const IMPORT_FILTERS: Record<SceneFilterKey, boolean> = { labels: false, dims: false, controls: false, controlLabels: true, forces: false, stability: false }
 const defaults: Record<SceneFilterKey, boolean> = { labels: true, dims: true, controls: true, controlLabels: true, forces: true, stability: true }
 
 export function loadFilters(raw: string | null): Record<SceneFilterKey, boolean> {
@@ -25,12 +27,19 @@ export function loadFilters(raw: string | null): Record<SceneFilterKey, boolean>
 }
 const read = () => (typeof localStorage === 'undefined' ? { ...defaults } : loadFilters(localStorage.getItem(KEY)))
 
+const save = (s: Record<SceneFilterKey, boolean>) => {
+  try { localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(SCENE_FILTERS.map((f) => [f.key, s[f.key]])))) } catch { /* private mode */ }
+}
+
 export const useSceneFilters = create<State>((set, get) => ({
   ...read(),
   toggle: (k) => {
     set({ [k]: !get()[k] } as Partial<State>)
-    const s = get()
-    try { localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(SCENE_FILTERS.map((f) => [f.key, s[f.key]])))) } catch { /* private mode */ }
+    save(get())
+  },
+  importDefaults: () => {
+    set({ ...IMPORT_FILTERS })
+    save(get())
   },
 }))
 

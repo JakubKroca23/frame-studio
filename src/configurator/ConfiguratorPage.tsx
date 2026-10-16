@@ -2,7 +2,9 @@ import { SceneFilterBar } from '../view/SceneFilterBar'
 import { hookliftPlacement } from '../trw/hooklift'
 import { HookliftModel } from '../trw/HookliftModel'
 import { takePendingProject } from '../openProject'
+import { useSceneFilters } from '../view/sceneFilters'
 import { takeTrwConversion } from '../home/vehicleFromFile'
+import { parkedPose } from '../home/pose'
 import { isDwgMagic, parseDrawing } from '../state'
 import { decodeDrawing } from '../io/decodeDrawing'
 import { refineConfigFromDxf, type RefineResult } from './refineFromDxf'
@@ -251,8 +253,9 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
 
   /** Opens a .trw project (converted by trw), a trw/config@1 JSON or a CS Sim result. */
   async function openFile(file: File) {
-    if (/\.pdf$/i.test(file.name)) return openSpecPdf(file)
     if (/\.(dxf|dwg|gz|tgz|zip)$/i.test(file.name)) return refineFromDrawing(file)
+    useSceneFilters.getState().importDefaults()
+    if (/\.pdf$/i.test(file.name)) return openSpecPdf(file)
     const isTrw = /\.trw$/i.test(file.name)
     const text = isTrw ? null : await file.text()
     const kind = classifyFile(file.name, text)
@@ -860,7 +863,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
         </section>
       </aside>
 
-      <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>
+      <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} env={parkedPose} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
         {hooklift && !trw?.markers.extended ? <CatalogHooklift name={hooklift} frameTop={built.frame.topHeight} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} /> : null}
         {cap && trw?.markers.crane ? <CapacityDiagram craneX={trw.markers.crane.x} info={cap} status={capStatus} slewDeg={((slewDeg % 360) + 360) % 360} reachMm={capReach} /> : null}

@@ -16,7 +16,10 @@ export function Viewport({
   fit = 1,
   children,
   overlay,
+  env,
 }: {
+  /** World pose of the vehicle in the hall yard (from the home drive-out); the hall is placed with its inverse. */
+  env?: { x: number; z: number; rotY: number } | null
   model: ChassisModel | null
   params: ChassisParams
   groupRef: RefObject<THREE.Group | null>
@@ -63,7 +66,7 @@ export function Viewport({
           shadow-normalBias={2}
         />
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
-        <Surroundings />
+        {env ? <group rotation={[0, -env.rotY, 0]}><group position={[-env.x, 0, -env.z]}><Surroundings /></group></group> : <Surroundings />}
         {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} fit={fit} /> : null}
         {children}
         <OrbitControls makeDefault enableDamping={false} maxPolarAngle={Math.PI * 0.485} minDistance={400} maxDistance={70000} />

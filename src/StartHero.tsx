@@ -10,6 +10,8 @@ import { Boundary } from './trw/HookliftModel'
 import { DOORS, H } from './view/Environment'
 import { Surroundings, type DoorLift } from './view/Environment'
 import { vehicleFromFile, type DoorKind } from './home/vehicleFromFile'
+import { spotForDoor, HEADING } from './home/pose'
+import { useSceneFilters } from './view/sceneFilters'
 import type { DriveState } from './home/DriveOut'
 
 const DriveOut = lazy(() => import('./home/DriveOut').then((m) => ({ default: m.DriveOut })))
@@ -17,8 +19,7 @@ const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia
 /** Generation slower than this → skip the show and go straight to the target page. */
 const MAX_WAIT_MS = 12000
 /** Show framing: hall front from the front-left, low, all three doors on the right; the vehicle parks front-left. */
-const SHOW_SPOT = { x: H.x0 - 1500, z: H.z1 + 8500 }
-const SHOW_CAM = { pos: new THREE.Vector3(H.x0 - 10500, 2600, H.z1 + 21500), target: new THREE.Vector3(2500, 3300, H.z1) }
+const SHOW_CAM = (s: { x: number; z: number }) => ({ pos: new THREE.Vector3(s.x + 15000, 13000, s.z + 15000), target: new THREE.Vector3(s.x - 1000, 0, s.z - 2000) })
 import { StudioLights } from './view/Viewport'
 
 /**
@@ -30,7 +31,7 @@ import { StudioLights } from './view/Viewport'
 const TARGET = new THREE.Vector3(-3500, 3200, H.z1 + 500)
 /** Dummy chassis in front of the middle door: centre x, z; length along X. */
 /** Configurator dummy + any vehicle shown on the home scene: well out in the yard, clear of the door aprons. */
-export const VEHICLE_SPOT = { x: 6000, z: H.z1 + 12000 }
+export const VEHICLE_SPOT = spotForDoor(1)
 const CH = { ...VEHICLE_SPOT, len: 9000 }
 // Exhibits stand on the yard beside the LEFT gable wall of the hall (x < H.x0), not in front of the doors.
 const CRANE_AT = { x: H.x0 - 9500, z: H.z1 - 2500 }
@@ -70,7 +71,7 @@ const hoverProps = ({ setHot, open }: Hover) => ({
 function DummyChassis({ hidden, ...h }: Hover & { hidden?: boolean }) {
   const m = h.hot ? railHot : railMat, x0 = CH.x - CH.len / 2, axles = [x0 + 1500, x0 + 6400, x0 + 7750]
   return (
-    <group name="start-dummy-chassis" position={[0, 0, CH.z]} visible={!hidden} {...hoverProps(h)}>
+    <group name="start-dummy-chassis" position={[CH.x, 0, CH.z]} rotation={[0, HEADING, 0]} visible={!hidden} {...hoverProps(h)}><group position={[-CH.x, 0, 0]}>
       <FloorShadow x={CH.x} sx={CH.len + 1800} sz={3200} />
       {[-1, 1].map((s) => <mesh key={s} material={m} position={[CH.x, 1000, s * 420]}><boxGeometry args={[CH.len, 270, 90]} /></mesh>)}
       {[0.1, 0.3, 0.5, 0.7, 0.9].map((t) => <mesh key={t} material={m} position={[x0 + CH.len * t, 1000, 0]}><boxGeometry args={[120, 200, 750]} /></mesh>)}
@@ -85,7 +86,7 @@ function DummyChassis({ hidden, ...h }: Hover & { hidden?: boolean }) {
           ))}
         </group>
       ))}
-    </group>
+    </group></group>
   )
 }
 
@@ -212,6 +213,7 @@ export function StartHero() {
     else { queueProjectFile(f); window.location.hash = '#novy' }
   }
   const startDrive = (kind: DoorKind, f: File) => {
+    useSceneFilters.getState().importDefaults()
     if (reducedMotion()) return proceed(kind, f)
     const door = kind === 'dxf' ? 0 : kind === 'trw' ? 1 : 2
     finishRef.current = () => proceed(kind, f, true)
@@ -224,15 +226,10 @@ export function StartHero() {
   // click / any key skips the show
   useEffect(() => {
     if (!drive) return
-    // a click (no drag) or any key skips; dragging never does
-    let down: { x: number; y: number } | null = null
-    const skip = () => finish()
-    const onDown = (e: PointerEvent) => { down = { x: e.clientX, y: e.clientY } }
-    const onUp = (e: PointerEvent) => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) finish(); down = null }
+    // only Esc / Space skip; mouse and touch stay free for orbiting the camera during the show
+    const skip = (e: KeyboardEvent) => { if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); finish() } }
     window.addEventListener('keydown', skip)
-    window.addEventListener('pointerdown', onDown)
-    window.addEventListener('pointerup', onUp)
-    return () => { window.removeEventListener('keydown', skip); window.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp) }
+    return () => window.removeEventListener('keydown', skip)
   }, [drive, finish])
   const items: Label[] = [
     { label: 'Import DXF podvozku', sub: 'bokorys / půdorys · DXF, DWG', onClick: () => dxf.current?.click(), testid: 'door-dxf' },
@@ -254,7 +251,7 @@ export function StartHero() {
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
         <Surroundings doorLift={doorLift} />
         <DummyChassis hidden={!!drive} hot={hot} setHot={setHot} open={() => go('#novy')} />
-        {drive ? <Suspense fallback={null}><DriveOut state={drive} spot={SHOW_SPOT} cam={SHOW_CAM} doorLift={doorLift} onDone={finish} /></Suspense> : null}
+        {drive ? <Suspense fallback={null}><DriveOut state={drive} cam={SHOW_CAM} doorLift={doorLift} onDone={finish} /></Suspense> : null}
         {drive ? null : <>
         <Exhibit name="start-crane" x={CRANE_AT.x} z={CRANE_AT.z} r={1900} standLen={1400} hot={craneHot} setHot={setCraneHot} open={() => go('#jeraby')}>
           <ExhibitMesh file="crane142.glb" x={CRANE_AT.x} y={FRAME_TOP} hot={craneHot} alignBottom={false} />
@@ -263,7 +260,7 @@ export function StartHero() {
           <ExhibitMesh file="multilift21s.glb" x={HOOK_AT.x} y={FRAME_TOP} hot={hookHot} alignBottom />
         </Exhibit>
         </>}
-        <OrbitControls makeDefault enabled={!drive} target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
+        <OrbitControls makeDefault target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
         <HeroCamera labels={labels} />
       </Canvas>
       {items.map((it, i) => (
