@@ -3,14 +3,14 @@ import { H } from '../view/Environment'
 import { HEADING, STOP_Z, TURN, drivePath, originPose } from './pose'
 
 describe('drivePath', () => {
-  it('drives straight out, then turns right by 45° and stops at STOP_Z', () => {
+  it('drives straight out, then turns left by 45° and stops at STOP_Z', () => {
     const p = drivePath(1, 9500)
     const a = p.at(0), e = p.end
     expect(a.rotY).toBe(HEADING)
     expect(a.z).toBeLessThan(H.z1)
     expect(e.z).toBeCloseTo(STOP_Z, 3)
-    expect(e.rotY).toBeCloseTo(HEADING + TURN, 6)
-    expect(e.x).toBeGreaterThan(a.x) // turned towards +X
+    expect(e.rotY).toBeCloseTo(HEADING - TURN, 6)
+    expect(e.x).toBeLessThan(a.x) // turned towards −X
     // rear has cleared the facade before the turn starts
     expect(p.at(H.z1 + 9500 / 2 - (H.z1 - 400 - 9500 / 2)).rotY).toBe(HEADING)
   })

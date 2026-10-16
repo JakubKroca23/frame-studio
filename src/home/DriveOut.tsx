@@ -14,7 +14,7 @@ import { HEADING, drivePath, originPose, setParkedPose } from './pose'
 import type { HomeVehicle } from './vehicleFromFile'
 
 /** Timeline (s): door rolls up, vehicle drives out to the spot, door closes, short hold, then onDone. */
-export const T_CAM = 1.2, T_OPEN = 1.4, T_DRIVE = 6.5, T_CLOSE = 1.3, T_EXT = 4.2, T_HOLD = 1.0
+export const T_CAM = 1.2, T_OPEN = 1.4, T_DRIVE = 6.5, T_CLOSE = 1.3, T_EXT = 4.2, T_HOLD = 0.15
 /** Loading gate: no pending loads for this long (s) → everything is in; give up waiting after MAX_GATE. */
 const QUIET = 0.5, MAX_GATE = 20
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
@@ -42,7 +42,7 @@ export function DriveOut({ state, doorLift, onDone, onReady, cam }: { state: Dri
   // loading gate: count loader activity (GLBs, textures) of everything mounted for the vehicle
   const quietSince = useRef<number | null>(null), tReady = useRef<number | null>(null), compiled = useRef(false)
 
-  // Camera glide to the show framing. Orbit stays enabled; the first user interaction ('start') cancels the
+  // Camera glide to the show framing. Orbit is locked during the show (StartHero); a user interaction ('start') cancels the
   // glide for good, so the camera never jumps or snaps back. The animation itself only reads the clock.
   const tween = useRef<{ pos: THREE.Vector3; target: THREE.Vector3; to: { pos: THREE.Vector3; target: THREE.Vector3 } } | null>(null)
   useEffect(() => {

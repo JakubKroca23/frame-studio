@@ -21,9 +21,9 @@ const DriveOut = lazy(() => import('./home/DriveOut').then((m) => ({ default: m.
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 /** Generation slower than this → skip the show and go straight to the target page. */
 const MAX_WAIT_MS = 12000
-/** Show framing: from the front-right, the vehicle (stopped 17.5 m out, cab turned 45° towards the camera) in the
+/** Show framing: from the front-left, the vehicle (stopped 17.5 m out, cab turned 45° left towards the camera) in the
  *  lower third with the hall front behind it. */
-const SHOW_CAM = (s: { x: number; z: number }) => ({ pos: new THREE.Vector3(s.x + 9000, 9500, s.z + 17000), target: new THREE.Vector3(s.x - 3500, 2200, s.z - 5500) })
+const SHOW_CAM = (s: { x: number; z: number }) => ({ pos: new THREE.Vector3(s.x - 9000, 9500, s.z + 17000), target: new THREE.Vector3(s.x + 3500, 2200, s.z - 5500) })
 import { StudioLights } from './view/Viewport'
 
 /**
@@ -271,6 +271,8 @@ export function StartHero() {
   }
   const startDrive = (kind: DoorKind, f: File) => {
     useSceneFilters.getState().importDefaults()
+    // crane controls stay hidden during the show (the configurator's own import turns them on for the final state)
+    useSceneFilters.setState({ controls: false })
     if (reducedMotion()) return proceed(kind, f)
     const door = kind === 'dxf' ? 0 : kind === 'trw' ? 1 : 2
     finishRef.current = () => proceed(kind, f, true)
@@ -333,7 +335,7 @@ export function StartHero() {
           <AuxExhibitMesh x={AUX_AT.x} y={FRAME_TOP} hot={auxHot} />
         </Exhibit>
         </group>
-        <OrbitControls makeDefault target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
+        <OrbitControls makeDefault enabled={!drive} target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
         <HeroCamera />
       </Canvas>
       {drive && !driveReady ? <div className="drive-loading" role="status"><span className="drive-spinner" aria-hidden="true" />Připravuji vozidlo…</div> : null}

@@ -36,7 +36,7 @@ function pageFor(hash: string): ReactNode {
 }
 
 /** Fade the start overlay out once the page under it has settled: ≥2 frames, no loader activity for QUIET ms. */
-const QUIET = 400, MAX_WAIT = 8000, FADE = 450
+const QUIET = 120, MAX_WAIT = 5000, FADE = 220
 function useHandoffFade(on: boolean) {
   const [fading, setFading] = useState(false)
   useEffect(() => {

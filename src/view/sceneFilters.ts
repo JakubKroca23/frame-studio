@@ -13,8 +13,8 @@ export const SCENE_FILTERS: { key: SceneFilterKey; label: string; title: string 
 ]
 const KEY = 'frame-studio.scene-filters.v1'
 type State = Record<SceneFilterKey, boolean> & { toggle: (k: SceneFilterKey) => void; importDefaults: () => void }
-/** After an import: a clean model, only the value labels of the crane controls. */
-export const IMPORT_FILTERS: Record<SceneFilterKey, boolean> = { labels: false, dims: false, controls: false, controlLabels: true, forces: false, stability: false }
+/** After an import: a clean model with only the working crane controls (arrows, protractors, scales); no texts. */
+export const IMPORT_FILTERS: Record<SceneFilterKey, boolean> = { labels: false, dims: false, controls: true, controlLabels: false, forces: false, stability: false }
 const defaults: Record<SceneFilterKey, boolean> = { labels: true, dims: true, controls: true, controlLabels: true, forces: true, stability: true }
 
 export function loadFilters(raw: string | null): Record<SceneFilterKey, boolean> {
