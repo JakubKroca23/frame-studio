@@ -30,7 +30,7 @@ import { StudioLights } from './view/Viewport'
  * exhibits are decimated single-mesh GLBs (scripts/hero-models.mjs, ~24k tris each, meshopt), baked floor shadows,
  * HTML labels are moved through refs (no React re-render per frame).
  */
-const TARGET = new THREE.Vector3(-3800, 3200, H.z1 + 2500)
+const TARGET = new THREE.Vector3(-5200, 2600, H.z1 - 1000)
 /** Dummy chassis in front of the middle door: centre x, z; length along X. */
 /** Configurator dummy + any vehicle shown on the home scene: well out in the yard, clear of the door aprons. */
 /** Home dummy stands where it always did (12.5 m out, perpendicular); the drive-out parks further (pose.STOP_Z). */
@@ -228,7 +228,7 @@ function ExhibitSign({ x, z, title, sub, logo, hot, setHot, open, name }: Hover 
 }
 const signBackMat = new THREE.MeshStandardMaterial({ color: '#1a2230', roughness: 0.6, metalness: 0.2, transparent: true, opacity: 0.55, depthWrite: false })
 
-const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 5000 * k, 11500 + 1500 * (k - 1), H.z1 + 33000 * k)
+const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 2000 * k, 10500 + 1500 * (k - 1), H.z1 + 33000 * k)
 
 /** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
 function HeroCamera() {
@@ -250,7 +250,7 @@ const SHOW_CFG = false
 const SIGN_AT: Record<string, { x: number; z: number }> = {
   'start-crane': { x: CRANE_AT.x + 2300, z: CRANE_AT.z + 2200 },
   'start-multilift': { x: HOOK_AT.x + 3300, z: HOOK_AT.z + 4200 },
-  'start-aux': { x: AUX_AT.x + 1500, z: AUX_AT.z + 2600 },
+  'start-aux': { x: AUX_AT.x - 2700, z: AUX_AT.z + 1800 },
 }
 
 export function StartHero() {
