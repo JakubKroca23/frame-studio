@@ -16,6 +16,9 @@ const DriveOut = lazy(() => import('./home/DriveOut').then((m) => ({ default: m.
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 /** Generation slower than this → skip the show and go straight to the target page. */
 const MAX_WAIT_MS = 12000
+/** Show framing: hall front from the front-left, low, all three doors on the right; the vehicle parks front-left. */
+const SHOW_SPOT = { x: H.x0 - 1500, z: H.z1 + 8500 }
+const SHOW_CAM = { pos: new THREE.Vector3(H.x0 - 10500, 2600, H.z1 + 21500), target: new THREE.Vector3(2500, 3300, H.z1) }
 import { StudioLights } from './view/Viewport'
 
 /**
@@ -221,10 +224,15 @@ export function StartHero() {
   // click / any key skips the show
   useEffect(() => {
     if (!drive) return
+    // a click (no drag) or any key skips; dragging never does
+    let down: { x: number; y: number } | null = null
     const skip = () => finish()
+    const onDown = (e: PointerEvent) => { down = { x: e.clientX, y: e.clientY } }
+    const onUp = (e: PointerEvent) => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) finish(); down = null }
     window.addEventListener('keydown', skip)
-    window.addEventListener('pointerdown', skip)
-    return () => { window.removeEventListener('keydown', skip); window.removeEventListener('pointerdown', skip) }
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointerup', onUp)
+    return () => { window.removeEventListener('keydown', skip); window.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp) }
   }, [drive, finish])
   const items: Label[] = [
     { label: 'Import DXF podvozku', sub: 'bokorys / půdorys · DXF, DWG', onClick: () => dxf.current?.click(), testid: 'door-dxf' },
@@ -235,7 +243,7 @@ export function StartHero() {
     { label: 'MULTILIFT', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
   ]
   return (
-    <section className="start-hero" aria-label="Hala ContSystem – vstup do CS Studia">
+    <section className={drive ? 'start-hero is-driving' : 'start-hero'} aria-label="Hala ContSystem – vstup do CS Studia">
       <Canvas frameloop="demand" dpr={[1, 2]} camera={{ fov: 42, near: 100, far: 200000, position: [-9000, 9000, 9000] }}
         gl={{ antialias: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}>
         <color attach="background" args={['#b4c3cf']} />
@@ -245,15 +253,17 @@ export function StartHero() {
         <directionalLight position={[2500, 9000, 5200]} intensity={3.0} />
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
         <Surroundings doorLift={doorLift} />
-        <DummyChassis hidden={!!drive?.vehicle} hot={hot} setHot={setHot} open={() => go('#novy')} />
-        {drive ? <Suspense fallback={null}><DriveOut state={drive} spot={VEHICLE_SPOT} doorLift={doorLift} onDone={finish} /></Suspense> : null}
+        <DummyChassis hidden={!!drive} hot={hot} setHot={setHot} open={() => go('#novy')} />
+        {drive ? <Suspense fallback={null}><DriveOut state={drive} spot={SHOW_SPOT} cam={SHOW_CAM} doorLift={doorLift} onDone={finish} /></Suspense> : null}
+        {drive ? null : <>
         <Exhibit name="start-crane" x={CRANE_AT.x} z={CRANE_AT.z} r={1900} standLen={1400} hot={craneHot} setHot={setCraneHot} open={() => go('#jeraby')}>
           <ExhibitMesh file="crane142.glb" x={CRANE_AT.x} y={FRAME_TOP} hot={craneHot} alignBottom={false} />
         </Exhibit>
         <Exhibit name="start-multilift" x={HOOK_AT.x} z={HOOK_AT.z} r={3600} standLen={HOOK_AT.len} rot={HOOK_AT.rot} hot={hookHot} setHot={setHookHot} open={() => go('#multilift')}>
           <ExhibitMesh file="multilift21s.glb" x={HOOK_AT.x} y={FRAME_TOP} hot={hookHot} alignBottom />
         </Exhibit>
-        <OrbitControls makeDefault target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
+        </>}
+        <OrbitControls makeDefault enabled={!drive} target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
         <HeroCamera labels={labels} />
       </Canvas>
       {items.map((it, i) => (

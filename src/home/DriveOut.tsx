@@ -8,7 +8,7 @@ import { DOORS, H, type DoorLift } from '../view/Environment'
 import type { HomeVehicle } from './vehicleFromFile'
 
 /** Timeline (s): door rolls up, vehicle drives out to the spot, door closes, short hold, then onDone. */
-export const T_OPEN = 1.4, T_DRIVE = 4.6, T_CLOSE = 1.3, T_HOLD = 1.0
+export const T_CAM = 1.2, T_OPEN = 1.4, T_DRIVE = 4.6, T_CLOSE = 1.3, T_HOLD = 1.0
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 
@@ -23,8 +23,21 @@ export interface DriveState {
  * Everything runs in useFrame on refs; React renders only when the vehicle arrives. Times are read from the
  * frame clock so headless captures can step through via window.__driveT (debug hook).
  */
-export function DriveOut({ state, spot, doorLift, onDone }: { state: DriveState; spot: { x: number; z: number }; doorLift: DoorLift; onDone: () => void }) {
-  const { invalidate } = useThree()
+export function DriveOut({ state, spot, doorLift, onDone, cam }: { state: DriveState; spot: { x: number; z: number }; doorLift: DoorLift; onDone: () => void; cam?: { pos: THREE.Vector3; target: THREE.Vector3 } }) {
+  const { invalidate, camera, controls } = useThree()
+  // camera: glide to the show framing, give the user's view back afterwards (orbit is disabled meanwhile)
+  const camFrom = useMemo(() => {
+    const c = controls as unknown as { target?: THREE.Vector3 } | null
+    return { pos: camera.position.clone(), target: (c?.target ?? new THREE.Vector3()).clone() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => () => {
+    camera.position.copy(camFrom.pos)
+    const c = controls as unknown as { target?: THREE.Vector3; update?: () => void } | null
+    if (c?.target) { c.target.copy(camFrom.target); c.update?.() } else camera.lookAt(camFrom.target)
+    invalidate()
+  }, [camera, controls, camFrom, invalidate])
+  const lookAt = useMemo(() => new THREE.Vector3(), [])
   const root = useRef<THREE.Group>(null)
   const t0 = useRef<number | null>(null), tDrive = useRef<number | null>(null), done = useRef(false)
   const { vehicle, door } = state
@@ -55,6 +68,12 @@ export function DriveOut({ state, spot, doorLift, onDone }: { state: DriveState;
     if (t0.current === null) t0.current = now
     const t = now - t0.current
     const lift = doorLift.current
+    if (cam) {
+      const c = ease(clamp01(t / T_CAM))
+      camera.position.lerpVectors(camFrom.pos, cam.pos, c)
+      lookAt.lerpVectors(camFrom.target, cam.target, c)
+      camera.lookAt(lookAt)
+    }
     // door: opens immediately, stays open until the vehicle has passed, then closes
     if (tDrive.current === null && built && t >= T_OPEN) tDrive.current = Math.max(t, T_OPEN)
     const td = tDrive.current === null ? -1 : t - tDrive.current

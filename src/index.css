@@ -1337,3 +1337,4 @@ body.hide-side .app-side { display: none !important; }
 .cap-table td, .cap-table th { padding: 1px 10px 1px 0; text-align: left; }
 .cap-table tr.is-cur td { color: #3ee6c4; font-weight: 700; }
 .cap-panel ul { margin: 4px 0; padding-left: 16px; color: #f0a35b; }
+.start-hero.is-driving .door-btn, .start-hero.is-driving canvas ~ div { display: none !important; }

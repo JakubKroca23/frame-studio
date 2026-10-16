@@ -1,7 +1,6 @@
 import { createContext, useContext, useRef, type ReactNode } from 'react'
 import { useApp } from '../state'
 import { OPEN_ACCEPT, isProjectFile, queueProjectFile } from '../openProject'
-import { TRW_ORIGIN } from '../trw/links'
 
 /** Gate session for the logout button (provided by auth/Gate). */
 export const SessionCtx = createContext<{ loggedIn: boolean; logout: () => void }>({ loggedIn: false, logout: () => {} })
@@ -47,40 +46,27 @@ export function useOpenAny() {
   return { input, open: () => ref.current?.click() }
 }
 
-/** "Nový": drop any loaded drawing/project state and go to the home (3D hall) start screen. */
+/** "Nový": hard reload to the clean app URL (no hash, no query) → fresh state, home hall scene. Never "/#". */
 export function goHome() {
-  useApp.setState(useApp.getInitialState(), true)
-  document.body.classList.remove('hide-side')
-  // ?trw= / ?from= link params pin the configurator (read once in Root) → full reload without them.
-  if (window.location.search) { window.location.replace(window.location.pathname); return }
-  if (window.location.hash) window.location.hash = ''
-  window.scrollTo(0, 0)
+  window.location.replace(window.location.origin + window.location.pathname)
 }
 
 const togglePanels = () => document.body.classList.toggle('hide-side')
 
-/** Top bar on every screen: logo only, then icon buttons (global + page actions). */
+/** Top bar on every screen: logo + "Nový" (everything else is reached from the hall scene), then page actions. */
 export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykres' | 'dxf3d' | 'jeraby' | 'multilift'; actions?: BarAction[] }) {
-  const { input, open } = useOpenAny()
   const session = useContext(SessionCtx)
   return (
     <header className="app-header topbar">
-      <a className="topbar-logo" href="#" title="Úvod" aria-label="Úvod – CS Studio"><img src="/cs-mark.svg" alt="CS Studio" width="40" height="40" /></a>
+      <a className="topbar-logo" href={import.meta.env.BASE_URL} title="Úvod" aria-label="Úvod – CS Studio"><img src="/cs-mark.svg" alt="CS Studio" width="40" height="40" /></a>
       <nav className="topbar-actions" aria-label="Hlavní ovládání">
         <IconButton icon="plus" label="Nový – zpět na úvodní obrazovku" onClick={goHome} />
-        <IconButton icon="open" label="Otevřít projekt nebo výkres (.trw, .json, DXF, DWG)" onClick={open} />
-        <IconButton icon="drawing" label="Výkres podvozku → 3D rám" href="#vykres" active={page === 'vykres'} />
-        <IconButton icon="cube" label="Import DXF → 3D" href="#dxf3d" active={page === 'dxf3d'} />
-        <IconButton icon="crane" label="Jeřáby HIAB" href="#jeraby" active={page === 'jeraby'} />
-        <IconButton icon="hooklift" label="Nástavby Multilift (hákové nosiče)" href="#multilift" active={page === 'multilift'} />
         {actions.length ? <span className="topbar-sep" aria-hidden="true" /> : null}
         {actions.map((a) => <IconButton key={a.label} {...a} />)}
         <span className="topbar-grow" />
         {page !== 'start' ? <IconButton icon="panel" label="Zobrazit / skrýt boční panel" onClick={togglePanels} /> : null}
-        <IconButton icon="link" label="Otevřít trw (TrailerWIN) v nové kartě" href={TRW_ORIGIN} external />
         {session.loggedIn ? <IconButton icon="logout" label="Odhlásit" onClick={session.logout} /> : null}
       </nav>
-      {input}
     </header>
   )
 }
