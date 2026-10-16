@@ -882,8 +882,8 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
 /** Crane from the CS Sim load case; outriggers from the trw import if present, else at the crane (odhad). */
 /** Multilift from the catalogue (#novy?hooklift=…): rear roller at the frame end, datasheet SL / HH / h. */
 function CatalogHooklift({ name, frameTop, frameRear }: { name: string; frameTop: number; frameRear: number }) {
-  const { xRear, params, mesh } = hookliftPlacement({ name, xFrom: null, xTo: null, length: null, height: null }, frameRear)
-  return <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} fallback={null} />
+  const { xRear, params, mesh, spec } = hookliftPlacement({ name, xFrom: null, xTo: null, length: null, height: null }, frameRear)
+  return <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} spec={spec} fallback={null} />
 }
 
 function simMarkers(sim: CsSimResult, trw: TrwImport | null): TrwImport['markers'] {

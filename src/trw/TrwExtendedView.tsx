@@ -39,7 +39,7 @@ function HookliftAccessory({ a, frameTop, frameRear }: { a: ExtAccessory; frameT
   const fallback = <Body body={{ type: 'hooklift', typeRaw: a.name, xFrom: xFront, xTo: xRear, length: params.lengthMm, width: null, height: null, sideHeight: null, massKg: null, cog: { x: null, y: null, z: null } }} frameTop={frameTop} frameRear={frameRear} simple />
   return (
     <group name={`trw-accessory-${a.name}`}>
-      <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} fallback={fallback} />
+      <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} spec={spec} fallback={fallback} />
       <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${a.name}${spec && !a.name.includes(spec.name) ? ` (${spec.name})` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''} · ${a.massKg != null ? `${Math.round(a.massKg)} kg` : spec ? `${spec.massKg} kg (katalog)` : '? kg'}`} bg="rgba(110,50,140,0.9)" />
     </group>
   )
@@ -51,7 +51,7 @@ function Body({ body, frameTop, frameRear, simple }: { body: ExtBody; frameTop: 
     const xFront = xRear - params.lengthMm
     return (
       <group name="trw-body">
-        <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} fallback={<Body body={{ ...body, xFrom: xFront, xTo: xRear }} frameTop={frameTop} frameRear={frameRear} simple />} />
+        <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} spec={spec} fallback={<Body body={{ ...body, xFrom: xFront, xTo: xRear }} frameTop={frameTop} frameRear={frameRear} simple />} />
         <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${BODY_TYPE_LABEL.hooklift}${spec ? ` ${spec.name}` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
       </group>
     )

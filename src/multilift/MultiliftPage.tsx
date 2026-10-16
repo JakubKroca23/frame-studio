@@ -96,7 +96,7 @@ export function MultiliftPage() {
           <Environment preset="city" />
           <ConcreteFloor size={40000} />
           <group position={[-spec.subframeLengthMm / 2, 0, 0]}>
-            <HookliftModel key={spec.name} xRear={spec.subframeLengthMm} frameTop={0} params={params} mesh={mesh} fallback={null} />
+            <HookliftModel key={spec.name} xRear={spec.subframeLengthMm} frameTop={0} params={params} mesh={mesh} spec={spec} fallback={null} />
           </group>
           <CatalogDims spec={spec} />
           <OrbitControls makeDefault target={[0, 900, 0]} />
