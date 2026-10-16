@@ -17,13 +17,13 @@ import { StudioLights } from './view/Viewport'
  * exhibits are decimated single-mesh GLBs (scripts/hero-models.mjs, ~24k tris each, meshopt), baked floor shadows,
  * HTML labels are moved through refs (no React re-render per frame).
  */
-const TARGET = new THREE.Vector3(-1500, 3200, H.z1 + 500)
+const TARGET = new THREE.Vector3(-3500, 3200, H.z1 + 500)
 /** Dummy chassis in front of the middle door: centre x, z; length along X. */
 /** Configurator dummy + any vehicle shown on the home scene: well out in the yard, clear of the door aprons. */
 export const VEHICLE_SPOT = { x: 6000, z: H.z1 + 12000 }
 const CH = { ...VEHICLE_SPOT, len: 9000 }
 // Exhibits stand on the yard beside the LEFT gable wall of the hall (x < H.x0), not in front of the doors.
-const CRANE_AT = { x: H.x0 - 7500, z: H.z1 - 8500 }
+const CRANE_AT = { x: H.x0 - 9500, z: H.z1 - 2500 }
 const HOOK_AT = { x: H.x0 - 3300, z: H.z1 - 3000, len: 5900, rot: Math.PI / 2 }
 const FRAME_TOP = 1000
 const MODELS = `${import.meta.env.BASE_URL}models/hero/`
@@ -183,7 +183,7 @@ function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
   return null
 }
 
-type Label = { label: string; sub: string; onClick: () => void; testid: string; hot?: boolean; setHot?: (h: boolean) => void; cfg?: boolean }
+type Label = { label: string; sub: string; logo?: string; onClick: () => void; testid: string; hot?: boolean; setHot?: (h: boolean) => void; cfg?: boolean }
 
 export function StartHero() {
   const dxf = useRef<HTMLInputElement>(null), trw = useRef<HTMLInputElement>(null), spec = useRef<HTMLInputElement>(null)
@@ -196,8 +196,8 @@ export function StartHero() {
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
     { label: 'Specifikace PDF', sub: 'specifikace výrobce · MAN, Volvo, DAF', onClick: () => spec.current?.click(), testid: 'door-spec' },
     { label: 'Konfigurátor', sub: 'podvozek, rám, nápravy', onClick: () => go('#novy'), testid: 'start-cfg', hot, setHot, cfg: true },
-    { label: 'HIAB', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
-    { label: 'MULTILIFT', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
+    { label: 'HIAB', logo: 'brand/logo-hiab-color.svg', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
+    { label: 'MULTILIFT', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
   ]
   return (
     <section className="start-hero" aria-label="Hala ContSystem – vstup do CS Studia">
@@ -224,7 +224,7 @@ export function StartHero() {
         <button key={it.testid} ref={(el) => { labels.current[i] = el }} type="button" data-testid={it.testid}
           className={it.cfg ? (it.hot ? 'door-btn cfg-btn is-hot' : 'door-btn cfg-btn') : 'door-btn'} style={{ left: -9999, top: -9999 }}
           onMouseEnter={() => it.setHot?.(true)} onMouseLeave={() => it.setHot?.(false)} onClick={it.onClick}>
-          <strong>{it.label}</strong>
+          {it.logo ? <img className="start-logo" src={import.meta.env.BASE_URL + it.logo} alt={it.label} draggable={false} /> : <strong>{it.label}</strong>}
           <span>{it.sub}</span>
         </button>
       ))}

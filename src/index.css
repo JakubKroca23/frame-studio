@@ -1301,6 +1301,7 @@ body.hide-side .app-side { display: none !important; }
 .start-hero canvas { display: block; }
 .door-btn { position: absolute; transform: translate(-50%, -50%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(62, 230, 196, 0.7); background: rgba(16, 22, 32, 0.82); color: #fff; font: inherit; cursor: pointer; white-space: nowrap; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); transition: transform .15s, background .15s, border-color .15s; }
 .door-btn strong { font-size: 15px; font-weight: 700; }
+.door-btn .start-logo { display: block; height: 22px; width: auto; margin: 1px auto 4px; pointer-events: none; }
 .door-btn span { font-size: 11.5px; color: #9fb3c4; }
 .door-btn:hover, .door-btn:focus-visible { transform: translate(-50%, -54%) scale(1.04); background: rgba(62, 230, 196, 0.92); border-color: #3ee6c4; color: #0b1118; outline: none; }
 .door-btn:hover span, .door-btn:focus-visible span { color: #0b1118; }
