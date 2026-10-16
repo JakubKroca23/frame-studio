@@ -1,5 +1,5 @@
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { OrbitControls, useGLTF } from '@react-three/drei'
+import { useGLTF } from '@react-three/drei'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
@@ -24,7 +24,6 @@ import { StudioLights } from './view/Viewport'
  * exhibits are decimated single-mesh GLBs (scripts/hero-models.mjs, ~24k tris each, meshopt), baked floor shadows,
  * HTML labels are moved through refs (no React re-render per frame).
  */
-const TARGET = new THREE.Vector3(-5200, 2600, H.z1 - 1000)
 /** Dummy chassis in front of the middle door: centre x, z; length along X. */
 /** Configurator dummy + any vehicle shown on the home scene: well out in the yard, clear of the door aprons. */
 /** Home dummy stands where it always did (12.5 m out, perpendicular); the drive-out parks further (pose.STOP_Z). */
@@ -94,7 +93,8 @@ const hoverProps = ({ setHot, open }: Hover) => ({
 })
 
 /** Frame + wheels only (no cab, no body) – the configurator entry. */
-function DummyChassis({ hidden, ...h }: Hover & { hidden?: boolean }) {
+/** Kept for later (configurator entry on the home scene); not shown now. */
+export function DummyChassis({ hidden, ...h }: Hover & { hidden?: boolean }) {
   const [m, tyre, rim] = useFadeMats(CHASSIS_MATS, h.hot, 0.45), x0 = CH.x - CH.len / 2, axles = [x0 + 1500, x0 + 6400, x0 + 7750]
   return (
     <group name="start-dummy-chassis" position={[CH.x, 0, CH.z]} rotation={[0, HEADING, 0]} visible={!hidden} {...hoverProps(h)}><group position={[-CH.x, 0, 0]}>
@@ -209,29 +209,46 @@ function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & {
 
 /** Small floating logo/title + subtitle low in front of an exhibit (no board, no post), turned toward the default camera. */
 function ExhibitSign({ x, z, w = 3600, title, sub, logo, hot, setHot, open, name }: Hover & { x: number; z: number; w?: number; title: string; sub: string; logo?: string; name: string }) {
-  const cam = CAM_HOME(1), yaw = Math.atan2(cam.x - x, cam.z - z), W = w, Hs = 1250
+  const cam = viewPose('db', 16 / 9, 42).pos, yaw = Math.atan2(cam.x - x, cam.z - z), W = w, Hs = 1250
   return <Sign3D name={name} bare w={W} h={Hs} title={title} sub={sub} logo={logo} hot={hot} position={[x, 60 + Hs / 2, z]} rotation={[0, yaw, 0]} onOver={() => setHot(true)} onOut={() => setHot(false)} onOpen={open} />
 }
 
-const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 2000 * k, 10500 + 1500 * (k - 1), H.z1 + 33000 * k)
 
-/** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
-function HeroCamera() {
+export type HomeView = 'doors' | 'db'
+/** Fixed views (no free orbit): the hall doors face-on, and the model database (3 exhibits left of the hall). */
+const VIEWS: Record<HomeView, { target: THREE.Vector3; dir: THREE.Vector3; halfW: number; halfH: number }> = {
+  doors: { target: new THREE.Vector3(DOORS[1], 5200, H.z1), dir: new THREE.Vector3(0, 0.1, 1).normalize(), halfW: (DOORS[2] - DOORS[0] + DW) / 2 + 1500, halfH: 5600 },
+  db: { target: new THREE.Vector3((AUX_AT.x + HOOK_AT.x) / 2 + 500, 900, H.z1 - 2600), dir: new THREE.Vector3(0.22, 0.55, 1).normalize(), halfW: 9500, halfH: 6200 },
+}
+function viewPose(v: HomeView, aspect: number, fov: number) {
+  const V = VIEWS[v], t = Math.tan(((fov / 2) * Math.PI) / 180)
+  const dist = Math.max(V.halfH / t, V.halfW / (t * aspect))
+  return { pos: V.target.clone().addScaledVector(V.dir, dist), target: V.target.clone() }
+}
+
+/** Camera rig: snaps to the door view on landing, glides smoothly between fixed views; renders on demand. */
+function HeroCamera({ view }: { view: HomeView }) {
   const { camera, size, gl, invalidate } = useThree()
-  useEffect(() => { (window as unknown as { __heroInfo?: unknown }).__heroInfo = gl.info }, [gl])
+  const look = useRef<THREE.Vector3 | null>(null)
+  const goal = useRef(viewPose(view, 1, 42))
+  useEffect(() => { Object.assign(window as unknown as object, { __heroInfo: gl.info, __heroCam: camera }) }, [gl, camera])
   useEffect(() => {
-    const aspect = size.width / Math.max(1, size.height)
-    camera.position.copy(CAM_HOME(aspect < 1.2 ? 1.2 / aspect : 1))
-    camera.lookAt(TARGET)
-    camera.updateProjectionMatrix()
+    const cam = camera as THREE.PerspectiveCamera
+    goal.current = viewPose(view, size.width / Math.max(1, size.height), cam.fov)
+    if (!look.current || reducedMotion()) { camera.position.copy(goal.current.pos); look.current = goal.current.target.clone(); camera.lookAt(look.current); camera.updateMatrixWorld() }
     invalidate()
-  }, [camera, size, invalidate])
+  }, [camera, size, view, invalidate])
+  useFrame((_, dt) => {
+    if (!look.current) return
+    const k = 1 - Math.exp(-dt * 3.2), g = goal.current
+    camera.position.lerp(g.pos, k); look.current.lerp(g.target, k); camera.lookAt(look.current); camera.updateMatrixWorld()
+    if (camera.position.distanceTo(g.pos) > 5 || look.current.distanceTo(g.target) > 5) invalidate()
+  })
   return null
 }
 
 type Label = { label: string; sub: string; logo?: string; onClick: () => void; testid: string; hot?: boolean; setHot?: (h: boolean) => void; cfg?: boolean }
 
-const SHOW_CFG = false
 const SIGN_AT: Record<string, { x: number; z: number; w?: number }> = {
   'start-crane': { x: CRANE_AT.x, z: CRANE_AT.z + 2700 },
   'start-multilift': { x: HOOK_AT.x, z: HOOK_AT.z + 4300 },
@@ -242,7 +259,13 @@ export function StartHero() {
   const dxf = useRef<HTMLInputElement>(null), trw = useRef<HTMLInputElement>(null), spec = useRef<HTMLInputElement>(null)
   const loadFile = useApp((s) => s.loadFile)
   const [doorHot, setDoorHot] = useState(-1)
-  const [hot, setHot] = useState(false), [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false), [auxHot, setAuxHot] = useState(false)
+  const [view, setView] = useState<HomeView>('doors')
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setView('doors') }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  const [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false), [auxHot, setAuxHot] = useState(false)
   const driving = useRef(false)
   const go = (h: string) => { if (driving.current) return; document.body.style.cursor = ''; window.location.hash = h }
   // Door import: the drive-out now plays inside the configurator scene itself (view/DriveEnv) – final UI from the
@@ -255,11 +278,14 @@ export function StartHero() {
     if (!reducedMotion()) setPendingDrive({ door: kind === 'trw' ? 1 : 2 })
     queueProjectFile(f); window.location.hash = '#novy'
   }
-  const items: Label[] = [
-    { label: 'Import DXF podvozku', sub: 'bokorys / půdorys · DXF, DWG', onClick: () => dxf.current?.click(), testid: 'door-dxf' },
+  // doors: left = model database (camera glides to the exhibits), middle = TRW import, right = empty for now.
+  // DXF / PDF imports stay in code (inputs below, #vykres, configurator) but are not offered on the home screen.
+  const doors: (Label | null)[] = [
+    { label: 'Databáze modelů', sub: 'HIAB · Multilift · přídavné podpěry', onClick: () => setView('db'), testid: 'door-db' },
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
-    { label: 'Specifikace PDF', sub: 'specifikace výrobce · MAN, Volvo, DAF', onClick: () => spec.current?.click(), testid: 'door-spec' },
-    { label: 'Konfigurátor', sub: 'podvozek, rám, nápravy', onClick: () => go('#novy'), testid: 'start-cfg', hot, setHot, cfg: true },
+    null,
+  ]
+  const items: Label[] = [
     { label: 'HIAB', logo: 'brand/logo-hiab-color.svg', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
     { label: 'MULTILIFT', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
     { label: 'PŘÍDAVNÉ PODPĚRY', sub: 'Katalog dostupných přídavných podpěr', onClick: () => go('#podpery'), testid: 'start-aux', hot: auxHot, setHot: setAuxHot, cfg: true },
@@ -275,15 +301,13 @@ export function StartHero() {
         <directionalLight position={[2500, 9000, 5200]} intensity={3.0} />
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
         <Surroundings doorLift={doorLift} />
-        {/* configurator dummy hidden for now (route #novy stays; imports still drive out → configurator) */}
-        {SHOW_CFG ? <DummyChassis hidden={!!drive} hot={hot} setHot={setHot} open={() => go('#novy')} /> : null}
         {/* hidden (not unmounted) during the show: no rebuild / shader compile when it ends */}
         <group visible={!drive}>
-        {items.slice(0, 3).map((it, i) => (
+        {doors.map((it, i) => it && (
           <Sign3D key={it.testid} name={'sign-' + it.testid} w={DW * 0.8} h={1900} title={it.label} sub={it.sub} hot={doorHot === i}
             position={[DOORS[i], 3500, H.z1 - 250 + 90]} onOver={() => setDoorHot(i)} onOut={() => setDoorHot(-1)} onOpen={() => { if (!driving.current) it.onClick() }} />
         ))}
-        {items.slice(4).map((it) => (
+        {view === 'db' && items.map((it) => (
           <ExhibitSign key={it.testid} name={'sign-' + it.testid} {...SIGN_AT[it.testid]} title={it.label} sub={it.sub}
             logo={it.logo ? import.meta.env.BASE_URL + it.logo : undefined} hot={!!it.hot} setHot={it.setHot!} open={it.onClick} />
         ))}
@@ -299,11 +323,13 @@ export function StartHero() {
           <AuxExhibitMesh x={AUX_AT.x} y={FRAME_TOP} hot={auxHot} />
         </Exhibit>
         </group>
-        <OrbitControls makeDefault enabled={!drive} target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
-        <HeroCamera />
+        <HeroCamera view={view} />
       </Canvas>
       {/* labels live in the 3D scene; these buttons are visually hidden, for keyboard / screen readers */}
-      {items.filter((it) => SHOW_CFG || it.testid !== 'start-cfg').map((it) => (
+      {view === 'db' ? (
+        <button type="button" className="hero-back" data-testid="hero-back" onClick={() => setView('doors')} title="Zpět ke dveřím (Esc)">← Zpět</button>
+      ) : null}
+      {[...doors.filter((d): d is Label => !!d), ...items].map((it) => (
         <button key={it.testid} type="button" data-testid={it.testid} className="sr-only"
           onFocus={() => it.setHot?.(true)} onBlur={() => it.setHot?.(false)} onClick={it.onClick}>{it.label} – {it.sub}</button>
       ))}

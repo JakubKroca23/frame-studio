@@ -1347,3 +1347,7 @@ body.hide-side .app-side { display: none !important; }
 .start-slot { display: contents; }
 .handoff-overlay { position: fixed; inset: 0; z-index: 1000; pointer-events: none; opacity: 1; transition: opacity 220ms ease; }
 .handoff-overlay.is-fading { opacity: 0; }
+
+/* home: back from the model database to the door view */
+.hero-back { position: absolute; left: 16px; top: 16px; z-index: 3; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(16,20,26,.72); color: #fff; font: 600 14px/1 system-ui, sans-serif; cursor: pointer; backdrop-filter: blur(6px); }
+.hero-back:hover { background: rgba(16,20,26,.9); }
