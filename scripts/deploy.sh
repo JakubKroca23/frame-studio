@@ -19,6 +19,7 @@ $SSH "$HOST" "mkdir -p $DIR/dist"
 # server has no rsync: stream tarballs. dist is replaced in place (it is a bind mount, keep the inode)
 tar -czf - -C deploy docker-compose.yml nginx.conf | $SSH "$HOST" "tar -xzf - -C $DIR"
 tar -czf - -C dist . | $SSH "$HOST" "find $DIR/dist -mindepth 1 -delete && tar -xzf - -C $DIR/dist"
-# up -d is a no-op when nothing changed; reload picks up nginx.conf changes
-$SSH "$HOST" "cd $DIR && docker compose up -d && docker exec frame-studio nginx -s reload"
+# up -d is a no-op when nothing changed. nginx.conf is a single-file bind mount: tar replaces the inode, so the
+# container keeps the old file until it is restarted → restart only when the config differs from the running one.
+$SSH "$HOST" "cd $DIR && docker compose up -d && if docker exec frame-studio cat /etc/nginx/conf.d/default.conf | cmp -s - nginx.conf; then docker exec frame-studio nginx -s reload; else docker restart frame-studio >/dev/null && echo 'nginx config changed: container restarted'; fi"
 echo "Deployed: https://frame.propoj.app/"
