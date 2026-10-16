@@ -3,6 +3,8 @@
  * fully retracted (arm in, leg up), e.g. while the home scene drives the vehicle out of the hall. Read in useFrame.
  */
 export const outriggerStow = { current: false }
+/** Exponential approach rate [1/s] of the outrigger hydraulics (quick: ≈ 1 s out + down after the drive-out stop). */
+export const OUTRIGGER_RATE = 9
 
 /**
  * One hydraulic outrigger step: the leg goes up before the arm moves, the arm reaches its target before the leg goes

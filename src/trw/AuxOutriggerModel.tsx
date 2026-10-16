@@ -4,7 +4,7 @@ import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNo
 import * as THREE from 'three'
 import { TelescopeArrows } from './CraneGizmos'
 import CATALOG from './outriggerCatalog.json'
-import { outriggerStow, stepOutrigger } from './outriggerStow'
+import { OUTRIGGER_RATE, outriggerStow, stepOutrigger } from './outriggerStow'
 
 /**
  * HIAB auxiliary stabilizer (přídavné podpěry) with moving groups.
@@ -64,7 +64,7 @@ function Loaded({ kind, x, top, reachLeft, reachRight }: { kind: AuxStabKind; x:
   useEffect(() => setSt({ left: init(reachLeft), right: init(reachRight) }), [reachLeft, reachRight, kind, gap]) // eslint-disable-line react-hooks/exhaustive-deps
   const cur = useRef(outriggerStow.current ? { left: { e: 0, d: 0 }, right: { e: 0, d: 0 } } : { left: { e: st.left.ext, d: st.left.down }, right: { e: st.right.ext, d: st.right.down } })
   useFrame((_, dt) => {
-    const k = 1 - Math.exp(-dt * 4)
+    const k = 1 - Math.exp(-dt * OUTRIGGER_RATE)
     for (const side of ['left', 'right'] as Side[]) {
       const c = cur.current[side], t = st[side], n = NODE[side]
       stepOutrigger(c, { e: t.ext, d: t.down }, k, 4)

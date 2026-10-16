@@ -1,3 +1,7 @@
+import { invalidate } from '@react-three/fiber'
+import { useHookPose } from '../trw/HookliftModel'
+import { outriggerStow } from '../trw/outriggerStow'
+import { pickHooklift } from '../trw/hooklift'
 import { SceneFilterBar } from '../view/SceneFilterBar'
 import { hookliftPlacement, isHookliftAccessory } from '../trw/hooklift'
 import { HookliftModel } from '../trw/HookliftModel'
@@ -89,6 +93,44 @@ function setAt<T>(obj: T, path: Path, value: unknown): T {
 }
 
 const fmtT = (kg: number) => `${(kg / 1000).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} t`
+
+/** Left panel: false = only the controls that move the superstructures (crane, Multilift, outriggers); true = the
+ *  full data panel (preset, imports, spec/DXF refinement, Volvo CAD, layers, chassis editing) – kept, just hidden. */
+const SHOW_DETAILS = false
+
+/** Superstructure motion controls only. */
+function MotionPanel({ crane, hooklift, outriggers }: { crane: ReactNode; hooklift: boolean; outriggers: boolean }) {
+  const pose = useHookPose()
+  const [stowed, setStowed] = useState(outriggerStow.current)
+  const none = !crane && !hooklift && !outriggers
+  return (
+    <section className="block" style={{ marginTop: 0 }} data-testid="motion-panel">
+      <h2>Ovládání nástaveb</h2>
+      {crane}
+      {hooklift ? (
+        <div data-testid="mv-hooklift" style={{ marginTop: 8 }}>
+          <strong>Multilift</strong>
+          {([['tipDeg', 'Sklopení', 0, 55, 1, '°'], ['swingDeg', 'Rameno háku', 0, 155, 1, '°'], ['slideMm', 'Výsuv', 0, 1450, 10, ' mm']] as const).map(([k, label, min, max, step, unit]) => (
+            <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {label} <input type="range" min={min} max={max} step={step} value={pose[k]} onChange={(e) => { pose.set({ [k]: Number(e.target.value) }); invalidate() }} style={{ flex: 1 }} data-testid={`mv-${k}`} /> {Math.round(pose[k])}{unit}
+            </label>
+          ))}
+        </div>
+      ) : null}
+      {outriggers ? (
+        <div className="row" style={{ marginTop: 8 }}>
+          <strong>Podpěry:</strong>
+          {([false, true] as const).map((v) => (
+            <Button key={String(v)} size="sm" variant={stowed === v ? 'rust' : 'outline'} data-testid={v ? 'mv-out-in' : 'mv-out-out'} onClick={() => { outriggerStow.current = v; setStowed(v); invalidate() }}>
+              {v ? 'Zasunout' : 'Vysunout'}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+      {none ? <p className="muted">Žádná pohyblivá nástavba. Importujte projekt .trw (přetáhněte soubor do okna).</p> : null}
+    </section>
+  )
+}
 
 export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }: { initialPreset?: string; link?: LinkRequest; hooklift?: string | null }) {
   // home door import → drive-out played in this scene (DriveEnv); the import itself runs as usual
@@ -473,6 +515,8 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
       <TopBar page="novy" actions={[{ icon: 'save', label: exporting ? 'Exportuji GLB…' : 'Export GLB (3D model)', onClick: () => void saveGlb(), disabled: exporting }]} />
 
       <aside className="app-side">
+        {SHOW_DETAILS ? (
+          <>
         <section className="block" style={{ marginTop: 0 }}>
           <h2>Předloha</h2>
           <div className="cfg-grid">
@@ -879,6 +923,29 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
           {exportError ? <p className="status error">{exportError}</p> : null}
           <p className="status">GLB je v milimetrech, Y nahoru, počátek na přední nápravě.</p>
         </section>
+          </>
+        ) : (
+          <MotionPanel
+            crane={trw?.markers.crane && craneModelFor(trw.markers.crane.name) ? (
+              <>
+                <div className="row" role="group" aria-label="Poloha jeřábu" style={{ margin: '6px 0' }}>
+                  <span>Jeřáb {trw.markers.crane.name}:</span>
+                  {(['folded', 'unfolded'] as const).map((pose) => (
+                    <Button key={pose} size="sm" variant={cranePose === pose ? 'rust' : 'outline'} aria-pressed={cranePose === pose} onClick={() => { setCranePoseOverride(pose); const m = craneVariantMatch(trw.markers.crane?.name); if (pose === 'unfolded' && m) { const { a1, rel, ext } = unfoldedPose(m.def); setBoomJoints({ a1, rel, ext }) } }}>
+                      {pose === 'folded' ? 'Složený' : 'Rozložený'}
+                    </Button>
+                  ))}
+                </div>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  Natočení <input type="range" min={0} max={359} step={1} value={((Math.round(slewDeg) % 360) + 360) % 360} onChange={(e) => setSlewDeg(Number(e.target.value))} style={{ flex: 1 }} data-testid="mv-slew" /> {((Math.round(slewDeg) % 360) + 360) % 360}°
+                </label>
+                {cranePose === 'unfolded' ? <CranePanel joints={craneJoints} variant={craneVariantMatch(trw.markers.crane.name)!.variant} exact={craneVariantMatch(trw.markers.crane.name)!.exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} /> : null}
+              </>
+            ) : null}
+            hooklift={!!(hooklift || trw?.markers.extended?.accessories?.some((a) => isHookliftAccessory(a)) || (trw?.markers.extended && pickHooklift(trw.markers.extended) !== null))}
+            outriggers={!!(trw?.markers.outriggers.length || trw?.markers.extended)}
+          />
+        )}
       </aside>
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} env={parkedPose} drive={drive ? { door: drive.door, ready: driveReady } : null} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>

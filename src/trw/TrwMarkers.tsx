@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { outriggerStow, stepOutrigger } from './outriggerStow'
+import { OUTRIGGER_RATE, outriggerStow, stepOutrigger } from './outriggerStow'
 import { LeaderLabel } from '../view/LeaderLabel'
 import type { TrwMarkers as Markers } from './trwConfig'
 import { CraneModel, craneModelFor, type CranePose } from './CraneModel'
@@ -68,7 +68,7 @@ function MarkerLeg({ x, side, reach, frameTop }: { x: number; side: 'left' | 'ri
   const cur = useRef(outriggerStow.current ? { e: 0, d: 0 } : { e: reach, d: stroke })
   useFrame((_, dt) => {
     const c = cur.current
-    stepOutrigger(c, { e: reach, d: stroke }, 1 - Math.exp(-dt * 4), 4)
+    stepOutrigger(c, { e: reach, d: stroke }, 1 - Math.exp(-dt * OUTRIGGER_RATE), 4)
     const e = Math.max(200, c.e), z = dir * e
     beam.current?.position.set(x, frameTop - 60, z / 2); beam.current?.scale.set(140, 120, e)
     const h = 120 + c.d
