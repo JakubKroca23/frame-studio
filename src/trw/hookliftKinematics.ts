@@ -71,6 +71,10 @@ export function classifyPiece(group: string, b: PieceBox, g: HookGeom): HookPart
   const len = b.z1 - b.z0
   const k = g.knuckle.z, A = g.cyl.A
   if (group === 'rails') {
+    // container rests (kozlíky): full-width cross pieces at the rest stations and the outboard rest blocks/brackets –
+    // bolted to the fixed subframe, they must not tip
+    if (b.x1 - b.x0 > 0.72 && len < 0.3 && b.y1 < 0.31) return 'sub'
+    if (Math.min(Math.abs(b.x0), Math.abs(b.x1)) >= 0.37 && b.x0 * b.x1 > 0 && b.y1 <= 0.32 && len < 0.4) return 'sub'
     // main cylinders: long tubes beside the middle frame; the rod (incl. the part hidden in the barrel) is slimmer
     if (len > 1.5 && xc >= 0.17 && xc <= 0.34 && b.y1 < 0.4 && b.z0 > k) return b.y1 - b.y0 < 0.3 ? 'rod' : 'barrel'
     // small parts at the rod eye / barrel gland
