@@ -154,7 +154,7 @@ function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & {
 }
 
 const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 13000 * k, 11500 + 1500 * (k - 1), H.z1 + 29000 * k)
-const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 5600, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z]]
+const ANCHORS: [number, number, number][] = [...DOORS.map((x, i): [number, number, number] => [x + (i === 2 ? 2400 : 0), i === 2 ? 1500 : 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 5600, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z]]
 
 /** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
 function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
