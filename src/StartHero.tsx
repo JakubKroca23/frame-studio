@@ -14,14 +14,16 @@ import { spotForDoor, HEADING } from './home/pose'
 import { useSceneFilters } from './view/sceneFilters'
 import type { DriveState } from './home/DriveOut'
 import { Sign3D } from './home/Sign3D'
+import { handoff } from './home/handoff'
 import { DW } from './view/Environment'
 
 const DriveOut = lazy(() => import('./home/DriveOut').then((m) => ({ default: m.DriveOut })))
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 /** Generation slower than this → skip the show and go straight to the target page. */
 const MAX_WAIT_MS = 12000
-/** Show framing: hall front from the front-left, low, all three doors on the right; the vehicle parks front-left. */
-const SHOW_CAM = (s: { x: number; z: number }) => ({ pos: new THREE.Vector3(s.x + 15000, 10500, s.z + 11500), target: new THREE.Vector3(s.x - 1500, 2000, s.z - 8500) })
+/** Show framing: from the front-right, the vehicle (stopped 17.5 m out, cab turned 45° towards the camera) in the
+ *  lower third with the hall front behind it. */
+const SHOW_CAM = (s: { x: number; z: number }) => ({ pos: new THREE.Vector3(s.x + 9000, 9500, s.z + 17000), target: new THREE.Vector3(s.x - 3500, 2200, s.z - 5500) })
 import { StudioLights } from './view/Viewport'
 
 /**
@@ -249,13 +251,19 @@ export function StartHero() {
   const loadFile = useApp((s) => s.loadFile)
   const [doorHot, setDoorHot] = useState(-1)
   const [hot, setHot] = useState(false), [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false), [auxHot, setAuxHot] = useState(false)
-  const go = (h: string) => { document.body.style.cursor = ''; window.location.hash = h }
+  const driving = useRef(false)
+  const go = (h: string) => { if (driving.current) return; document.body.style.cursor = ''; window.location.hash = h }
   // --- drive-out show after a file pick: door rolls up, vehicle drives to VEHICLE_SPOT, door closes, then the target page
   const doorLift = useRef<number[]>([0, 0, 0]) as DoorLift
   const [drive, setDrive] = useState<DriveState | null>(null)
+  useEffect(() => { driving.current = !!drive }, [drive])
   const [driveReady, setDriveReady] = useState(false)
   const finishRef = useRef<(() => void) | null>(null)
-  const finish = useCallback(() => { const f = finishRef.current; finishRef.current = null; doorLift.current = [0, 0, 0]; setDrive(null); setDriveReady(false); f?.() }, [doorLift])
+  /** End of the show (or skip / failure): hand off to the target page WITHOUT resetting the scene first. Resetting
+   *  (drive → null) used to unmount the vehicle and remount every exhibit + label (crease-normal rebuild, material
+   *  clones, shader compile) one frame before the route change – the visible hitch. Now the last frame stays as is
+   *  and Root fades this screen out over the target page once that has rendered (home/handoff). */
+  const finish = useCallback(() => { const f = finishRef.current; finishRef.current = null; if (!f) return; handoff.start(); f() }, [])
   /** The original action of each door; DXF parsing already started by the show (state.loadFile) is not repeated. */
   const proceed = (kind: DoorKind, f: File, loading = false) => {
     if (kind === 'dxf') { window.location.hash = '#vykres'; if (!loading) void loadFile(f) }
@@ -302,16 +310,19 @@ export function StartHero() {
         <Surroundings doorLift={doorLift} />
         {/* configurator dummy hidden for now (route #novy stays; imports still drive out → configurator) */}
         {SHOW_CFG ? <DummyChassis hidden={!!drive} hot={hot} setHot={setHot} open={() => go('#novy')} /> : null}
-        {drive ? null : items.slice(0, 3).map((it, i) => (
+        {/* hidden (not unmounted) during the show: no rebuild / shader compile when it ends */}
+        <group visible={!drive}>
+        {items.slice(0, 3).map((it, i) => (
           <Sign3D key={it.testid} name={'sign-' + it.testid} w={DW * 0.8} h={1900} title={it.label} sub={it.sub} hot={doorHot === i}
-            position={[DOORS[i], 3500, H.z1 - 250 + 90]} onOver={() => setDoorHot(i)} onOut={() => setDoorHot(-1)} onOpen={it.onClick} />
+            position={[DOORS[i], 3500, H.z1 - 250 + 90]} onOver={() => setDoorHot(i)} onOut={() => setDoorHot(-1)} onOpen={() => { if (!driving.current) it.onClick() }} />
         ))}
-        {drive ? null : items.slice(4).map((it) => (
+        {items.slice(4).map((it) => (
           <ExhibitSign key={it.testid} name={'sign-' + it.testid} {...SIGN_AT[it.testid]} title={it.label} sub={it.sub}
             logo={it.logo ? import.meta.env.BASE_URL + it.logo : undefined} hot={!!it.hot} setHot={it.setHot!} open={it.onClick} />
         ))}
+        </group>
         {drive ? <Suspense fallback={null}><DriveOut state={drive} cam={SHOW_CAM} doorLift={doorLift} onDone={finish} onReady={() => setDriveReady(true)} /></Suspense> : null}
-        {drive ? null : <>
+        <group visible={!drive}>
         <Exhibit name="start-crane" x={CRANE_AT.x} z={CRANE_AT.z} r={1900} standLen={1400} hot={craneHot} setHot={setCraneHot} open={() => go('#jeraby')}>
           <ExhibitMesh file="crane142.glb" x={CRANE_AT.x} y={FRAME_TOP} hot={craneHot} alignBottom={false} />
         </Exhibit>
@@ -321,7 +332,7 @@ export function StartHero() {
         <Exhibit name="start-aux" x={AUX_AT.x} z={AUX_AT.z} r={1900} standLen={2600} hot={auxHot} setHot={setAuxHot} open={() => go('#podpery')}>
           <AuxExhibitMesh x={AUX_AT.x} y={FRAME_TOP} hot={auxHot} />
         </Exhibit>
-        </>}
+        </group>
         <OrbitControls makeDefault target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
         <HeroCamera />
       </Canvas>

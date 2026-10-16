@@ -9,8 +9,8 @@ import { outriggerStow } from '../trw/outriggerStow'
 import { craneModelFor } from '../trw/CraneModel'
 import { craneVariantMatch } from '../trw/craneKinematics'
 import { Boundary } from '../trw/HookliftModel'
-import { H, type DoorLift } from '../view/Environment'
-import { HEADING, setParkedPose, spotForDoor } from './pose'
+import { type DoorLift } from '../view/Environment'
+import { HEADING, drivePath, originPose, setParkedPose } from './pose'
 import type { HomeVehicle } from './vehicleFromFile'
 
 /** Timeline (s): door rolls up, vehicle drives out to the spot, door closes, short hold, then onDone. */
@@ -41,7 +41,6 @@ export function DriveOut({ state, doorLift, onDone, onReady, cam }: { state: Dri
   useEffect(() => () => { outriggerStow.current = false }, [])
   // loading gate: count loader activity (GLBs, textures) of everything mounted for the vehicle
   const quietSince = useRef<number | null>(null), tReady = useRef<number | null>(null), compiled = useRef(false)
-  const spot = useMemo(() => spotForDoor(door), [door])
 
   // Camera glide to the show framing. Orbit stays enabled; the first user interaction ('start') cancels the
   // glide for good, so the camera never jumps or snaps back. The animation itself only reads the clock.
@@ -67,15 +66,15 @@ export function DriveOut({ state, doorLift, onDone, onReady, cam }: { state: Dri
     return { g, cx: (box.min.x + box.max.x) / 2, cz: (box.min.z + box.max.z) / 2, len: box.max.x - box.min.x, wheels }
   }, [vehicle])
   useEffect(() => () => { if (built) disposeGroup(built.g) }, [built])
-  // final pose of the model origin (rotY = π/2 maps local (x, z) → world (z, −x)); used by the configurator
-  useEffect(() => { if (built) setParkedPose({ x: spot.x - built.cz, z: spot.z + built.cx, rotY: HEADING }) }, [built, spot])
-
-  /** Straight out of the door, perpendicular to the facade: start fully inside, stop at the spot. */
-  const zFrom = H.z1 - 400 - (built?.len ?? 9000) / 2
+  /** Straight out of the door, then a smooth 45° right turn (pose.drivePath). */
+  const path = useMemo(() => drivePath(door, built?.len ?? 9000), [door, built])
+  const spot = path.end
+  // final pose of the model origin; used by the configurator to place the hall around the vehicle
+  useEffect(() => { if (built) setParkedPose(originPose(path.end, built.cx, built.cz)) }, [built, path])
   const { gl, scene } = useThree()
-  const dist = spot.z - zFrom
 
   useFrame(({ clock }) => {
+    if (done.current) return // final frame stays still (no re-render) while the target page mounts underneath
     const dbg = (window as unknown as { __driveT?: number }).__driveT
     const now = dbg ?? clock.elapsedTime
     if (t0.current === null) t0.current = now
@@ -95,7 +94,8 @@ export function DriveOut({ state, doorLift, onDone, onReady, cam }: { state: Dri
       lift[door] = 0
       if (built && root.current) {
         root.current.visible = true
-        root.current.position.set(spot.x, 0, zFrom)
+        const p0 = path.at(0)
+        root.current.position.set(p0.x, 0, p0.z)
         root.current.rotation.y = HEADING
         const busy = useProgress.getState().active
         if (busy) quietSince.current = null
@@ -112,12 +112,14 @@ export function DriveOut({ state, doorLift, onDone, onReady, cam }: { state: Dri
     lift[door] = td < T_DRIVE ? ease(clamp01(tr / T_OPEN)) : 1 - ease(clamp01((td - T_DRIVE) / T_CLOSE))
     if (root.current && built) {
       const k = ease(clamp01(td / T_DRIVE))
-      root.current.position.set(spot.x, 0, zFrom + k * dist)
-      for (const w of built.wheels) w.o.rotation.z = (k * dist) / w.r
+      const sd = k * path.length, p = path.at(sd)
+      root.current.position.set(p.x, 0, p.z)
+      root.current.rotation.y = p.rotY
+      for (const w of built.wheels) w.o.rotation.z = sd / w.r
     }
     if (td >= T_DRIVE) outriggerStow.current = false
-    if (root.current) (window as unknown as { __drivePose?: number[] }).__drivePose = [root.current.position.x, root.current.position.z, td]
-    if (!done.current && td >= T_DRIVE + Math.max(T_CLOSE, vehicle?.trw ? T_EXT : 0) + T_HOLD) { done.current = true; lift[door] = 0; if (root.current) (window as unknown as { __driveMeshes?: number[] }).__driveMeshes?.push(countMeshes(root.current)); onDone() }
+    if (root.current) (window as unknown as { __drivePose?: number[] }).__drivePose = [root.current.position.x, root.current.position.z, td, root.current.rotation.y]
+    if (!done.current && td >= T_DRIVE + Math.max(T_CLOSE, vehicle?.trw ? T_EXT : 0) + T_HOLD) { done.current = true; (window as unknown as { __driveDone?: number }).__driveDone = performance.now(); lift[door] = 0; if (root.current) (window as unknown as { __driveMeshes?: number[] }).__driveMeshes?.push(countMeshes(root.current)); onDone() }
     invalidate()
   })
 

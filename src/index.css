@@ -1343,3 +1343,7 @@ body.hide-side .app-side { display: none !important; }
 @keyframes drive-spin { to { transform: rotate(360deg); } }
 .door-btn:hover, .door-btn:focus-visible, .cfg-btn.is-hot { text-shadow: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* start → page hand-off: the start screen stays on top (still frame) until the new page has settled, then fades */
+.start-slot { display: contents; }
+.handoff-overlay { position: fixed; inset: 0; z-index: 1000; pointer-events: none; opacity: 1; transition: opacity 450ms ease; }
+.handoff-overlay.is-fading { opacity: 0; }
