@@ -213,20 +213,11 @@ function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & {
   )
 }
 
-/** Signboard on a post in front of an exhibit, turned toward the default camera. */
-const postMat = standMat
-function ExhibitSign({ x, z, title, sub, logo, hot, setHot, open, name }: Hover & { x: number; z: number; title: string; sub: string; logo?: string; name: string }) {
-  const cam = CAM_HOME(1), yaw = Math.atan2(cam.x - x, cam.z - z), W = 3400, Hs = 1500, top = 1350
-  return (
-    <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
-      <mesh material={postMat} position={[0, (top - Hs / 2) / 2, -40]}><cylinderGeometry args={[45, 55, top - Hs / 2, 10]} /></mesh>
-      <mesh material={postMat} position={[0, 4, -40]}><cylinderGeometry args={[260, 260, 8, 20]} /></mesh>
-      <mesh material={signBackMat} position={[0, top, -22]}><boxGeometry args={[W, Hs, 20]} /></mesh>
-      <Sign3D name={name} w={W} h={Hs} title={title} sub={sub} logo={logo} hot={hot} position={[0, top, -8]} onOver={() => setHot(true)} onOut={() => setHot(false)} onOpen={open} />
-    </group>
-  )
+/** Small floating logo/title + subtitle low in front of an exhibit (no board, no post), turned toward the default camera. */
+function ExhibitSign({ x, z, w = 3600, title, sub, logo, hot, setHot, open, name }: Hover & { x: number; z: number; w?: number; title: string; sub: string; logo?: string; name: string }) {
+  const cam = CAM_HOME(1), yaw = Math.atan2(cam.x - x, cam.z - z), W = w, Hs = 1250
+  return <Sign3D name={name} bare w={W} h={Hs} title={title} sub={sub} logo={logo} hot={hot} position={[x, 60 + Hs / 2, z]} rotation={[0, yaw, 0]} onOver={() => setHot(true)} onOut={() => setHot(false)} onOpen={open} />
 }
-const signBackMat = new THREE.MeshStandardMaterial({ color: '#1a2230', roughness: 0.6, metalness: 0.2, transparent: true, opacity: 0.55, depthWrite: false })
 
 const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 2000 * k, 10500 + 1500 * (k - 1), H.z1 + 33000 * k)
 
@@ -247,10 +238,10 @@ function HeroCamera() {
 type Label = { label: string; sub: string; logo?: string; onClick: () => void; testid: string; hot?: boolean; setHot?: (h: boolean) => void; cfg?: boolean }
 
 const SHOW_CFG = false
-const SIGN_AT: Record<string, { x: number; z: number }> = {
-  'start-crane': { x: CRANE_AT.x + 2300, z: CRANE_AT.z + 2200 },
-  'start-multilift': { x: HOOK_AT.x + 3300, z: HOOK_AT.z + 4200 },
-  'start-aux': { x: AUX_AT.x - 2700, z: AUX_AT.z + 1800 },
+const SIGN_AT: Record<string, { x: number; z: number; w?: number }> = {
+  'start-crane': { x: CRANE_AT.x, z: CRANE_AT.z + 2700 },
+  'start-multilift': { x: HOOK_AT.x, z: HOOK_AT.z + 4300 },
+  'start-aux': { x: AUX_AT.x - 400, z: AUX_AT.z + 2700, w: 5600 },
 }
 
 export function StartHero() {

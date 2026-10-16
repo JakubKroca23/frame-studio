@@ -5,7 +5,7 @@ import * as THREE from 'three'
 /** World-space sign: canvas texture (title or logo + subtitle) on a plane, semi-transparent dark / teal when hot.
  *  One draw call per side; the texture is redrawn only on hover change or logo load. */
 export type SignProps = {
-  w: number; h: number; title: string; sub: string; logo?: string; hot: boolean
+  w: number; h: number; title: string; sub: string; logo?: string; hot: boolean; bare?: boolean
   name?: string; onOver?: () => void; onOut?: () => void; onOpen?: () => void
   position?: [number, number, number]; rotation?: [number, number, number]
 }
@@ -13,16 +13,21 @@ const PX = 1024
 function draw(cv: HTMLCanvasElement, p: SignProps, img: HTMLImageElement | null) {
   const c = cv.getContext('2d')!, W = cv.width, Hh = cv.height, r = Hh * 0.14
   c.clearRect(0, 0, W, Hh)
-  c.beginPath(); c.roundRect(4, 4, W - 8, Hh - 8, r)
-  c.fillStyle = p.hot ? 'rgba(62,230,196,0.94)' : 'rgba(16,22,32,0.62)'; c.fill()
-  c.lineWidth = 6; c.strokeStyle = p.hot ? 'rgba(255,255,255,0.9)' : 'rgba(142,197,255,0.75)'; c.stroke()
-  const ink = p.hot ? '#0c1a1f' : '#f2f6fa', sub = p.hot ? '#123036' : 'rgba(225,233,240,0.85)'
+  if (!p.bare) {
+    c.beginPath(); c.roundRect(4, 4, W - 8, Hh - 8, r)
+    c.fillStyle = p.hot ? 'rgba(62,230,196,0.94)' : 'rgba(16,22,32,0.62)'; c.fill()
+    c.lineWidth = 6; c.strokeStyle = p.hot ? 'rgba(255,255,255,0.9)' : 'rgba(142,197,255,0.75)'; c.stroke()
+  }
+  // bare: text straight on the scene (dark ink on the light yard), teal + glow on hover
+  const ink = p.bare ? (p.hot ? '#0b9e83' : '#1b2430') : p.hot ? '#0c1a1f' : '#f2f6fa'
+  const sub = p.bare ? (p.hot ? '#0b9e83' : '#3a4654') : p.hot ? '#123036' : 'rgba(225,233,240,0.85)'
+  if (p.bare && p.hot) { c.shadowColor = 'rgba(62,230,196,0.9)'; c.shadowBlur = 28 } else { c.shadowColor = 'transparent'; c.shadowBlur = 0 }
   c.textAlign = 'center'; c.textBaseline = 'middle'
   const top = Hh * 0.4
   if (img && img.naturalWidth) {
     const lh = Hh * 0.38, lw = Math.min(W * 0.8, (img.naturalWidth / img.naturalHeight) * lh)
     const lhh = lw / (img.naturalWidth / img.naturalHeight)
-    if (!p.hot) { c.fillStyle = 'rgba(255,255,255,0.92)'; c.beginPath(); c.roundRect(W / 2 - lw / 2 - 18, top - lhh / 2 - 12, lw + 36, lhh + 24, 14); c.fill() }
+    if (!p.hot && !p.bare) { c.fillStyle = 'rgba(255,255,255,0.92)'; c.beginPath(); c.roundRect(W / 2 - lw / 2 - 18, top - lhh / 2 - 12, lw + 36, lhh + 24, 14); c.fill() }
     c.drawImage(img, W / 2 - lw / 2, top - lhh / 2, lw, lhh)
   } else {
     let fs = Hh * 0.34
@@ -49,7 +54,7 @@ export function Sign3D(p: SignProps) {
     const redraw = () => { draw(cv, p, img); tex.needsUpdate = true; invalidate() }
     redraw()
     if (img && !img.complete) { img.addEventListener('load', redraw); return () => img.removeEventListener('load', redraw) }
-  }, [cv, tex, img, p.hot, p.title, p.sub, invalidate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cv, tex, img, p.hot, p.bare, p.title, p.sub, invalidate]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { tex.dispose(); mat.dispose() }, [tex, mat])
   const ev = {
     onPointerOver: (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); p.onOver?.(); document.body.style.cursor = 'pointer' },
