@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { ConcreteFloor } from './ConcreteFloor'
@@ -59,7 +60,7 @@ function panel(w: number, h: number, uScale = 1 / 200, vScale = 1 / 1000) {
   return g
 }
 
-export function buildHall() {
+export function buildHall(movableDoors = false) {
   const { x0, x1, z0, z1, wall, ridge } = H
   const W = x1 - x0, L = z1 - z0, cx = (x0 + x1) / 2
   const geo: { g: THREE.BufferGeometry; m: string }[] = []
@@ -89,7 +90,7 @@ export function buildHall() {
   // doors, pilasters, lintel, personnel door, lamps
   const B = (x: number, y: number, z: number, sx: number, sy: number, sz: number, m: string) => add(new THREE.BoxGeometry(sx, sy, sz).translate(x, y, z), m)
   for (const d of DOORS) {
-    add(panel(DW, DH, 1 / DW, 1 / DH).translate(d, DH / 2, z1 - 250), 'door')
+    if (!movableDoors) add(panel(DW, DH, 1 / DW, 1 / DH).translate(d, DH / 2, z1 - 250), 'door')
     B(d, DH + 200, z1 + 120, DW + 1400, 400, 240, 'pil')
     B(d, DH + 1300, z1 + 260, 450, 160, 520, 'lamp')
     add(panel(DW, 300, 1 / 600, 1 / 300).rotateX(-Math.PI / 2).translate(d, 12, z1 + 600), 'stripe')
@@ -120,9 +121,9 @@ const hallMats = () => {
 }
 
 /** One merged geometry per material → ~8 draw calls for the whole hall instead of ~45. */
-function mergedHall() {
+function mergedHall(movableDoors = false) {
   const by: Record<string, THREE.BufferGeometry[]> = {}
-  for (const p of buildHall()) {
+  for (const p of buildHall(movableDoors)) {
     let g = p.g.index ? p.g.toNonIndexed() : p.g
     if (!g.getAttribute('uv')) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.getAttribute('position').count * 2), 2))
     if (!g.getAttribute('normal')) g.computeVertexNormals()
@@ -132,8 +133,27 @@ function mergedHall() {
   return Object.entries(by).map(([m, gs]) => ({ m, g: mergeGeometries(gs)! }))
 }
 
-export function Surroundings() {
-  const hall = useMemo(mergedHall, [])
+/** Lift of each sectional door (0 closed … 1 open), written by the caller each frame (no React state). */
+export type DoorLift = { current: number[] }
+/** The 3 sectional doors as separate meshes so they can roll up (home scene); they slide up behind the facade. */
+function MovableDoors({ lift, material }: { lift: DoorLift; material: THREE.Material }) {
+  const geo = useMemo(() => panel(DW, DH, 1 / DW, 1 / DH), [])
+  const refs = useRef<(THREE.Mesh | null)[]>([])
+  useFrame(() => {
+    DOORS.forEach((_, i) => {
+      const m = refs.current[i]
+      if (!m) return
+      const t = lift.current[i] ?? 0
+      m.position.y = DH / 2 + t * (DH - 350)
+      m.visible = t < 0.999
+    })
+  })
+  return <>{DOORS.map((d, i) => <mesh key={d} ref={(m) => { refs.current[i] = m }} geometry={geo} material={material} position={[d, DH / 2, H.z1 - 250]} />)}</>
+}
+
+export function Surroundings({ doorLift }: { doorLift?: DoorLift } = {}) {
+  const movable = !!doorLift
+  const hall = useMemo(() => mergedHall(movable), [movable])
   const hm = useMemo(hallMats, [])
   return (
     <group name="env">
@@ -141,6 +161,7 @@ export function Surroundings() {
       <ConcreteFloor name="env-ground" x={4000} z={-8000} size={80000} />
       <group name="env-hall">
         {hall.map((p, i) => <mesh key={i} geometry={p.g} material={hm[p.m]} />)}
+        {doorLift ? <MovableDoors lift={doorLift} material={hm.door} /> : null}
       </group>
     </group>
   )

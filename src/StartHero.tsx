@@ -1,14 +1,21 @@
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { queueProjectFile } from './openProject'
 import { useApp } from './state'
 import { Boundary } from './trw/HookliftModel'
 import { DOORS, H } from './view/Environment'
-import { Surroundings } from './view/Environment'
+import { Surroundings, type DoorLift } from './view/Environment'
+import { vehicleFromFile, type DoorKind } from './home/vehicleFromFile'
+import type { DriveState } from './home/DriveOut'
+
+const DriveOut = lazy(() => import('./home/DriveOut').then((m) => ({ default: m.DriveOut })))
+const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+/** Generation slower than this → skip the show and go straight to the target page. */
+const MAX_WAIT_MS = 12000
 import { StudioLights } from './view/Viewport'
 
 /**
@@ -57,10 +64,10 @@ const hoverProps = ({ setHot, open }: Hover) => ({
 })
 
 /** Frame + wheels only (no cab, no body) – the configurator entry. */
-function DummyChassis(h: Hover) {
+function DummyChassis({ hidden, ...h }: Hover & { hidden?: boolean }) {
   const m = h.hot ? railHot : railMat, x0 = CH.x - CH.len / 2, axles = [x0 + 1500, x0 + 6400, x0 + 7750]
   return (
-    <group name="start-dummy-chassis" position={[0, 0, CH.z]} {...hoverProps(h)}>
+    <group name="start-dummy-chassis" position={[0, 0, CH.z]} visible={!hidden} {...hoverProps(h)}>
       <FloorShadow x={CH.x} sx={CH.len + 1800} sz={3200} />
       {[-1, 1].map((s) => <mesh key={s} material={m} position={[CH.x, 1000, s * 420]}><boxGeometry args={[CH.len, 270, 90]} /></mesh>)}
       {[0.1, 0.3, 0.5, 0.7, 0.9].map((t) => <mesh key={t} material={m} position={[x0 + CH.len * t, 1000, 0]}><boxGeometry args={[120, 200, 750]} /></mesh>)}
@@ -191,6 +198,34 @@ export function StartHero() {
   const labels = useRef<(HTMLElement | null)[]>([])
   const [hot, setHot] = useState(false), [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false)
   const go = (h: string) => { document.body.style.cursor = ''; window.location.hash = h }
+  // --- drive-out show after a file pick: door rolls up, vehicle drives to VEHICLE_SPOT, door closes, then the target page
+  const doorLift = useRef<number[]>([0, 0, 0]) as DoorLift
+  const [drive, setDrive] = useState<DriveState | null>(null)
+  const finishRef = useRef<(() => void) | null>(null)
+  const finish = useCallback(() => { const f = finishRef.current; finishRef.current = null; doorLift.current = [0, 0, 0]; setDrive(null); f?.() }, [doorLift])
+  /** The original action of each door; DXF parsing already started by the show (state.loadFile) is not repeated. */
+  const proceed = (kind: DoorKind, f: File, loading = false) => {
+    if (kind === 'dxf') { window.location.hash = '#vykres'; if (!loading) void loadFile(f) }
+    else { queueProjectFile(f); window.location.hash = '#novy' }
+  }
+  const startDrive = (kind: DoorKind, f: File) => {
+    if (reducedMotion()) return proceed(kind, f)
+    const door = kind === 'dxf' ? 0 : kind === 'trw' ? 1 : 2
+    finishRef.current = () => proceed(kind, f, true)
+    setDrive({ door, vehicle: null })
+    const bail = window.setTimeout(() => finishRef.current && finish(), MAX_WAIT_MS)
+    vehicleFromFile(kind, f, loadFile)
+      .then((vehicle) => { window.clearTimeout(bail); if (!finishRef.current) return; if (vehicle) setDrive({ door, vehicle }); else finish() })
+      .catch(() => { window.clearTimeout(bail); if (finishRef.current) finish() })
+  }
+  // click / any key skips the show
+  useEffect(() => {
+    if (!drive) return
+    const skip = () => finish()
+    window.addEventListener('keydown', skip)
+    window.addEventListener('pointerdown', skip)
+    return () => { window.removeEventListener('keydown', skip); window.removeEventListener('pointerdown', skip) }
+  }, [drive, finish])
   const items: Label[] = [
     { label: 'Import DXF podvozku', sub: 'bokorys / půdorys · DXF, DWG', onClick: () => dxf.current?.click(), testid: 'door-dxf' },
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
@@ -209,8 +244,9 @@ export function StartHero() {
         <ambientLight intensity={0.16} />
         <directionalLight position={[2500, 9000, 5200]} intensity={3.0} />
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
-        <Surroundings />
-        <DummyChassis hot={hot} setHot={setHot} open={() => go('#novy')} />
+        <Surroundings doorLift={doorLift} />
+        <DummyChassis hidden={!!drive?.vehicle} hot={hot} setHot={setHot} open={() => go('#novy')} />
+        {drive ? <Suspense fallback={null}><DriveOut state={drive} spot={VEHICLE_SPOT} doorLift={doorLift} onDone={finish} /></Suspense> : null}
         <Exhibit name="start-crane" x={CRANE_AT.x} z={CRANE_AT.z} r={1900} standLen={1400} hot={craneHot} setHot={setCraneHot} open={() => go('#jeraby')}>
           <ExhibitMesh file="crane142.glb" x={CRANE_AT.x} y={FRAME_TOP} hot={craneHot} alignBottom={false} />
         </Exhibit>
@@ -229,11 +265,11 @@ export function StartHero() {
         </button>
       ))}
       <input ref={dxf} hidden type="file" accept=".dxf,.dwg,.gz,.tgz,.zip,application/dxf,application/acad,application/octet-stream"
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { window.location.hash = '#vykres'; void loadFile(f) } }} />
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) startDrive('dxf', f) }} />
       <input ref={spec} hidden type="file" accept=".pdf,application/pdf"
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { queueProjectFile(f); window.location.hash = '#novy' } }} />
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) startDrive('spec', f) }} />
       <input ref={trw} hidden type="file" accept=".trw,.json,application/json,application/octet-stream"
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { queueProjectFile(f); window.location.hash = '#novy' } }} />
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) startDrive('trw', f) }} />
     </section>
   )
 }

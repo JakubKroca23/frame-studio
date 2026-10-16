@@ -2,6 +2,7 @@ import { SceneFilterBar } from '../view/SceneFilterBar'
 import { hookliftPlacement } from '../trw/hooklift'
 import { HookliftModel } from '../trw/HookliftModel'
 import { takePendingProject } from '../openProject'
+import { takeTrwConversion } from '../home/vehicleFromFile'
 import { isDwgMagic, parseDrawing } from '../state'
 import { decodeDrawing } from '../io/decodeDrawing'
 import { refineConfigFromDxf, type RefineResult } from './refineFromDxf'
@@ -258,7 +259,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
     try {
       if (kind === 'trw-project') {
         setLinkStatus({ text: `Převádím ${file.name} v trw…`, level: 'info' })
-        const result = await convertTrwFile(file)
+        const result = await (takeTrwConversion(file) ?? convertTrwFile(file))
         choosePreset(result.preset, result)
         setLiveBlock(null)
         setLinkStatus({ text: `Projekt ${file.name} převeden (${result.report.length ? `${result.report.length} položek v hlášení` : 'bez hlášení'}).`, level: 'ok' })
