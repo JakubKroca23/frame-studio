@@ -28,17 +28,17 @@ import { StudioLights } from './view/Viewport'
  * exhibits are decimated single-mesh GLBs (scripts/hero-models.mjs, ~24k tris each, meshopt), baked floor shadows,
  * HTML labels are moved through refs (no React re-render per frame).
  */
-const TARGET = new THREE.Vector3(-4500, 3200, H.z1 + 2500)
+const TARGET = new THREE.Vector3(-3800, 3200, H.z1 + 2500)
 /** Dummy chassis in front of the middle door: centre x, z; length along X. */
 /** Configurator dummy + any vehicle shown on the home scene: well out in the yard, clear of the door aprons. */
 /** Home dummy stands where it always did (12.5 m out, perpendicular); the drive-out parks further (pose.STOP_Z). */
 export const VEHICLE_SPOT = { x: spotForDoor(1).x, z: H.z1 + 12500 }
 const CH = { ...VEHICLE_SPOT, len: 9000 }
 // Exhibits stand on the yard beside the LEFT gable wall of the hall (x < H.x0), not in front of the doors.
-const CRANE_AT = { x: H.x0 - 9500, z: H.z1 - 2500 }
+const CRANE_AT = { x: H.x0 - 8500, z: H.z1 - 1500 }
 const HOOK_AT = { x: H.x0 - 3300, z: H.z1 - 3000, len: 5900, rot: Math.PI / 2 }
 // third in the row (left of the crane): HIAB auxiliary outriggers, 5 m variant, retracted
-const AUX_AT = { x: H.x0 - 15500, z: H.z1 - 2500 }
+const AUX_AT = { x: H.x0 - 13500, z: H.z1 - 7000 }
 const AUX_FILE = `${import.meta.env.BASE_URL}models/outrigger/hiab-aux-stab-5m.glb`
 const FRAME_TOP = 1000
 const MODELS = `${import.meta.env.BASE_URL}models/hero/`
@@ -183,8 +183,8 @@ function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & {
   )
 }
 
-const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 10000 * k, 11500 + 1500 * (k - 1), H.z1 + 37000 * k)
-const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 5600, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z], [AUX_AT.x, 3000, AUX_AT.z]]
+const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 5000 * k, 11500 + 1500 * (k - 1), H.z1 + 33000 * k)
+const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 5600, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z], [AUX_AT.x, 2300, AUX_AT.z]]
 
 /** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
 function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {

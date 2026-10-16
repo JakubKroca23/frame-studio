@@ -10,8 +10,8 @@ import CATALOG from '../trw/outriggerCatalog.json'
 type Entry = (typeof CATALOG.entries)[number]
 const KIND: Record<string, AuxStabKind> = { 'hiab-aux-5m': '5m', 'hiab-aux-6m': '6m' }
 const fmt = (v: number | null | undefined, u = 'mm') => (v == null ? '—' : `${v.toLocaleString('cs-CZ')} ${u}`)
-/** Mounting height of the housing top above ground in the 3D view (illustrative, not a catalogue value). */
-const TOP = 1000
+/** Housing top above ground in the preview: chosen so the full leg stroke (450 mm) just reaches the ground (illustrative). */
+const TOP = 1300
 
 /** #podpery[/key] — catalogue of the HIAB auxiliary outriggers (přídavné podpěry), values only from outriggerCatalog.json. */
 export function AuxStabPage() {
