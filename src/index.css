@@ -1299,10 +1299,10 @@ body.hide-side .app-side { display: none !important; }
 
 .start-hero { position: relative; height: min(72vh, 760px); min-height: 360px; flex: none; align-self: stretch; width: calc(100% + 48px); max-width: none; margin: -40px -24px 8px; }
 .start-hero canvas { display: block; }
-.door-btn { position: absolute; transform: translate(-50%, -50%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(62, 230, 196, 0.7); background: rgba(16, 22, 32, 0.82); color: #fff; font: inherit; cursor: pointer; white-space: nowrap; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); transition: transform .15s, background .15s, border-color .15s; }
-.door-btn strong { font-size: 15px; font-weight: 700; }
+.door-btn { position: absolute; transform: translate(-50%, -50%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 10px; border-radius: 12px; border: 1px solid rgba(62, 230, 196, 0.7); background: rgba(16, 22, 32, 0.82); color: #fff; font: inherit; cursor: pointer; white-space: nowrap; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); transition: transform .15s, background .15s, border-color .15s; }
+.door-btn strong { font-size: 14px; font-weight: 700; }
 .door-btn .start-logo { display: block; height: 22px; width: auto; margin: 1px auto 4px; pointer-events: none; }
-.door-btn span { font-size: 11.5px; color: #9fb3c4; }
+.door-btn span { font-size: 10.5px; color: #9fb3c4; }
 .door-btn:hover, .door-btn:focus-visible { transform: translate(-50%, -54%) scale(1.04); background: rgba(62, 230, 196, 0.92); border-color: #3ee6c4; color: #0b1118; outline: none; }
 .door-btn:hover span, .door-btn:focus-visible span { color: #0b1118; }
 @media (max-width: 720px) { .start-hero { height: 62vh; margin-top: -48px; } .door-btn { padding: 7px 9px; } .door-btn strong { font-size: 12px; } .door-btn span { display: none; } .door-btn { white-space: normal; max-width: 28vw; text-align: center; } }
