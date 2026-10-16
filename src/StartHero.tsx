@@ -44,12 +44,38 @@ const FRAME_TOP = 1000
 const MODELS = `${import.meta.env.BASE_URL}models/hero/`
 
 const railMat = new THREE.MeshStandardMaterial({ color: '#2b2f35', metalness: 0.4, roughness: 0.5 })
-const railHot = new THREE.MeshStandardMaterial({ color: '#2b2f35', metalness: 0.4, roughness: 0.5, emissive: '#3ee6c4', emissiveIntensity: 0.45 })
 const tyreMat = new THREE.MeshStandardMaterial({ color: '#16181b', roughness: 0.9 })
 const rimMat = new THREE.MeshStandardMaterial({ color: '#b9c0c6', metalness: 0.6, roughness: 0.35 })
 const exhibitMat = new THREE.MeshStandardMaterial({ color: '#202225', metalness: 0.35, roughness: 0.5, side: THREE.DoubleSide })
-const exhibitHot = new THREE.MeshStandardMaterial({ color: '#202225', metalness: 0.35, roughness: 0.5, side: THREE.DoubleSide, emissive: '#3ee6c4', emissiveIntensity: 0.35 })
-const standMat = new THREE.MeshStandardMaterial({ color: '#3a4048', roughness: 0.45, metalness: 0.55 })
+const CHASSIS_MATS = [railMat, tyreMat, rimMat]
+const EXHIBIT_MATS = [exhibitMat]
+const standMat = new THREE.MeshStandardMaterial({ color: '#8ec5ff', roughness: 0.45, metalness: 0.35 })
+
+/** Exhibits are see-through at rest and solid + glowing on hover (smooth). Per-exhibit material clones, so the
+ *  shared catalogue/configurator materials are untouched; depthWrite stays on (no sorting artefacts within a model). */
+const REST_OPACITY = 0.6
+function useFadeMats(bases: THREE.MeshStandardMaterial[], hot: boolean, glow = 0.35) {
+  const { invalidate } = useThree()
+  const mats = useMemo(() => bases.map((b) => {
+    const m = b.clone()
+    m.transparent = true; m.opacity = REST_OPACITY; m.depthWrite = true
+    m.emissive = new THREE.Color('#3ee6c4'); m.emissiveIntensity = 0
+    return m
+  }), [bases])
+  useEffect(() => () => mats.forEach((m) => m.dispose()), [mats])
+  useFrame((_, dt) => {
+    const k = 1 - Math.exp(-dt * 10), to = hot ? 1 : REST_OPACITY, ge = hot ? glow : 0
+    let moving = false
+    for (const m of mats) {
+      m.opacity += (to - m.opacity) * k; m.emissiveIntensity += (ge - m.emissiveIntensity) * k
+      if (Math.abs(to - m.opacity) > 0.004) moving = true
+      else { m.opacity = to; m.emissiveIntensity = ge }
+    }
+    if (moving) invalidate()
+  })
+  useEffect(() => invalidate(), [hot, invalidate])
+  return mats
+}
 
 /** Baked soft shadow (radial gradient) – static, no shadow map. */
 const shadowMat = (() => {
@@ -73,7 +99,7 @@ const hoverProps = ({ setHot, open }: Hover) => ({
 
 /** Frame + wheels only (no cab, no body) – the configurator entry. */
 function DummyChassis({ hidden, ...h }: Hover & { hidden?: boolean }) {
-  const m = h.hot ? railHot : railMat, x0 = CH.x - CH.len / 2, axles = [x0 + 1500, x0 + 6400, x0 + 7750]
+  const [m, tyre, rim] = useFadeMats(CHASSIS_MATS, h.hot, 0.45), x0 = CH.x - CH.len / 2, axles = [x0 + 1500, x0 + 6400, x0 + 7750]
   return (
     <group name="start-dummy-chassis" position={[CH.x, 0, CH.z]} rotation={[0, HEADING, 0]} visible={!hidden} {...hoverProps(h)}><group position={[-CH.x, 0, 0]}>
       <FloorShadow x={CH.x} sx={CH.len + 1800} sz={3200} />
@@ -84,8 +110,8 @@ function DummyChassis({ hidden, ...h }: Hover & { hidden?: boolean }) {
           <mesh material={m} position={[ax, 520, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[70, 70, 2000, 12]} /></mesh>
           {[-1, 1].map((s) => (
             <group key={s} position={[ax, 520, s * 1000]} rotation={[Math.PI / 2, 0, 0]}>
-              <mesh material={tyreMat}><cylinderGeometry args={[520, 520, 320, 28]} /></mesh>
-              <mesh material={rimMat} position={[0, s * -165, 0]}><cylinderGeometry args={[300, 300, 20, 20]} /></mesh>
+              <mesh material={tyre}><cylinderGeometry args={[520, 520, 320, 28]} /></mesh>
+              <mesh material={rim} position={[0, s * -165, 0]}><cylinderGeometry args={[300, 300, 20, 20]} /></mesh>
             </group>
           ))}
         </group>
@@ -119,7 +145,8 @@ function ExhibitMesh({ file, x, y, hot, alignBottom }: { file: string; x: number
     g.translate(-(b.min.x + b.max.x) / 2, alignBottom ? -b.min.y : 0, -(b.min.z + b.max.z) / 2)
     return g
   }, [gltf, alignBottom])
-  return <mesh geometry={geo} material={hot ? exhibitHot : exhibitMat} position={[x, y, 0]} />
+  const [mat] = useFadeMats(EXHIBIT_MATS, hot)
+  return <mesh geometry={geo} material={mat} position={[x, y, 0]} />
 }
 
 /** Open steel stand: top rectangular frame on 4 legs + light X bracing, merged into one geometry. */
@@ -164,7 +191,8 @@ function AuxExhibitMesh({ x, y, hot }: { x: number; y: number; hot: boolean }) {
     o.position.set(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2)
     return o
   }, [gltf])
-  useEffect(() => { obj.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) m.material = hot ? exhibitHot : exhibitMat }) }, [obj, hot])
+  const [mat] = useFadeMats(EXHIBIT_MATS, hot)
+  useEffect(() => { obj.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) m.material = mat }) }, [obj, mat])
   return <group position={[x, y, 0]}><primitive object={obj} /></group>
 }
 

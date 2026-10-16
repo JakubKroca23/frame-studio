@@ -1299,7 +1299,7 @@ body.hide-side .app-side { display: none !important; }
 
 .start-hero { position: relative; height: min(72vh, 760px); min-height: 360px; flex: none; align-self: stretch; width: calc(100% + 48px); max-width: none; margin: -40px -24px 8px; }
 .start-hero canvas { display: block; }
-.door-btn { position: absolute; transform: translate(-50%, -50%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 10px; border-radius: 12px; border: 1px solid rgba(62, 230, 196, 0.7); background: rgba(16, 22, 32, 0.82); color: #fff; font: inherit; cursor: pointer; white-space: nowrap; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); transition: transform .15s, background .15s, border-color .15s; }
+.door-btn { position: absolute; transform: translate(-50%, -50%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 10px; border-radius: 12px; border: 1px solid rgba(62, 230, 196, 0.7); background: rgba(16, 22, 32, 0.6); color: #fff; font: inherit; cursor: pointer; white-space: nowrap; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(5px) saturate(1.2); -webkit-backdrop-filter: blur(5px) saturate(1.2); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); transition: transform .15s, background .15s, border-color .15s; }
 .door-btn strong { font-size: 14px; font-weight: 700; }
 .door-btn .start-logo { display: block; height: 22px; width: auto; margin: 1px auto 4px; pointer-events: none; }
 .door-btn span { font-size: 10.5px; color: #9fb3c4; }
@@ -1341,3 +1341,4 @@ body.hide-side .app-side { display: none !important; }
 .drive-loading { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(16, 22, 32, 0.72); color: #cfe3ee; font-size: 12.5px; pointer-events: none; }
 .drive-spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(62, 230, 196, 0.3); border-top-color: #3ee6c4; animation: drive-spin 0.9s linear infinite; }
 @keyframes drive-spin { to { transform: rotate(360deg); } }
+.door-btn:hover, .door-btn:focus-visible, .cfg-btn.is-hot { text-shadow: none; }
