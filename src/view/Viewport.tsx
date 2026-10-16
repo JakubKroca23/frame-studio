@@ -36,6 +36,7 @@ export function Viewport({
 }) {
   const setView = useRef<(view: string) => void>(() => {})
   const wheelFocus = useRef({ x: 4800, z: 1100 })
+  const vehicleRef = useRef<THREE.Group>(null)
 
   return (
     <section className="viewport">
@@ -70,9 +71,12 @@ export function Viewport({
           shadow-normalBias={2}
         />
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
-        {drive ? <DriveEnv door={drive.door} ready={drive.ready} groupRef={groupRef} /> : env ? <group rotation={[0, -env.rotY, 0]}><group position={[-env.x, 0, -env.z]}><Surroundings /></group></group> : <Surroundings />}
-        {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} fit={fit} /> : null}
-        {children}
+        {drive ? <DriveEnv door={drive.door} ready={drive.ready} groupRef={groupRef} vehicleRef={vehicleRef} /> : env ? <group rotation={[0, -env.rotY, 0]}><group position={[-env.x, 0, -env.z]}><Surroundings /></group></group> : <Surroundings />}
+        {/* vehicle + everything mounted on it; moved as one only by the drive-out (DriveEnv) */}
+        <group ref={vehicleRef} name="vehicle">
+          {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} fit={fit} /> : null}
+          {children}
+        </group>
         <OrbitControls makeDefault enableDamping={false} maxPolarAngle={Math.PI * 0.485} minDistance={400} maxDistance={70000} />
         <GizmoHelper alignment="bottom-right" margin={[64, 64]}>
           <GizmoViewport axisColors={['#c24e28', '#7d9a78', '#d7d2c8']} labelColor="#111" />
