@@ -4,7 +4,7 @@ import { HookliftModel } from '../trw/HookliftModel'
 import { takePendingProject } from '../openProject'
 import { useSceneFilters } from '../view/sceneFilters'
 import { takeTrwConversion } from '../home/vehicleFromFile'
-import { parkedPose } from '../home/pose'
+import { parkedPose, takePendingDrive } from '../home/pose'
 import { isDwgMagic, parseDrawing } from '../state'
 import { decodeDrawing } from '../io/decodeDrawing'
 import { refineConfigFromDxf, type RefineResult } from './refineFromDxf'
@@ -87,6 +87,9 @@ function setAt<T>(obj: T, path: Path, value: unknown): T {
 const fmtT = (kg: number) => `${(kg / 1000).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} t`
 
 export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }: { initialPreset?: string; link?: LinkRequest; hooklift?: string | null }) {
+  // home door import → drive-out played in this scene (DriveEnv); the import itself runs as usual
+  const [drive] = useState(() => takePendingDrive())
+  const [driveReady, setDriveReady] = useState(false)
   const [hooklift, setHooklift] = useState<string | null>(hookliftInit ?? null)
   const start = presetById(initialPreset ?? '') ?? PRESETS[0]
   const [preset, setPreset] = useState<ChassisPreset>(start)
@@ -315,7 +318,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
   openFileRef.current = openFile
   // "Otevřít" in the top bar / start page queues a .trw / .json for us
   useEffect(() => {
-    const take = () => { const f = takePendingProject(); if (f) void openFileRef.current(f) }
+    const take = () => { const f = takePendingProject(); if (f) void Promise.resolve(openFileRef.current(f)).finally(() => setDriveReady(true)) }
     take()
     window.addEventListener('fs-open-project', take)
     return () => window.removeEventListener('fs-open-project', take)
@@ -863,7 +866,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
         </section>
       </aside>
 
-      <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} env={parkedPose} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>
+      <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} env={parkedPose} drive={drive ? { door: drive.door, ready: driveReady } : null} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>
         {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
         {hooklift && !trw?.markers.extended ? <CatalogHooklift name={hooklift} frameTop={built.frame.topHeight} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} /> : null}
         {cap && trw?.markers.crane ? <CapacityDiagram craneX={trw.markers.crane.x} info={cap} status={capStatus} slewDeg={((slewDeg % 360) + 360) % 360} reachMm={capReach} /> : null}

@@ -40,3 +40,8 @@ export function originPose(p: { x: number; z: number; rotY: number }, cx: number
  */
 export let parkedPose: { x: number; z: number; rotY: number } | null = null
 export function setParkedPose(p: typeof parkedPose) { parkedPose = p }
+
+/** Drive-out requested by a home door import; consumed once by the configurator, which plays it in its own scene. */
+let pendingDrive: { door: number } | null = null
+export function setPendingDrive(d: typeof pendingDrive) { pendingDrive = d }
+export function takePendingDrive() { const d = pendingDrive; pendingDrive = null; return d }

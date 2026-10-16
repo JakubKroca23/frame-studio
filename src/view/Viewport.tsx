@@ -8,6 +8,7 @@ import { buildChassisGroup, disposeGroup } from '../mesh/build'
 import { recallPose, rememberPose } from './cameraMemory'
 import { Button } from '../components/ui/button'
 import { Surroundings } from './Environment'
+import { DriveEnv } from './DriveEnv'
 
 export function Viewport({
   model,
@@ -17,7 +18,10 @@ export function Viewport({
   children,
   overlay,
   env,
+  drive,
 }: {
+  /** Home import drive-out to play in this scene (hall moves around the vehicle); ready = import finished. */
+  drive?: { door: number; ready: boolean } | null
   /** World pose of the vehicle in the hall yard (from the home drive-out); the hall is placed with its inverse. */
   env?: { x: number; z: number; rotY: number } | null
   model: ChassisModel | null
@@ -66,7 +70,7 @@ export function Viewport({
           shadow-normalBias={2}
         />
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
-        {env ? <group rotation={[0, -env.rotY, 0]}><group position={[-env.x, 0, -env.z]}><Surroundings /></group></group> : <Surroundings />}
+        {drive ? <DriveEnv door={drive.door} ready={drive.ready} groupRef={groupRef} /> : env ? <group rotation={[0, -env.rotY, 0]}><group position={[-env.x, 0, -env.z]}><Surroundings /></group></group> : <Surroundings />}
         {model ? <Chassis model={model} params={params} groupRef={groupRef} wheelFocus={wheelFocus} fit={fit} /> : null}
         {children}
         <OrbitControls makeDefault enableDamping={false} maxPolarAngle={Math.PI * 0.485} minDistance={400} maxDistance={70000} />
