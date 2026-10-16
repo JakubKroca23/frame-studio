@@ -1,15 +1,22 @@
+import { useProgress } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { buildChassisGroup, disposeGroup } from '../mesh/build'
 import { TrwMarkers } from '../trw/TrwMarkers'
+import { TrwExtendedView } from '../trw/TrwExtendedView'
+import { outriggerStow } from '../trw/outriggerStow'
+import { craneModelFor } from '../trw/CraneModel'
+import { craneVariantMatch } from '../trw/craneKinematics'
 import { Boundary } from '../trw/HookliftModel'
 import { H, type DoorLift } from '../view/Environment'
 import { HEADING, setParkedPose, spotForDoor } from './pose'
 import type { HomeVehicle } from './vehicleFromFile'
 
 /** Timeline (s): door rolls up, vehicle drives out to the spot, door closes, short hold, then onDone. */
-export const T_CAM = 1.2, T_OPEN = 1.4, T_DRIVE = 4.6, T_CLOSE = 1.3, T_HOLD = 1.0
+export const T_CAM = 1.2, T_OPEN = 1.4, T_DRIVE = 6.5, T_CLOSE = 1.3, T_EXT = 4.2, T_HOLD = 1.0
+/** Loading gate: no pending loads for this long (s) → everything is in; give up waiting after MAX_GATE. */
+const QUIET = 0.5, MAX_GATE = 20
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 
@@ -24,11 +31,16 @@ export interface DriveState {
  * Everything runs in useFrame on refs; React renders only when the vehicle arrives. Times are read from the
  * frame clock so headless captures can step through via window.__driveT (debug hook).
  */
-export function DriveOut({ state, doorLift, onDone, cam }: { state: DriveState; doorLift: DoorLift; onDone: () => void; cam?: (spot: { x: number; z: number }) => { pos: THREE.Vector3; target: THREE.Vector3 } }) {
+export function DriveOut({ state, doorLift, onDone, onReady, cam }: { state: DriveState; doorLift: DoorLift; onDone: () => void; onReady?: () => void; cam?: (spot: { x: number; z: number }) => { pos: THREE.Vector3; target: THREE.Vector3 } }) {
   const { invalidate, camera, controls } = useThree()
   const root = useRef<THREE.Group>(null)
   const t0 = useRef<number | null>(null), tDrive = useRef<number | null>(null), done = useRef(false)
   const { vehicle, door } = state
+  // outriggers stowed for the drive; released after the stop (they extend sideways, then down)
+  outriggerStow.current = true
+  useEffect(() => () => { outriggerStow.current = false }, [])
+  // loading gate: count loader activity (GLBs, textures) of everything mounted for the vehicle
+  const quietSince = useRef<number | null>(null), tReady = useRef<number | null>(null), compiled = useRef(false)
   const spot = useMemo(() => spotForDoor(door), [door])
 
   // Camera glide to the show framing. Orbit stays enabled; the first user interaction ('start') cancels the
@@ -60,6 +72,7 @@ export function DriveOut({ state, doorLift, onDone, cam }: { state: DriveState; 
 
   /** Straight out of the door, perpendicular to the facade: start fully inside, stop at the spot. */
   const zFrom = H.z1 - 400 - (built?.len ?? 9000) / 2
+  const { gl, scene } = useThree()
   const dist = spot.z - zFrom
 
   useFrame(({ clock }) => {
@@ -77,18 +90,34 @@ export function DriveOut({ state, doorLift, onDone, cam }: { state: DriveState; 
       if (k >= 1) tween.current = null
     }
     const lift = doorLift.current
-    if (tDrive.current === null && built && t >= T_OPEN) tDrive.current = Math.max(t, T_OPEN)
-    const td = tDrive.current === null ? -1 : t - tDrive.current
-    lift[door] = td < T_DRIVE ? ease(clamp01(t / T_OPEN)) : 1 - ease(clamp01((td - T_DRIVE) / T_CLOSE))
+    // gate: vehicle built + no loader activity for QUIET s (mounted behind the closed door, so it can render/compile)
+    if (tReady.current === null) {
+      lift[door] = 0
+      if (built && root.current) {
+        root.current.visible = true
+        root.current.position.set(spot.x, 0, zFrom)
+        root.current.rotation.y = HEADING
+        const busy = useProgress.getState().active
+        if (busy) quietSince.current = null
+        else if (quietSince.current === null) quietSince.current = t
+        if (!compiled.current && quietSince.current !== null && t - quietSince.current > QUIET / 2) { gl.compile(scene, camera); compiled.current = true }
+        if ((quietSince.current !== null && t - quietSince.current > QUIET && compiled.current) || t > MAX_GATE) { tReady.current = t; (window as unknown as { __driveReady?: number; __driveMeshes?: number[] }).__driveReady = t; (window as unknown as { __driveMeshes?: number[] }).__driveMeshes = [countMeshes(root.current)]; onReady?.() }
+      }
+      invalidate()
+      return
+    }
+    const tr = t - tReady.current
+    if (tDrive.current === null && tr >= T_OPEN) tDrive.current = tr
+    const td = tDrive.current === null ? -1 : tr - tDrive.current
+    lift[door] = td < T_DRIVE ? ease(clamp01(tr / T_OPEN)) : 1 - ease(clamp01((td - T_DRIVE) / T_CLOSE))
     if (root.current && built) {
       const k = ease(clamp01(td / T_DRIVE))
-      root.current.visible = td >= 0
       root.current.position.set(spot.x, 0, zFrom + k * dist)
-      root.current.rotation.y = HEADING
       for (const w of built.wheels) w.o.rotation.z = (k * dist) / w.r
     }
+    if (td >= T_DRIVE) outriggerStow.current = false
     if (root.current) (window as unknown as { __drivePose?: number[] }).__drivePose = [root.current.position.x, root.current.position.z, td]
-    if (!done.current && td >= T_DRIVE + T_CLOSE + T_HOLD) { done.current = true; lift[door] = 0; onDone() }
+    if (!done.current && td >= T_DRIVE + Math.max(T_CLOSE, vehicle?.trw ? T_EXT : 0) + T_HOLD) { done.current = true; lift[door] = 0; if (root.current) (window as unknown as { __driveMeshes?: number[] }).__driveMeshes?.push(countMeshes(root.current)); onDone() }
     invalidate()
   })
 
@@ -97,9 +126,25 @@ export function DriveOut({ state, doorLift, onDone, cam }: { state: DriveState; 
       {built ? (
         <group position={[-built.cx, 0, -built.cz]}>
           <primitive object={built.g} />
-          {vehicle?.trw ? <Boundary fallback={null}><Suspense fallback={null}><TrwMarkers markers={vehicle.trw.markers} frameTop={vehicle.trw.frameTop} /></Suspense></Boundary> as ReactNode : null}
+          {vehicle?.trw ? <Boundary fallback={null}><Suspense fallback={null}><Superstructure trw={vehicle.trw} /></Suspense></Boundary> as ReactNode : null}
         </group>
       ) : null}
     </group>
   )
 }
+
+/** The same superstructure the configurator shows for a trw import (crane + stabilisers, body / Multilift, aux outriggers). */
+function Superstructure({ trw }: { trw: NonNullable<HomeVehicle['trw']> }) {
+  const { markers, frameTop, frameRear } = trw
+  const crane = markers.crane
+  const radius = crane && craneModelFor(crane.name) ? craneVariantMatch(crane.name)?.variant.hydMaxMm ?? 8000 : 8000
+  return (
+    <>
+      <TrwMarkers markers={markers} frameTop={frameTop} onCraneJoints={noop} />
+      {markers.extended ? <TrwExtendedView ext={markers.extended} slewDeg={0} craneX={crane?.x ?? null} sectorRadius={radius} showSectors={false} frameRear={frameRear} frameTop={frameTop} /> : null}
+    </>
+  )
+}
+const noop = () => {}
+
+const countMeshes = (o: THREE.Object3D | null) => { let n = 0; o?.traverse((c) => { if ((c as THREE.Mesh).isMesh) n++ }); return n }

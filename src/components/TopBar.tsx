@@ -54,7 +54,7 @@ export function goHome() {
 const togglePanels = () => document.body.classList.toggle('hide-side')
 
 /** Top bar on every screen: logo + "Nový" (everything else is reached from the hall scene), then page actions. */
-export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykres' | 'dxf3d' | 'jeraby' | 'multilift'; actions?: BarAction[] }) {
+export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykres' | 'dxf3d' | 'jeraby' | 'multilift' | 'podpery'; actions?: BarAction[] }) {
   const session = useContext(SessionCtx)
   return (
     <header className="app-header topbar">

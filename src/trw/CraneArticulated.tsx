@@ -1,4 +1,5 @@
 import { useGLTF } from '@react-three/drei'
+import { outriggerStow, stepOutrigger } from './outriggerStow'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { setLiveCrane } from './liveCrane'
@@ -284,12 +285,13 @@ function CraneStabs({ st, spread, half, strokeM, frameTop, meshes }: { st: StabD
   const [down, setDown] = useState<Record<Side, number>>(() => { const e = stabFromSpread(st, spread, half); const d = legToGroundM(st, frameTop, strokeM); return { left: e.left > 0 ? d : 0, right: e.right > 0 ? d : 0 } })
   useEffect(() => { const e = stabFromSpread(st, spread, half); setExt(e); const d = legToGroundM(st, frameTop, strokeM); setDown({ left: e.left > 0 ? d : 0, right: e.right > 0 ? d : 0 }) }, [st, spread, half, strokeM, frameTop])
   // animated values
-  const cur = useRef({ left: { e: 0, d: 0 }, right: { e: 0, d: 0 } })
+  // start in place (configurator keeps the extended state); stowed (home drive-out) starts retracted
+  const cur = useRef(outriggerStow.current ? { left: { e: 0, d: 0 }, right: { e: 0, d: 0 } } : { left: { e: ext.left, d: down.left }, right: { e: ext.right, d: down.right } })
   const refs = { stabL: useRef<THREE.Group>(null), stabR: useRef<THREE.Group>(null), legL: useRef<THREE.Group>(null), legR: useRef<THREE.Group>(null) }
   useFrame((_, dt) => {
     const k = 1 - Math.exp(-dt * 4)
     for (const side of ['left', 'right'] as Side[]) {
-      const c = cur.current[side]; c.e += (ext[side] - c.e) * k; c.d += (down[side] - c.d) * k
+      const c = cur.current[side]; stepOutrigger(c, { e: ext[side], d: down[side] }, k, 0.004)
       const sx = side === 'left' ? -c.e : c.e, L = side === 'left' ? 'L' : 'R'
       refs[`stab${L}` as const].current?.position.set(sx, 0, 0)
       refs[`leg${L}` as const].current?.position.set(sx, -c.d, 0)

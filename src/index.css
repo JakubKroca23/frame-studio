@@ -1338,3 +1338,6 @@ body.hide-side .app-side { display: none !important; }
 .cap-table tr.is-cur td { color: #3ee6c4; font-weight: 700; }
 .cap-panel ul { margin: 4px 0; padding-left: 16px; color: #f0a35b; }
 .start-hero.is-driving .door-btn, .start-hero.is-driving canvas ~ div { display: none !important; }
+.drive-loading { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(16, 22, 32, 0.72); color: #cfe3ee; font-size: 12.5px; pointer-events: none; }
+.drive-spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(62, 230, 196, 0.3); border-top-color: #3ee6c4; animation: drive-spin 0.9s linear infinite; }
+@keyframes drive-spin { to { transform: rotate(360deg); } }

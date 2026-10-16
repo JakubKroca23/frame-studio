@@ -19,7 +19,7 @@ const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia
 /** Generation slower than this → skip the show and go straight to the target page. */
 const MAX_WAIT_MS = 12000
 /** Show framing: hall front from the front-left, low, all three doors on the right; the vehicle parks front-left. */
-const SHOW_CAM = (s: { x: number; z: number }) => ({ pos: new THREE.Vector3(s.x + 15000, 13000, s.z + 15000), target: new THREE.Vector3(s.x - 1000, 0, s.z - 2000) })
+const SHOW_CAM = (s: { x: number; z: number }) => ({ pos: new THREE.Vector3(s.x + 15000, 10500, s.z + 11500), target: new THREE.Vector3(s.x - 1500, 2000, s.z - 8500) })
 import { StudioLights } from './view/Viewport'
 
 /**
@@ -28,14 +28,18 @@ import { StudioLights } from './view/Viewport'
  * exhibits are decimated single-mesh GLBs (scripts/hero-models.mjs, ~24k tris each, meshopt), baked floor shadows,
  * HTML labels are moved through refs (no React re-render per frame).
  */
-const TARGET = new THREE.Vector3(-3500, 3200, H.z1 + 500)
+const TARGET = new THREE.Vector3(-4500, 3200, H.z1 + 2500)
 /** Dummy chassis in front of the middle door: centre x, z; length along X. */
 /** Configurator dummy + any vehicle shown on the home scene: well out in the yard, clear of the door aprons. */
-export const VEHICLE_SPOT = spotForDoor(1)
+/** Home dummy stands where it always did (12.5 m out, perpendicular); the drive-out parks further (pose.STOP_Z). */
+export const VEHICLE_SPOT = { x: spotForDoor(1).x, z: H.z1 + 12500 }
 const CH = { ...VEHICLE_SPOT, len: 9000 }
 // Exhibits stand on the yard beside the LEFT gable wall of the hall (x < H.x0), not in front of the doors.
 const CRANE_AT = { x: H.x0 - 9500, z: H.z1 - 2500 }
 const HOOK_AT = { x: H.x0 - 3300, z: H.z1 - 3000, len: 5900, rot: Math.PI / 2 }
+// third in the row (left of the crane): HIAB auxiliary outriggers, 5 m variant, retracted
+const AUX_AT = { x: H.x0 - 15500, z: H.z1 - 2500 }
+const AUX_FILE = `${import.meta.env.BASE_URL}models/outrigger/hiab-aux-stab-5m.glb`
 const FRAME_TOP = 1000
 const MODELS = `${import.meta.env.BASE_URL}models/hero/`
 
@@ -149,6 +153,21 @@ function SteelStand({ x, len, brace = true }: { x: number; len: number; brace?: 
   return <mesh geometry={steelStandGeo(len, brace)} material={standMat} position={[x, 0, 0]} castShadow />
 }
 
+/** Multi-part GLB (metres) as one showpiece: shared exhibit material, centred on x, bottom on y. */
+function AuxExhibitMesh({ x, y, hot }: { x: number; y: number; hot: boolean }) {
+  const gltf = useGLTF(AUX_FILE)
+  const obj = useMemo(() => {
+    const o = gltf.scene.clone(true)
+    o.scale.setScalar(1000)
+    o.updateMatrixWorld(true)
+    const b = new THREE.Box3().setFromObject(o)
+    o.position.set(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2)
+    return o
+  }, [gltf])
+  useEffect(() => { obj.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) m.material = hot ? exhibitHot : exhibitMat }) }, [obj, hot])
+  return <group position={[x, y, 0]}><primitive object={obj} /></group>
+}
+
 /** Clickable showpiece on a stand: hover ring + glow, click (not drag) opens the link. */
 function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & { name: string; x: number; z: number; r: number; standLen: number; rot?: number; children: ReactNode }) {
   return (
@@ -164,8 +183,8 @@ function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & {
   )
 }
 
-const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 10000 * k, 11500 + 1500 * (k - 1), H.z1 + 32000 * k)
-const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 5600, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z]]
+const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 10000 * k, 11500 + 1500 * (k - 1), H.z1 + 37000 * k)
+const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 5600, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z], [AUX_AT.x, 3000, AUX_AT.z]]
 
 /** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
 function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
@@ -200,13 +219,14 @@ export function StartHero() {
   const dxf = useRef<HTMLInputElement>(null), trw = useRef<HTMLInputElement>(null), spec = useRef<HTMLInputElement>(null)
   const loadFile = useApp((s) => s.loadFile)
   const labels = useRef<(HTMLElement | null)[]>([])
-  const [hot, setHot] = useState(false), [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false)
+  const [hot, setHot] = useState(false), [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false), [auxHot, setAuxHot] = useState(false)
   const go = (h: string) => { document.body.style.cursor = ''; window.location.hash = h }
   // --- drive-out show after a file pick: door rolls up, vehicle drives to VEHICLE_SPOT, door closes, then the target page
   const doorLift = useRef<number[]>([0, 0, 0]) as DoorLift
   const [drive, setDrive] = useState<DriveState | null>(null)
+  const [driveReady, setDriveReady] = useState(false)
   const finishRef = useRef<(() => void) | null>(null)
-  const finish = useCallback(() => { const f = finishRef.current; finishRef.current = null; doorLift.current = [0, 0, 0]; setDrive(null); f?.() }, [doorLift])
+  const finish = useCallback(() => { const f = finishRef.current; finishRef.current = null; doorLift.current = [0, 0, 0]; setDrive(null); setDriveReady(false); f?.() }, [doorLift])
   /** The original action of each door; DXF parsing already started by the show (state.loadFile) is not repeated. */
   const proceed = (kind: DoorKind, f: File, loading = false) => {
     if (kind === 'dxf') { window.location.hash = '#vykres'; if (!loading) void loadFile(f) }
@@ -238,6 +258,7 @@ export function StartHero() {
     { label: 'Konfigurátor', sub: 'podvozek, rám, nápravy', onClick: () => go('#novy'), testid: 'start-cfg', hot, setHot, cfg: true },
     { label: 'HIAB', logo: 'brand/logo-hiab-color.svg', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
     { label: 'MULTILIFT', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
+    { label: 'PŘÍDAVNÉ PODPĚRY', sub: 'Katalog dostupných přídavných podpěr', onClick: () => go('#podpery'), testid: 'start-aux', hot: auxHot, setHot: setAuxHot, cfg: true },
   ]
   return (
     <section className={drive ? 'start-hero is-driving' : 'start-hero'} aria-label="Hala ContSystem – vstup do CS Studia">
@@ -251,7 +272,7 @@ export function StartHero() {
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
         <Surroundings doorLift={doorLift} />
         <DummyChassis hidden={!!drive} hot={hot} setHot={setHot} open={() => go('#novy')} />
-        {drive ? <Suspense fallback={null}><DriveOut state={drive} cam={SHOW_CAM} doorLift={doorLift} onDone={finish} /></Suspense> : null}
+        {drive ? <Suspense fallback={null}><DriveOut state={drive} cam={SHOW_CAM} doorLift={doorLift} onDone={finish} onReady={() => setDriveReady(true)} /></Suspense> : null}
         {drive ? null : <>
         <Exhibit name="start-crane" x={CRANE_AT.x} z={CRANE_AT.z} r={1900} standLen={1400} hot={craneHot} setHot={setCraneHot} open={() => go('#jeraby')}>
           <ExhibitMesh file="crane142.glb" x={CRANE_AT.x} y={FRAME_TOP} hot={craneHot} alignBottom={false} />
@@ -259,10 +280,14 @@ export function StartHero() {
         <Exhibit name="start-multilift" x={HOOK_AT.x} z={HOOK_AT.z} r={3600} standLen={HOOK_AT.len} rot={HOOK_AT.rot} hot={hookHot} setHot={setHookHot} open={() => go('#multilift')}>
           <ExhibitMesh file="multilift21s.glb" x={HOOK_AT.x} y={FRAME_TOP} hot={hookHot} alignBottom />
         </Exhibit>
+        <Exhibit name="start-aux" x={AUX_AT.x} z={AUX_AT.z} r={1900} standLen={2600} hot={auxHot} setHot={setAuxHot} open={() => go('#podpery')}>
+          <AuxExhibitMesh x={AUX_AT.x} y={FRAME_TOP} hot={auxHot} />
+        </Exhibit>
         </>}
         <OrbitControls makeDefault target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
         <HeroCamera labels={labels} />
       </Canvas>
+      {drive && !driveReady ? <div className="drive-loading" role="status"><span className="drive-spinner" aria-hidden="true" />Připravuji vozidlo…</div> : null}
       {items.map((it, i) => (
         <button key={it.testid} ref={(el) => { labels.current[i] = el }} type="button" data-testid={it.testid}
           className={it.cfg ? (it.hot ? 'door-btn cfg-btn is-hot' : 'door-btn cfg-btn') : 'door-btn'} style={{ left: -9999, top: -9999 }}

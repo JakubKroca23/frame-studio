@@ -4,6 +4,7 @@ import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNo
 import * as THREE from 'three'
 import { TelescopeArrows } from './CraneGizmos'
 import CATALOG from './outriggerCatalog.json'
+import { outriggerStow, stepOutrigger } from './outriggerStow'
 
 /**
  * HIAB auxiliary stabilizer (přídavné podpěry) with moving groups.
@@ -61,16 +62,15 @@ function Loaded({ kind, x, top, reachLeft, reachRight }: { kind: AuxStabKind; x:
   const init = (r: number | null | undefined) => { const e = armExtFromReach(kind, r); return { ext: e, down: e > 0 ? ground.down : 0 } }
   const [st, setSt] = useState<Record<Side, { ext: number; down: number }>>({ left: init(reachLeft), right: init(reachRight) })
   useEffect(() => setSt({ left: init(reachLeft), right: init(reachRight) }), [reachLeft, reachRight, kind, gap]) // eslint-disable-line react-hooks/exhaustive-deps
-  const cur = useRef({ left: { ext: 0, down: 0 }, right: { ext: 0, down: 0 } })
+  const cur = useRef(outriggerStow.current ? { left: { e: 0, d: 0 }, right: { e: 0, d: 0 } } : { left: { e: st.left.ext, d: st.left.down }, right: { e: st.right.ext, d: st.right.down } })
   useFrame((_, dt) => {
     const k = 1 - Math.exp(-dt * 4)
     for (const side of ['left', 'right'] as Side[]) {
       const c = cur.current[side], t = st[side], n = NODE[side]
-      c.ext += (t.ext - c.ext) * k
-      c.down += (t.down - c.down) * k
+      stepOutrigger(c, { e: t.ext, d: t.down }, k, 4)
       const arm = nodes[n.arm], leg = nodes[n.leg]
-      if (arm) arm.position.set((n.dir * c.ext) / 1000, 0, 0)
-      if (leg) leg.position.set((n.dir * c.ext) / 1000, -c.down / 1000, 0)
+      if (arm) arm.position.set((n.dir * c.e) / 1000, 0, 0)
+      if (leg) leg.position.set((n.dir * c.e) / 1000, -c.d / 1000, 0)
     }
   })
   const set = (side: Side, p: Partial<{ ext: number; down: number }>) => setSt((o) => ({ ...o, [side]: { ...o[side], ...p } }))

@@ -6,7 +6,7 @@ export interface HomeVehicle {
   model: ChassisModel
   params: ChassisParams
   /** trw superstructure markers (crane, outriggers) + frame top for TrwMarkers. */
-  trw?: { markers: TrwImport['markers']; frameTop: number }
+  trw?: { markers: TrwImport['markers']; frameTop: number; frameRear: number }
 }
 
 export type DoorKind = 'dxf' | 'trw' | 'spec'
@@ -22,7 +22,7 @@ export function takeTrwConversion(file: File) {
 async function fromPreset(preset: import('../presets').ChassisPreset, trw?: TrwImport): Promise<HomeVehicle> {
   const { configToModel, paramsForConfig } = await import('../presets/configModel')
   const model = configToModel(preset.config, preset.id)
-  return { model, params: paramsForConfig(preset.config), trw: trw ? { markers: trw.markers, frameTop: preset.config.frame.topHeight } : undefined }
+  return { model, params: paramsForConfig(preset.config), trw: trw ? { markers: trw.markers, frameTop: preset.config.frame.topHeight, frameRear: preset.config.axles[preset.config.axles.length - 1].position + preset.config.rearOverhang } : undefined }
 }
 
 /**

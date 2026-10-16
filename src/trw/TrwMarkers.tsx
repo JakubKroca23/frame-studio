@@ -1,3 +1,7 @@
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import * as THREE from 'three'
+import { outriggerStow, stepOutrigger } from './outriggerStow'
 import { LeaderLabel } from '../view/LeaderLabel'
 import type { TrwMarkers as Markers } from './trwConfig'
 import { CraneModel, craneModelFor, type CranePose } from './CraneModel'
@@ -29,25 +33,9 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
       ) : (
         craneBox
       )}
-      {(meshStabs ? [] : markers.outriggers).map((leg) => {
-        const z = (leg.side === 'left' ? -1 : 1) * (leg.halfSpan ?? (leg.spread || 2500) / 2)
-        return (
-          <group key={leg.side}>
-            <mesh position={[leg.x, frameTop - 60, z / 2]}>
-              <boxGeometry args={[140, 120, Math.abs(z)]} />
-              <meshStandardMaterial color="#c24e28" transparent opacity={0.8} />
-            </mesh>
-            <mesh position={[leg.x, frameTop / 2, z]}>
-              <cylinderGeometry args={[60, 60, frameTop, 16]} />
-              <meshStandardMaterial color="#c24e28" />
-            </mesh>
-            <mesh position={[leg.x, 15, z]}>
-              <cylinderGeometry args={[220, 220, 30, 24]} />
-              <meshStandardMaterial color="#c24e28" />
-            </mesh>
-          </group>
-        )
-      })}
+      {(meshStabs ? [] : markers.outriggers).map((leg) => (
+        <MarkerLeg key={leg.side} x={leg.x} side={leg.side} reach={leg.halfSpan ?? (leg.spread || 2500) / 2} frameTop={frameTop} />
+      ))}
       {(markers.payloads ?? []).map((p, i) => {
         if (p.x == null) return null
         const len = p.xFrom != null && p.xTo != null && p.xTo > p.xFrom ? p.xTo - p.xFrom : 400
@@ -66,6 +54,32 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
           </group>
         )
       })}
+    </group>
+  )
+}
+
+const legMat = new THREE.MeshStandardMaterial({ color: '#c24e28' })
+const beamMat = new THREE.MeshStandardMaterial({ color: '#c24e28', transparent: true, opacity: 0.8 })
+const unitBox = new THREE.BoxGeometry(1, 1, 1), unitCyl = new THREE.CylinderGeometry(1, 1, 1, 16), padGeo = new THREE.CylinderGeometry(220, 220, 30, 24)
+/** Simple outrigger marker (beam + leg + pad) that moves like the hydraulics: sideways out, then down (outriggerStow). */
+function MarkerLeg({ x, side, reach, frameTop }: { x: number; side: 'left' | 'right'; reach: number; frameTop: number }) {
+  const dir = side === 'left' ? -1 : 1, top = frameTop - 120, stroke = Math.max(0, top - 30)
+  const beam = useRef<THREE.Mesh>(null), legM = useRef<THREE.Mesh>(null), pad = useRef<THREE.Mesh>(null)
+  const cur = useRef(outriggerStow.current ? { e: 0, d: 0 } : { e: reach, d: stroke })
+  useFrame((_, dt) => {
+    const c = cur.current
+    stepOutrigger(c, { e: reach, d: stroke }, 1 - Math.exp(-dt * 4), 4)
+    const e = Math.max(200, c.e), z = dir * e
+    beam.current?.position.set(x, frameTop - 60, z / 2); beam.current?.scale.set(140, 120, e)
+    const h = 120 + c.d
+    legM.current?.position.set(x, top - c.d + h / 2, z); legM.current?.scale.set(60, h, 60)
+    pad.current?.position.set(x, top - c.d - 15, z)
+  })
+  return (
+    <group>
+      <mesh ref={beam} geometry={unitBox} material={beamMat} />
+      <mesh ref={legM} geometry={unitCyl} material={legMat} />
+      <mesh ref={pad} geometry={padGeo} material={legMat} />
     </group>
   )
 }
