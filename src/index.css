@@ -1342,3 +1342,4 @@ body.hide-side .app-side { display: none !important; }
 .drive-spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(62, 230, 196, 0.3); border-top-color: #3ee6c4; animation: drive-spin 0.9s linear infinite; }
 @keyframes drive-spin { to { transform: rotate(360deg); } }
 .door-btn:hover, .door-btn:focus-visible, .cfg-btn.is-hot { text-shadow: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

@@ -1,7 +1,7 @@
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { queueProjectFile } from './openProject'
@@ -13,6 +13,8 @@ import { vehicleFromFile, type DoorKind } from './home/vehicleFromFile'
 import { spotForDoor, HEADING } from './home/pose'
 import { useSceneFilters } from './view/sceneFilters'
 import type { DriveState } from './home/DriveOut'
+import { Sign3D } from './home/Sign3D'
+import { DW } from './view/Environment'
 
 const DriveOut = lazy(() => import('./home/DriveOut').then((m) => ({ default: m.DriveOut })))
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -211,11 +213,25 @@ function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & {
   )
 }
 
+/** Signboard on a post in front of an exhibit, turned toward the default camera. */
+const postMat = standMat
+function ExhibitSign({ x, z, title, sub, logo, hot, setHot, open, name }: Hover & { x: number; z: number; title: string; sub: string; logo?: string; name: string }) {
+  const cam = CAM_HOME(1), yaw = Math.atan2(cam.x - x, cam.z - z), W = 3400, Hs = 1500, top = 1350
+  return (
+    <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
+      <mesh material={postMat} position={[0, (top - Hs / 2) / 2, -40]}><cylinderGeometry args={[45, 55, top - Hs / 2, 10]} /></mesh>
+      <mesh material={postMat} position={[0, 4, -40]}><cylinderGeometry args={[260, 260, 8, 20]} /></mesh>
+      <mesh material={signBackMat} position={[0, top, -22]}><boxGeometry args={[W, Hs, 20]} /></mesh>
+      <Sign3D name={name} w={W} h={Hs} title={title} sub={sub} logo={logo} hot={hot} position={[0, top, -8]} onOver={() => setHot(true)} onOut={() => setHot(false)} onOpen={open} />
+    </group>
+  )
+}
+const signBackMat = new THREE.MeshStandardMaterial({ color: '#1a2230', roughness: 0.6, metalness: 0.2, transparent: true, opacity: 0.55, depthWrite: false })
+
 const CAM_HOME = (k: number) => new THREE.Vector3(TARGET.x - 5000 * k, 11500 + 1500 * (k - 1), H.z1 + 33000 * k)
-const ANCHORS: [number, number, number][] = [...DOORS.map((x): [number, number, number] => [x, 3300, H.z1 + 300]), [CH.x, 2700, CH.z], [CRANE_AT.x, 5600, CRANE_AT.z], [HOOK_AT.x, 3600, HOOK_AT.z], [AUX_AT.x, 2300, AUX_AT.z]]
 
 /** Default view on the hall front (pulled back on portrait); free orbit afterwards. Moves the HTML labels via refs. */
-function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
+function HeroCamera() {
   const { camera, size, gl, invalidate } = useThree()
   useEffect(() => { (window as unknown as { __heroInfo?: unknown }).__heroInfo = gl.info }, [gl])
   useEffect(() => {
@@ -225,28 +241,22 @@ function HeroCamera({ labels }: { labels: RefObject<(HTMLElement | null)[]> }) {
     camera.updateProjectionMatrix()
     invalidate()
   }, [camera, size, invalidate])
-  const v = useMemo(() => new THREE.Vector3(), [])
-  useFrame(() => {
-    camera.updateMatrixWorld()
-    ANCHORS.forEach((p, i) => {
-      const el = labels.current?.[i]
-      if (!el) return
-      v.set(...p).project(camera)
-      const off = v.z > 1 || Math.abs(v.x) > 1.2 || Math.abs(v.y) > 1.2
-      el.style.visibility = off ? 'hidden' : 'visible'
-      el.style.left = `${((v.x + 1) / 2) * size.width}px`
-      el.style.top = `${((1 - v.y) / 2) * size.height}px`
-    })
-  })
   return null
 }
 
 type Label = { label: string; sub: string; logo?: string; onClick: () => void; testid: string; hot?: boolean; setHot?: (h: boolean) => void; cfg?: boolean }
 
+const SHOW_CFG = false
+const SIGN_AT: Record<string, { x: number; z: number }> = {
+  'start-crane': { x: CRANE_AT.x + 2300, z: CRANE_AT.z + 2200 },
+  'start-multilift': { x: HOOK_AT.x + 3300, z: HOOK_AT.z + 4200 },
+  'start-aux': { x: AUX_AT.x + 1500, z: AUX_AT.z + 2600 },
+}
+
 export function StartHero() {
   const dxf = useRef<HTMLInputElement>(null), trw = useRef<HTMLInputElement>(null), spec = useRef<HTMLInputElement>(null)
   const loadFile = useApp((s) => s.loadFile)
-  const labels = useRef<(HTMLElement | null)[]>([])
+  const [doorHot, setDoorHot] = useState(-1)
   const [hot, setHot] = useState(false), [craneHot, setCraneHot] = useState(false), [hookHot, setHookHot] = useState(false), [auxHot, setAuxHot] = useState(false)
   const go = (h: string) => { document.body.style.cursor = ''; window.location.hash = h }
   // --- drive-out show after a file pick: door rolls up, vehicle drives to VEHICLE_SPOT, door closes, then the target page
@@ -299,7 +309,16 @@ export function StartHero() {
         <directionalLight position={[2500, 9000, 5200]} intensity={3.0} />
         <directionalLight position={[-6000, 4000, -2500]} intensity={0.85} />
         <Surroundings doorLift={doorLift} />
-        <DummyChassis hidden={!!drive} hot={hot} setHot={setHot} open={() => go('#novy')} />
+        {/* configurator dummy hidden for now (route #novy stays; imports still drive out → configurator) */}
+        {SHOW_CFG ? <DummyChassis hidden={!!drive} hot={hot} setHot={setHot} open={() => go('#novy')} /> : null}
+        {drive ? null : items.slice(0, 3).map((it, i) => (
+          <Sign3D key={it.testid} name={'sign-' + it.testid} w={DW * 0.8} h={1900} title={it.label} sub={it.sub} hot={doorHot === i}
+            position={[DOORS[i], 3500, H.z1 - 250 + 90]} onOver={() => setDoorHot(i)} onOut={() => setDoorHot(-1)} onOpen={it.onClick} />
+        ))}
+        {drive ? null : items.slice(4).map((it) => (
+          <ExhibitSign key={it.testid} name={'sign-' + it.testid} {...SIGN_AT[it.testid]} title={it.label} sub={it.sub}
+            logo={it.logo ? import.meta.env.BASE_URL + it.logo : undefined} hot={!!it.hot} setHot={it.setHot!} open={it.onClick} />
+        ))}
         {drive ? <Suspense fallback={null}><DriveOut state={drive} cam={SHOW_CAM} doorLift={doorLift} onDone={finish} onReady={() => setDriveReady(true)} /></Suspense> : null}
         {drive ? null : <>
         <Exhibit name="start-crane" x={CRANE_AT.x} z={CRANE_AT.z} r={1900} standLen={1400} hot={craneHot} setHot={setCraneHot} open={() => go('#jeraby')}>
@@ -313,16 +332,13 @@ export function StartHero() {
         </Exhibit>
         </>}
         <OrbitControls makeDefault target={TARGET} enableDamping minDistance={4000} maxDistance={60000} maxPolarAngle={Math.PI / 2 - 0.04} minAzimuthAngle={-1.75} maxAzimuthAngle={0.5} rotateSpeed={0.6} />
-        <HeroCamera labels={labels} />
+        <HeroCamera />
       </Canvas>
       {drive && !driveReady ? <div className="drive-loading" role="status"><span className="drive-spinner" aria-hidden="true" />Připravuji vozidlo…</div> : null}
-      {items.map((it, i) => (
-        <button key={it.testid} ref={(el) => { labels.current[i] = el }} type="button" data-testid={it.testid}
-          className={it.cfg ? (it.hot ? 'door-btn cfg-btn is-hot' : 'door-btn cfg-btn') : 'door-btn'} style={{ left: -9999, top: -9999 }}
-          onMouseEnter={() => it.setHot?.(true)} onMouseLeave={() => it.setHot?.(false)} onClick={it.onClick}>
-          {it.logo ? <img className="start-logo" src={import.meta.env.BASE_URL + it.logo} alt={it.label} draggable={false} /> : <strong>{it.label}</strong>}
-          <span>{it.sub}</span>
-        </button>
+      {/* labels live in the 3D scene; these buttons are visually hidden, for keyboard / screen readers */}
+      {items.filter((it) => SHOW_CFG || it.testid !== 'start-cfg').map((it) => (
+        <button key={it.testid} type="button" data-testid={it.testid} className="sr-only"
+          onFocus={() => it.setHot?.(true)} onBlur={() => it.setHot?.(false)} onClick={it.onClick}>{it.label} – {it.sub}</button>
       ))}
       <input ref={dxf} hidden type="file" accept=".dxf,.dwg,.gz,.tgz,.zip,application/dxf,application/acad,application/octet-stream"
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) startDrive('dxf', f) }} />
