@@ -643,12 +643,14 @@ export function buildEquipment(world: World): { equipment: THREE.Group; brackets
     if (bars.length) addSideGuards(equipment, bars, guardBrackets, ctx)
     for (const p of take(/^19_/)) addRearBumper(equipment, p, ctx)
     take(/^67_/) // tail lamps hang off the underrun tube ends (addRearBumper)
-    for (const p of take(/^41_/)) { addFuelTank(equipment, p, ctx); fuel++ }
+    // tanks/batteries/air: tagged so a detailed CAD (Volvo front) can replace them
+    const tag = () => { const last = equipment.children[equipment.children.length - 1]; if (last) last.userData.cadReplaceable = true }
+    for (const p of take(/^41_/)) { addFuelTank(equipment, p, ctx); tag(); fuel++ }
     for (const p of take(/^(23|73)_/)) addMufflerBox(equipment, p, ctx)
     for (const p of take(/^16_/)) addCoupling(equipment, p)
-    for (const p of take(/^45_/)) { addAirReservoir(equipment, p); air++ }
-    for (const p of take(/^27_/)) addUreaBox(equipment, p)
-    for (const p of take(/^21_/)) { addBatteryBox(equipment, p); batteryCount++ }
+    for (const p of take(/^45_/)) { addAirReservoir(equipment, p); tag(); air++ }
+    for (const p of take(/^27_/)) { addUreaBox(equipment, p); tag() }
+    for (const p of take(/^21_/)) { addBatteryBox(equipment, p); tag(); batteryCount++ }
     take(/^(49|20)_/) // front fender belongs to the cab; rear fender stays → rear fenders below
     const axles = world.model.axles.slice(1).map((a) => {
       const w = clamp(Number(a.tireSpec?.match(/^(\d{3})/)?.[1] ?? 315), 180, 480)

@@ -7,10 +7,15 @@
  * CAD space [m]: X along the vehicle (+ rearwards), Y DOWN, Z across. Datums measured from the CAD (tyre centres,
  * rail ends, lowest point = road).
  */
-export interface CadMovable { partNo: string; label: string }
+/** A movable component: one or more top-level CAD nodes (matched by part-number substring) moved together. */
+export interface CadMovable { key: string; label: string; parts: string[] }
 export interface CadPart {
   key: 'rear' | 'front'
   file: string
+  /** Extra rotation [rad, about X] inside the common CAD frame: the front export is Z-up/Y-across (+π/2), the rear Y-down. */
+  rotX?: number
+  /** Cab back wall in CAD X [m] (front datum). */
+  cabBackX?: number
   /** Axle centres in CAD X [m], in vehicle order. */
   axlesX: number[]
   /** Road level in CAD Y [m] (Y points down). */
@@ -33,18 +38,41 @@ export const VOLVO_REAR: CadPart = {
   // CAD rails/liners have one fixed length → the procedural frame (wheelbase, overhang from the config) stays
   hide: ['assy_26083011', '26083011_35_fil', '26083011_ps_'],
   behindX: 10.6,
+  // fenders are NOT movable: they stay on the CAD axles, which sit on the config axles
   movable: [
-    { partNo: '24410284_2', label: 'Blatník L (1. zadní náprava)' },
-    { partNo: '24410284_1', label: 'Blatník P (1. zadní náprava)' },
-    { partNo: '24410140_2', label: 'Blatník L (2. zadní náprava)' },
-    { partNo: '24410140_1', label: 'Blatník P (2. zadní náprava)' },
-    { partNo: '22486789', label: 'Zadní zábrana' },
-    { partNo: '23536910', label: 'Držák svítilny P' },
-    { partNo: '23536912', label: 'Držák svítilny L' },
+    { key: '22486789', label: 'Zadní zábrana', parts: ['22486789'] },
+    { key: '23536910', label: 'Držák svítilny P', parts: ['23536910'] },
+    { key: '23536912', label: 'Držák svítilny L', parts: ['23536912'] },
   ],
 }
-/** Front part: not available yet (144 MB source, coming zipped). Same shape: axlesX [0], movable batteries/AdBlue/tanks. */
-export const VOLVO_FRONT: CadPart | null = null
+/**
+ * Front part (behind the cab: tanks, batteries, AdBlue, air tanks). The export has no front axle/wheels, so it is
+ * placed by the cab back wall (envelope slab 26083011_35_cab, front face X 3.69) on cfg.cab.backFromAxle. Same CAD
+ * frame as the rear (rails X 1.76–11.48), but Z-up/Y-across. Rails, cab slab and crossmembers are stripped from the
+ * shipped file (the configurator draws them). Component names are bare part numbers – the labels below are identified
+ * from shape/position only (round tank with straps, cap-tank, box with tread grille, cylinders) and may be wrong.
+ */
+export const VOLVO_FRONT: CadPart = {
+  key: 'front',
+  file: 'volvo/front.glb',
+  rotX: Math.PI / 2,
+  cabBackX: 3.69,
+  axlesX: [],
+  groundY: -0.222,
+  hide: ['assy_26083011', '26083011_35_fil', '26083011_ps_', '26083011_35_cab', '22808806', '22813628', '20833685', '23991682'],
+  movable: [
+    { key: 'fuel', label: 'Palivová nádrž P (válcová, s pásy) – odhad', parts: ['22059951', '20382489', '24315882'] },
+    { key: 'battery', label: 'Bateriová skříň P (u kabiny) – odhad', parts: ['24349439', '24666240', '23893740', '23537552', '23985887', '24575909', '21476051', '21476044'] },
+    { key: 'adblue', label: 'Nádrž AdBlue L (s víčkem) – pravděpodobně', parts: ['26119553'] },
+    { key: 'box', label: 'Skříň s mřížkou / nášlap L – odhad', parts: ['22189361', '22958654', '21133312', '23070382'] },
+    { key: 'air', label: 'Vzduchojemy L (2 válce)', parts: ['21192971', '21238559'] },
+  ],
+}
+
+/** Scene x [mm] = CAD X·1000 + tx for the front part: cab back wall on cfg.cab.backFromAxle behind the 1st axle. */
+export function fitFront(axles: AxleLike[], cabBackFromAxle: number, part: CadPart = VOLVO_FRONT): number {
+  return (axles[0]?.position ?? 0) + cabBackFromAxle - (part.cabBackX ?? 0) * 1000
+}
 
 export interface AxleLike { position: number }
 export interface RearFit {

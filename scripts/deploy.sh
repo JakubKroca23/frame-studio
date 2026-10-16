@@ -14,6 +14,9 @@ SSH="ssh -i $KEY -o BatchMode=yes"
 VOLVO_REAR="${VOLVO_REAR_GLB:-/workspace/fs-spec/test-local/volvo/zadek-ni-meshopt.glb}"
 if [ -f "$VOLVO_REAR" ]; then mkdir -p dist/models/volvo && cp "$VOLVO_REAR" dist/models/volvo/rear.glb; echo "Volvo rear CAD: $(du -h "$VOLVO_REAR" | cut -f1)"
 else echo "WARNING: $VOLVO_REAR missing – Volvo CAD not deployed (app falls back)"; fi
+VOLVO_FRONT="${VOLVO_FRONT_GLB:-/workspace/fs-spec/test-local/volvo/predek-s-meshopt.glb}"
+if [ -f "$VOLVO_FRONT" ]; then mkdir -p dist/models/volvo && cp "$VOLVO_FRONT" dist/models/volvo/front.glb; echo "Volvo front CAD: $(du -h "$VOLVO_FRONT" | cut -f1)"
+else echo "WARNING: $VOLVO_FRONT missing – Volvo front CAD not deployed (app falls back)"; fi
 
 $SSH "$HOST" "mkdir -p $DIR/dist"
 # server has no rsync: stream tarballs. dist is replaced in place (it is a bind mount, keep the inode)
