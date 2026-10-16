@@ -9,6 +9,11 @@ cd "$(dirname "$0")/.."
 SSH="ssh -i $KEY -o BatchMode=yes"
 
 [ "${SKIP_BUILD:-0}" = 1 ] || { npm ci && npm run build; }
+# Volvo CAD (approved for the site by Jakub, kept out of git): optimised GLB from a local folder into the build.
+# Served only with the app's login cookie (deploy/nginx.conf, /models/). Missing file → the app falls back.
+VOLVO_REAR="${VOLVO_REAR_GLB:-/workspace/fs-spec/test-local/volvo/zadek-ni-meshopt.glb}"
+if [ -f "$VOLVO_REAR" ]; then mkdir -p dist/models/volvo && cp "$VOLVO_REAR" dist/models/volvo/rear.glb; echo "Volvo rear CAD: $(du -h "$VOLVO_REAR" | cut -f1)"
+else echo "WARNING: $VOLVO_REAR missing – Volvo CAD not deployed (app falls back)"; fi
 
 $SSH "$HOST" "mkdir -p $DIR/dist"
 # server has no rsync: stream tarballs. dist is replaced in place (it is a bind mount, keep the inode)

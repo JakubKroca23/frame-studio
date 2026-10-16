@@ -28,3 +28,6 @@ blob-report
 *.sw?
 test-local/
 *.local.test.ts
+
+# Volvo CAD (approved for deploy by Jakub, not in git): copied into the build by scripts/deploy.sh
+public/models/volvo/
