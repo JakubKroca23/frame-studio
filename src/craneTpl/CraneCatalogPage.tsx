@@ -4,10 +4,15 @@ import { useEffect, useState } from 'react'
 import { CRANE_CATALOG, CRANE_DEFS, meshAngles, variantBoom } from '../trw/craneKinematics'
 import { CraneStage, ReportTable, fmtMm, usePose } from './CraneStage'
 
-/** #jeraby — every crane of the drawing catalog (template + drawing) plus the two sample models, articulated. */
+/** Jakub: the catalogue lists only cranes with their ORIGINAL model (own CAD/GLB); template-adapted drawing cranes
+ *  (def.adapt – another crane's mesh rescaled) stay registered for trw matching but are not offered here. */
+export const SHOW_TEMPLATE_CRANES = false
+const listed = () => CRANE_DEFS.filter((d) => SHOW_TEMPLATE_CRANES || !d.adapt)
+
+/** #jeraby — cranes with an original model (optionally also the drawing-catalog template cranes), articulated. */
 export function CraneCatalogPage() {
   const initial = decodeURIComponent(window.location.hash.split('/')[1] ?? '')
-  const [key, setKey] = useState(CRANE_DEFS.some((d) => d.key === initial) ? initial : CRANE_CATALOG[0]?.key ?? '142')
+  const [key, setKey] = useState(listed().some((d) => d.key === initial) ? initial : listed()[0]?.key ?? '142')
   const def = CRANE_DEFS.find((d) => d.key === key)!
   const entry = CRANE_CATALOG.find((e) => e.key === key)
   return <Inner key={key} defKey={key} setKey={setKey} def={def} entry={entry} />
@@ -33,7 +38,7 @@ function Inner({ defKey, setKey, def, entry }: { defKey: string; setKey: (k: str
         <section className="block">
           <h2>Model</h2>
           <select value={defKey} onChange={(e) => setKey(e.target.value)} data-testid="crane-model" style={{ width: '100%' }}>
-            {CRANE_DEFS.map((d) => <option key={d.key} value={d.key}>{d.name}{d.adapt ? ` · šablona ${d.adapt.template}` : ' · vzorový model'}</option>)}
+            {listed().map((d) => <option key={d.key} value={d.key}>{d.name}{d.adapt ? ` · šablona ${d.adapt.template}` : ' · vzorový model'}</option>)}
           </select>
           <label className="muted" style={{ display: 'block', marginTop: 8 }}>
             Varianta:{' '}
