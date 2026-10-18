@@ -216,14 +216,24 @@ function ExhibitSign({ x, z, w = 3600, title, sub, logo, hot, setHot, open, name
 
 export type HomeView = 'doors' | 'db'
 /** Fixed views (no free orbit): the hall doors face-on, and the model database (3 exhibits left of the hall). */
-const VIEWS: Record<HomeView, { target: THREE.Vector3; dir: THREE.Vector3; halfW: number; halfH: number }> = {
-  doors: { target: new THREE.Vector3(DOORS[1], 5200, H.z1), dir: new THREE.Vector3(0, 0.1, 1).normalize(), halfW: (DOORS[2] - DOORS[0] + DW) / 2 + 1500, halfH: 5600 },
+const UP = new THREE.Vector3(0, 1, 0)
+const VIEWS: Record<HomeView, { target: THREE.Vector3; dir: THREE.Vector3; halfW: number; halfH: number; tweak?: { far: number; right: number; up: number; yawLeft: number } }> = {
+  doors: { target: new THREE.Vector3(DOORS[1], 5200, H.z1), dir: new THREE.Vector3(0, 0.1, 1).normalize(), halfW: (DOORS[2] - DOORS[0] + DW) / 2 + 1500, halfH: 5600,
+    // Jakub: a bit farther, higher, more to the right, yawed a bit to the left
+    tweak: { far: 1.2, right: 2500, up: 2500, yawLeft: (4 * Math.PI) / 180 } },
   db: { target: new THREE.Vector3((AUX_AT.x + HOOK_AT.x) / 2 + 500, 900, H.z1 - 2600), dir: new THREE.Vector3(0.22, 0.55, 1).normalize(), halfW: 9500, halfH: 6200 },
 }
 function viewPose(v: HomeView, aspect: number, fov: number) {
   const V = VIEWS[v], t = Math.tan(((fov / 2) * Math.PI) / 180)
-  const dist = Math.max(V.halfH / t, V.halfW / (t * aspect))
-  return { pos: V.target.clone().addScaledVector(V.dir, dist), target: V.target.clone() }
+  const dist = Math.max(V.halfH / t, V.halfW / (t * aspect)) * (V.tweak?.far ?? 1)
+  const pos = V.target.clone().addScaledVector(V.dir, dist), target = V.target.clone()
+  if (V.tweak) {
+    // camera moved right / up, then the view yawed to the left about the camera
+    const right = new THREE.Vector3().subVectors(target, pos).cross(UP).setY(0).normalize()
+    pos.addScaledVector(right, V.tweak.right).y += V.tweak.up
+    target.sub(pos).applyAxisAngle(UP, V.tweak.yawLeft).add(pos)
+  }
+  return { pos, target }
 }
 
 /** Camera rig: snaps to the door view on landing, glides smoothly between fixed views; renders on demand. */
