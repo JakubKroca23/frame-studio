@@ -63,7 +63,8 @@ export function CraneStage({ def, variant, joints, onJoints }: { def: CraneDef; 
 
 /** capture/test hook: window.__craneCam([x,y,z] camera, [x,y,z] target) in scene mm */
 function CamHook() {
-  const { camera, controls } = useThree()
+  const { camera, controls, gl, scene } = useThree()
+  ;(window as unknown as { __craneGL?: unknown }).__craneGL = { gl, scene } // perf / capture hook
   ;(window as unknown as { __craneCam?: (p: number[], t: number[]) => void }).__craneCam = (p, t) => {
     camera.position.set(p[0], p[1], p[2])
     const c = controls as unknown as { target?: { set: (x: number, y: number, z: number) => void }; update?: () => void } | null

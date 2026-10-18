@@ -171,6 +171,21 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
     setSlewDeg(j.slew)
     setCranePoseOverride('unfolded')
   }
+  // panel sliders fire several input events per frame on a fast drag; each would re-render this whole page (and the
+  // scene under it) – coalesce them to at most one page update per animation frame (latest value wins)
+  const rafPending = useRef<{ joints?: CraneJoints; slew?: number }>({})
+  const rafId = useRef(0)
+  const flushRaf = () => {
+    rafId.current = 0
+    const { joints, slew } = rafPending.current
+    rafPending.current = {}
+    if (joints) setCraneJoints(joints)
+    if (slew !== undefined) setSlewDeg(slew)
+  }
+  const schedule = () => { if (!rafId.current) rafId.current = requestAnimationFrame(flushRaf) }
+  const setCraneJointsRaf = (j: CraneJoints) => { rafPending.current = { joints: j }; schedule() }
+  const setSlewDegRaf = (deg: number) => { rafPending.current.slew = deg; schedule() }
+  useEffect(() => () => cancelAnimationFrame(rafId.current), [])
   const [sim, setSim] = useState<CsSimResult | null>(null)
   const [simError, setSimError] = useState<string | null>(null)
   const [trwSource, setTrwSource] = useState<string | null>(link?.kind === 'trw' ? link.url : null)
@@ -717,7 +732,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
                 </div>
               ) : null}
               {trw.markers.crane && craneModelFor(trw.markers.crane.name) && cranePose === 'unfolded' ? (
-                <CranePanel joints={craneJoints} variant={craneVariantMatch(trw.markers.crane.name)!.variant} exact={craneVariantMatch(trw.markers.crane.name)!.exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} />
+                <CranePanel joints={craneJoints} variant={craneVariantMatch(trw.markers.crane.name)!.variant} exact={craneVariantMatch(trw.markers.crane.name)!.exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJointsRaf} />
               ) : null}
               {cap ? <CapacityPanel info={cap} stab={trw?.markers.craneStab} variantLabel={capMatch ? `${capMatch.variant.model} ${capMatch.variant.id}` : '?'} /> : null}
               {trw.markers.extended ? <TrwExtendedPanel ext={trw.markers.extended} slewDeg={((Math.round(slewDeg) % 360) + 360) % 360} onSlew={setSlewDeg} showSectors={showSectors} onShowSectors={setShowSectors} liveDoc={trw.liveDoc} /> : null}
@@ -937,9 +952,9 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
                   ))}
                 </div>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  Natočení <input type="range" min={0} max={359} step={1} value={((Math.round(slewDeg) % 360) + 360) % 360} onChange={(e) => setSlewDeg(Number(e.target.value))} style={{ flex: 1 }} data-testid="mv-slew" /> {((Math.round(slewDeg) % 360) + 360) % 360}°
+                  Natočení <input type="range" min={0} max={359} step={1} value={((Math.round(slewDeg) % 360) + 360) % 360} onChange={(e) => setSlewDegRaf(Number(e.target.value))} style={{ flex: 1 }} data-testid="mv-slew" /> {((Math.round(slewDeg) % 360) + 360) % 360}°
                 </label>
-                {cranePose === 'unfolded' ? <CranePanel joints={craneJoints} variant={craneVariantMatch(trw.markers.crane.name)!.variant} exact={craneVariantMatch(trw.markers.crane.name)!.exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJoints} /> : null}
+                {cranePose === 'unfolded' ? <CranePanel joints={craneJoints} variant={craneVariantMatch(trw.markers.crane.name)!.variant} exact={craneVariantMatch(trw.markers.crane.name)!.exact} craneX={trw.markers.crane.x} frameTop={built.frame.topHeight} onJoints={setCraneJointsRaf} /> : null}
               </>
             ) : null}
             hooklift={!!(hooklift || trw?.markers.extended?.accessories?.some((a) => isHookliftAccessory(a)) || (trw?.markers.extended && pickHooklift(trw.markers.extended) !== null))}

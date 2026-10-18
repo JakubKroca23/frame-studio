@@ -14,6 +14,7 @@ import { defOf, extFraction, templateSectionStrokes, forwardKinematics, jointLim
 const material = new THREE.MeshStandardMaterial({ color: '#222222', metalness: 0.35, roughness: 0.5, emissive: '#0b0d10', side: THREE.DoubleSide })
 const handleMat = new THREE.MeshStandardMaterial({ color: '#E53935', emissive: '#7a1210', transparent: true, opacity: 0.85 })
 const rad = Math.PI / 180
+const noRaycast = () => {}
 const jointMat = new THREE.MeshStandardMaterial({ color: '#E53935', emissive: '#7a1210', transparent: true, opacity: 0.9 })
 const JOINT_NAMES: Record<JointKey, string> = { slew: 'Natočení', a1: 'Hlavní výložník', rel: 'Vnější výložník', ext: 'Výsuvy' }
 
@@ -108,7 +109,14 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
   const n = variant.extensions, S = def.meshExtSections
   const vStroke = variantBoom(variant).stroke
   const groups = useMemo(() => adaptGroups(raw, def, def.adapt ? dl : 0, n, Ud, U, vStroke, def.adapt?.secStroke ?? templateSectionStrokes(def)), [raw, def, dl, n, vStroke]) // eslint-disable-line react-hooks/exhaustive-deps
-  const meshes = (g: string) => (groups[g] ?? []).map((geo, i) => <mesh key={`${g}${i}`} geometry={geo} material={material} castShadow receiveShadow />)
+  // mesh elements built once per geometry set: re-renders on joint changes reuse the SAME element objects, so React
+  // skips reconciling the (many) crane meshes and only the transforming groups update; meshes are not raycast targets
+  const meshEls = useMemo(() => {
+    const out: Record<string, ReactNode[]> = {}
+    for (const [g, arr] of Object.entries(groups)) out[g] = arr.map((geo, i) => <mesh key={`${g}${i}`} geometry={geo} material={material} castShadow receiveShadow raycast={noRaycast} />)
+    return out
+  }, [groups])
+  const meshes = (g: string) => meshEls[g] ?? null
 
   // S telescopes in the mesh. A variant with n < S shows only the first n (the n-th carries the hook); n > S adds
   // copies of the innermost section (adaptGroups). Stroke split per def.extStrokes (408: measured) or equal.

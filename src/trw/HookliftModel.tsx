@@ -13,6 +13,7 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 export const useHookPose = create<HookPose & { set: (p: Partial<HookPose>) => void }>((set) => ({ ...STOWED, set: (p) => set(p) }))
 if (typeof window !== 'undefined') (window as unknown as { __hookPose?: (p: Partial<HookPose>) => void }).__hookPose = (p) => useHookPose.getState().set(p)
 
+const noRaycast = () => {}
 const glbUrl = (m: HookliftMesh) => `${import.meta.env.BASE_URL}models/hooklift/${m.file}`
 
 export class Boundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
@@ -163,12 +164,19 @@ function Loaded({ xRear, frameTop, params, mesh = ULT18Z59, spec }: { xRear: num
   const setPose = useHookPose((s) => s.set)
   const { invalidate } = useThree()
   useEffect(() => { invalidate() }, [pose.tipDeg, pose.swingDeg, pose.slideMm, invalidate])
-  const meshes = (part: HookPart) => built.out.map((o, i) => o.part !== part ? null : (
-    <group key={i}>
-      <mesh geometry={o.g} material={matFor(o.part)} castShadow receiveShadow />
-      <lineSegments geometry={edges[i]} material={edgeMat} />
-    </group>
-  ))
+  // static mesh elements built once: pose changes reuse the same element objects (React skips them), no raycasting
+  const bodies = useMemo(() => built.out.map((o, i) => (
+    <>
+      <mesh geometry={o.g} material={matFor(o.part)} castShadow receiveShadow raycast={noRaycast} />
+      <lineSegments geometry={edges[i]} material={edgeMat} raycast={noRaycast} />
+    </>
+  )), [built, edges])
+  const partEls = useMemo(() => {
+    const m = new Map<HookPart, ReactNode[]>()
+    built.out.forEach((o, i) => { const a = m.get(o.part) ?? []; a.push(<group key={i}>{bodies[i]}</group>); m.set(o.part, a) })
+    return m
+  }, [built, bodies])
+  const meshes = (part: HookPart) => partEls.get(part) ?? null
   const { tip, knuckle } = built
   // main cylinders (barrel on the subframe, rod eye on the middle frame), both aimed along the pin-to-pin line
   const eye = eyeAt(built.pinA, { y: knuckle[1], z: knuckle[2] }, { y: tip[1], z: tip[2] }, pose)
@@ -182,8 +190,7 @@ function Loaded({ xRear, frameTop, params, mesh = ULT18Z59, spec }: { xRear: num
   const kShaft = Math.min(Math.max(1, (L - built.L0 + 0.25 - EYE) / shaftLen), Math.max(0.2, (L - 0.05 - EYE) / shaftLen))
   const cylinders = built.out.map((o, i) => {
     if (o.part !== 'barrel' && o.part !== 'rod') return null
-    const mat = o.part === 'barrel' ? matFor('barrel') : matFor('rod')
-    const body = <><mesh geometry={o.g} material={mat} castShadow receiveShadow /><lineSegments geometry={edges[i]} material={edgeMat} /></>
+    const body = bodies[i]
     if (o.kind === 'barrel') return <group key={i} position={[0, B.y, B.z]} rotation={[ang, 0, 0]}>{body}</group>
     return (
       <group key={i} position={[0, eye.y, eye.z]} rotation={[angRod, 0, 0]}>
