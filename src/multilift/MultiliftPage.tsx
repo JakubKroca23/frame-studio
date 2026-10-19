@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { StagePortal } from '../db/StagePortal'
-import { ConcreteFloor } from '../view/ConcreteFloor'
 import { Canvas } from '@react-three/fiber'
 import { Environment, Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -42,7 +41,7 @@ function CatalogDims({ spec }: { spec: HookliftSpec }) {
   return <group name="ml-dims">{d.filter((x) => x.a.concat(x.b).every(Number.isFinite)).map((x) => <Dim key={x.id} a={x.a} b={x.b} tick={x.tick} label={x.label} testid={`ml-dim-${x.id}`} />)}</group>
 }
 
-/** Model-database category 'Nosiče kontejnerů': MULTILIFT → series → model → (parameters + configurator link, source).
+/** Model-database category 'Nosiče kontejnerů': MULTILIFT → series → model → (parameters).
  *  The parametric hooklift viewer of the selected model is portalled into the browser's main area. */
 export function MultiliftCategory({ selKey, pick, stage }: { selKey: string | null; pick: (name: string) => void; stage: HTMLElement | null }) {
   const cur = selKey && HOOKLIFT_CATALOG.some((s) => s.name === selKey) ? selKey : null
@@ -71,7 +70,7 @@ function MultiliftSelected({ spec, stage }: { spec: HookliftSpec; stage: HTMLEle
   return (
     <>
       <TreeNode label={spec.name.replace(/^ULTIMA\s*/, '')} hint={`${spec.capacityT} t · SL ${fmt(spec.subframeLengthMm)}`} selected open onSelect={() => {}} testid={`ml-node-${spec.name}`}>
-                        <TreeNode label="Parametry" count={8} open>
+                        <TreeNode label="Parametry" count={8}>
                           <TreeContent>
                             <div className="ml-detail" data-testid="ml-detail">
                               <dl>
@@ -84,21 +83,16 @@ function MultiliftSelected({ spec, stage }: { spec: HookliftSpec; stage: HTMLEle
                                 <dt>Hmotnost</dt><dd>{fmt(spec.massKg)} kg</dd>
                                 <dt>Sklápění</dt><dd>{spec.tippingAngleDeg}°</dd>
                               </dl>
-                              <a className="cta-primary ml-open" href={`#novy?hooklift=${encodeURIComponent(spec.name)}`} data-testid="ml-open">Otevřít v konfigurátoru</a>
                             </div>
                           </TreeContent>
                         </TreeNode>
-                        <TreeNode label="Zdroj">
-                          <TreeContent><p className="muted" style={{ margin: 0 }}>{spec.source}</p></TreeContent>
-                        </TreeNode>
       </TreeNode>
       <StagePortal stage={stage}>
-        <Canvas shadows camera={{ position: [-3500, 3500, 8000], fov: 40, near: 10, far: 100000 }} gl={{ preserveDrawingBuffer: true }}>
+        <Canvas camera={{ position: [-3500, 3500, 8000], fov: 40, near: 10, far: 100000 }} gl={{ preserveDrawingBuffer: true }}>
           <color attach="background" args={['#1a2230']} />
           <ambientLight intensity={0.6} />
-          <directionalLight position={[6000, 9000, 5000]} intensity={1.3} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-14000} shadow-camera-right={14000} shadow-camera-top={14000} shadow-camera-bottom={-14000} shadow-camera-near={100} shadow-camera-far={60000} shadow-bias={-0.0004} />
+          <directionalLight position={[6000, 9000, 5000]} intensity={1.3} />
           <Environment preset="city" />
-          <ConcreteFloor size={40000} dark />
           <group position={[-spec.subframeLengthMm / 2, 0, 0]}>
             <HookliftModel key={spec.name} xRear={spec.subframeLengthMm} frameTop={0} params={params} mesh={mesh} spec={spec} fallback={null} />
           </group>

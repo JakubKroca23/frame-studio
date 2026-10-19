@@ -1,15 +1,14 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
 /** Collapsible tree for the catalogue side columns: chevron rows with indentation, counts per group, the selected
- *  leaf in the company blue. Nodes are expanded by default when they lie on the selected path (`open`), and re-open
- *  when the selection moves into them; the user can collapse / expand anything. */
+ *  leaf in the company blue. Everything starts collapsed; `open` only sets the initial state (deep link: the path to
+ *  the linked model). A click toggles just that node (or selects a leaf) – nothing else opens on its own. */
 export function TreeNode({ label, count, open = false, selected = false, onSelect, children, testid, hint }: {
   label: ReactNode; count?: number; open?: boolean; selected?: boolean; onSelect?: () => void; children?: ReactNode; testid?: string; hint?: ReactNode
 }) {
   const [isOpen, setOpen] = useState(open)
-  useEffect(() => { if (open) setOpen(true) }, [open])
   const leaf = !children
-  const click = () => { if (onSelect) { onSelect(); if (!leaf) setOpen(true) } else setOpen((o) => !o) }
+  const click = () => { if (onSelect && !selected) onSelect(); else if (!leaf) setOpen((o) => !o) }
   return (
     <li className="tree-node" role="treeitem" aria-expanded={leaf ? undefined : isOpen} aria-selected={selected || undefined}>
       <div className={`tree-row${selected ? ' is-sel' : ''}${onSelect ? ' is-pick' : ''}`} data-testid={testid}>

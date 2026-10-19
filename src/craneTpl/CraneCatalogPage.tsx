@@ -14,7 +14,7 @@ const makerOf = (d: { name: string }) => d.name.split(/\s+/)[0]
 const makers = () => { const m = new Map<string, ReturnType<typeof listedCranes>>(); for (const d of listedCranes()) m.set(makerOf(d), [...(m.get(makerOf(d)) ?? []), d]); return [...m] }
 const modelName = (d: { name: string }) => d.name.slice(makerOf(d).length).trim() || d.name
 
-/** Model-database category 'Hydraulické jeřáby': manufacturer → model → (variants, controls, drawing data, source).
+/** Model-database category 'Hydraulické jeřáby': manufacturer → model → (variants, drawing data).
  *  The selected model's articulated viewer is portalled into the browser's main area. */
 export function CraneCategory({ selKey, pick, stage }: { selKey: string | null; pick: (key: string) => void; stage: HTMLElement | null }) {
   const cur = selKey && listedCranes().some((d) => d.key === selKey) ? selKey : null
@@ -44,17 +44,13 @@ function CraneSelected({ defKey, stage }: { defKey: string; stage: HTMLElement |
     w.__craneAnim = (t) => { const k = 0.5 - 0.5 * Math.cos(2 * Math.PI * t); pose.setJoints({ slew: -20 + 40 * k, a1: 4 + 14 * k, rel: straight - 6 * (1 - k), ext: 0.7 * stroke * k }) }
     return () => { delete w.__craneAnim }
   }, [def, variant, pose])
-  const ev = entry?.variants.find((v) => v.id === variant.id)
   return (
     <>
       <TreeNode label={modelName(def)} hint={def.adapt ? `šablona ${def.adapt.template}` : undefined} selected open onSelect={() => {}} testid={`crane-node-${def.key}`}>
-        <TreeNode label="Varianty" count={def.variants.length} open>
+        <TreeNode label="Varianty" count={def.variants.length}>
           {def.variants.map((v) => (
             <TreeNode key={v.id} label={v.id} hint={`${v.extensions} výs. · ${fmtMm(v.hydMaxMm)} mm`} selected={v.id === variant.id} onSelect={() => setVid(v.id)} testid={`tpl-variant-${v.id}`} />
           ))}
-        </TreeNode>
-        <TreeNode label="Ovládání" open>
-          <TreeContent>{pose.controls}</TreeContent>
         </TreeNode>
         {entry ? (
           <>
@@ -75,17 +71,8 @@ function CraneSelected({ defKey, stage }: { defKey: string; stage: HTMLElement |
             </TreeNode>
           </>
         ) : null}
-        <TreeNode label="Zdroj">
-          <TreeContent>
-            {entry ? (
-              <p className="muted" style={{ margin: 0 }}>
-                Šablona HIAB {entry.template}; sloup {entry.dh ? `${entry.dh > 0 ? '+' : ''}${Math.round(entry.dh * 1000)} mm` : 'beze změny'}, základ ×{entry.baseX.toFixed(3)}. Výkres varianty: {ev?.sheet ?? '—'}. Výkresy: {entry.sheets.join(', ')}
-              </p>
-            ) : <p className="muted" style={{ margin: 0 }}>Vzorový model (měřený CAD uživatele).</p>}
-          </TreeContent>
-        </TreeNode>
       </TreeNode>
-      <StagePortal stage={stage}><CraneStage def={def} variant={variant} joints={pose.joints} onJoints={pose.setJoints} /><SceneFilterBar /></StagePortal>
+      <StagePortal stage={stage}><CraneStage def={def} variant={variant} joints={pose.joints} onJoints={pose.setJoints} floor={false} /><SceneFilterBar /></StagePortal>
     </>
   )
 }

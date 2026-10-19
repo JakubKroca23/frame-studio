@@ -1372,3 +1372,5 @@ body.hide-side .app-side { display: none !important; }
 .tree-content .dxf3d-table { font-size: 12px; }
 .tree-content .ml-detail dl { margin: 2px 0 8px; }
 .db-stage-slot { position: absolute; inset: 0; }
+.db-stage { background: #1a2230; }
+.db-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted); font-size: 14px; }
