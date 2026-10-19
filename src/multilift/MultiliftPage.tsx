@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { StagePortal } from '../db/StagePortal'
 import { ConcreteFloor } from '../view/ConcreteFloor'
 import { Canvas } from '@react-three/fiber'
 import { Environment, Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
-import { TopBar } from '../components/TopBar'
 import { HOOKLIFT_CATALOG, type HookliftSpec } from '../trw/hookliftCatalog'
 import { HookliftModel } from '../trw/HookliftModel'
 import { hookliftPlacement } from '../trw/hooklift'
-import { Tree, TreeContent, TreeNode } from '../components/Tree'
+import { TreeContent, TreeNode } from '../components/Tree'
 
 const fmt = (v: number | null) => (v == null ? '—' : v.toLocaleString('cs-CZ'))
 
@@ -42,30 +42,35 @@ function CatalogDims({ spec }: { spec: HookliftSpec }) {
   return <group name="ml-dims">{d.filter((x) => x.a.concat(x.b).every(Number.isFinite)).map((x) => <Dim key={x.id} a={x.a} b={x.b} tick={x.tick} label={x.label} testid={`ml-dim-${x.id}`} />)}</group>
 }
 
-/** #multilift[/name] — the Hiab MULTILIFT datasheet catalogue (parametric hooklift model), open one in the configurator. */
-export function MultiliftPage() {
-  const initial = decodeURIComponent(window.location.hash.split('/')[1] ?? '')
-  const [name, setName] = useState(HOOKLIFT_CATALOG.some((s) => s.name === initial) ? initial : HOOKLIFT_CATALOG[0].name)
-  const spec = HOOKLIFT_CATALOG.find((s) => s.name === name)!
+/** Model-database category 'Nosiče kontejnerů': MULTILIFT → series → model → (parameters + configurator link, source).
+ *  The parametric hooklift viewer of the selected model is portalled into the browser's main area. */
+export function MultiliftCategory({ selKey, pick, stage }: { selKey: string | null; pick: (name: string) => void; stage: HTMLElement | null }) {
+  const cur = selKey && HOOKLIFT_CATALOG.some((s) => s.name === selKey) ? selKey : null
   const series = useMemo(() => [...new Set(HOOKLIFT_CATALOG.map((s) => s.series))], [])
-  const pick = (s: HookliftSpec) => { setName(s.name); window.history.replaceState(null, '', `#multilift/${encodeURIComponent(s.name)}`) }
+  const curSeries = HOOKLIFT_CATALOG.find((s) => s.name === cur)?.series
+  return (
+    <TreeNode label="Nosiče kontejnerů" count={HOOKLIFT_CATALOG.length} open={!!cur} testid="db-cat-multilift">
+      <TreeNode label="MULTILIFT" count={HOOKLIFT_CATALOG.length} open={!!cur}>
+        {series.map((se) => {
+          const items = HOOKLIFT_CATALOG.filter((s) => s.series === se)
+          return (
+            <TreeNode key={se} label={se} count={items.length} open={curSeries === se} testid={`ml-series-${se}`}>
+              {items.map((s) => s.name !== cur
+                ? <TreeNode key={s.name} label={s.name.replace(/^ULTIMA\s*/, '')} hint={`${s.capacityT} t · SL ${fmt(s.subframeLengthMm)}`} onSelect={() => pick(s.name)} testid={`ml-node-${s.name}`} />
+                : <MultiliftSelected key={s.name} spec={s} stage={stage} />)}
+            </TreeNode>
+          )
+        })}
+      </TreeNode>
+    </TreeNode>
+  )
+}
+
+function MultiliftSelected({ spec, stage }: { spec: HookliftSpec; stage: HTMLElement | null }) {
   const { params, mesh } = hookliftPlacement({ name: spec.name, xFrom: null, xTo: null, length: null, height: null }, spec.subframeLengthMm)
   return (
-    <div className="app">
-      <TopBar page="multilift" />
-      <aside className="app-side">
-        <p className="muted" style={{ margin: '0 0 8px' }}>Hákové nosiče Hiab MULTILIFT ULTIMA podle katalogových listů (DIN). Parametrický 3D model se přizpůsobí délce rámu, výšce háku a instalační výšce.</p>
-        <Tree label="Katalog nosičů kontejnerů">
-          <TreeNode label="Nosiče kontejnerů" count={HOOKLIFT_CATALOG.length} open>
-            <TreeNode label="MULTILIFT" count={HOOKLIFT_CATALOG.length} open>
-              {series.map((se) => {
-                const items = HOOKLIFT_CATALOG.filter((s) => s.series === se)
-                return (
-                  <TreeNode key={se} label={se} count={items.length} open={spec.series === se} testid={`ml-series-${se}`}>
-                    {items.map((s) => s.name !== name ? (
-                      <TreeNode key={s.name} label={s.name.replace(/^ULTIMA\s*/, '')} hint={`${s.capacityT} t · SL ${fmt(s.subframeLengthMm)}`} onSelect={() => pick(s)} testid={`ml-node-${s.name}`} />
-                    ) : (
-                      <TreeNode key={s.name} label={s.name.replace(/^ULTIMA\s*/, '')} hint={`${s.capacityT} t · SL ${fmt(s.subframeLengthMm)}`} selected open onSelect={() => {}} testid={`ml-node-${s.name}`}>
+    <>
+      <TreeNode label={spec.name.replace(/^ULTIMA\s*/, '')} hint={`${spec.capacityT} t · SL ${fmt(spec.subframeLengthMm)}`} selected open onSelect={() => {}} testid={`ml-node-${spec.name}`}>
                         <TreeNode label="Parametry" count={8} open>
                           <TreeContent>
                             <div className="ml-detail" data-testid="ml-detail">
@@ -86,16 +91,8 @@ export function MultiliftPage() {
                         <TreeNode label="Zdroj">
                           <TreeContent><p className="muted" style={{ margin: 0 }}>{spec.source}</p></TreeContent>
                         </TreeNode>
-                      </TreeNode>
-                    ))}
-                  </TreeNode>
-                )
-              })}
-            </TreeNode>
-          </TreeNode>
-        </Tree>
-      </aside>
-      <main className="app-main" style={{ position: 'relative', minHeight: 380 }}>
+      </TreeNode>
+      <StagePortal stage={stage}>
         <Canvas shadows camera={{ position: [-3500, 3500, 8000], fov: 40, near: 10, far: 100000 }} gl={{ preserveDrawingBuffer: true }}>
           <color attach="background" args={['#1a2230']} />
           <ambientLight intensity={0.6} />
@@ -108,7 +105,7 @@ export function MultiliftPage() {
           <CatalogDims spec={spec} />
           <OrbitControls makeDefault target={[0, 900, 0]} />
         </Canvas>
-      </main>
-    </div>
+      </StagePortal>
+    </>
   )
 }

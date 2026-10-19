@@ -5,10 +5,8 @@ import App from './App'
 import { ConfiguratorPage } from './configurator/ConfiguratorPage'
 import { StartScreen } from './StartScreen'
 import { Dxf3dPage } from './dxf3d/Dxf3dPage'
-import { CraneCatalogPage } from './craneTpl/CraneCatalogPage'
+import { DatabasePage } from './db/DatabasePage'
 import { parseLinkParams } from './trw/links'
-import { MultiliftPage } from './multilift/MultiliftPage'
-import { AuxStabPage } from './outrigger/AuxStabPage'
 
 function useHash(): string {
   const [hash, setHash] = useState(() => window.location.hash)
@@ -20,17 +18,16 @@ function useHash(): string {
   return hash
 }
 
-/** Hash routes: "" start screen, #vykres drawing flow, #dxf3d DXF→3D, #jeraby[/key] crane catalog, #multilift[/name] hooklift catalogue, #podpery[/key] aux outrigger catalogue, #novy?hooklift=<name> #novy[/preset] configurator. */
+/** Hash routes: "" start screen, #vykres drawing flow, #dxf3d DXF→3D, #databaze[/cat/key] model browser (old #jeraby / #multilift / #podpery links open it), #novy?hooklift=<name> #novy[/preset] configurator. */
 function pageFor(hash: string): ReactNode {
   if (hash.startsWith('#novy')) {
     const [path, query] = hash.split('?')
     const hooklift = new URLSearchParams(query ?? '').get('hooklift')
     return <ConfiguratorPage key={hooklift ?? ''} initialPreset={decodeURIComponent(path.split('/')[1] ?? '') || (hooklift ? 'scania-r-6x2-rigid' : '')} hooklift={hooklift} />
   }
-  if (hash.startsWith('#multilift')) return <MultiliftPage />
-  if (hash.startsWith('#podpery')) return <AuxStabPage />
+  // one model browser: #databaze[/cat/key]; the old catalogue links open it on their category
+  if (/^#(databaze|jeraby|multilift|podpery)(\/|$)/.test(hash)) return <DatabasePage />
   if (hash.startsWith('#dxf3d')) return <Dxf3dPage />
-  if (hash.startsWith('#jeraby')) return <CraneCatalogPage />
   if (hash.startsWith('#vykres')) return <App />
   return null
 }

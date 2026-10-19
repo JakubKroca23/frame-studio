@@ -2,15 +2,14 @@ import { useSceneFilters } from '../view/sceneFilters'
 import { queueProjectFile } from '../openProject'
 import { setPendingDrive } from './pose'
 
-/** Home screen in the model-database view (exhibits along the left hall wall). */
+/** Unified model browser (all model databases). */
 export const DB_HASH = '#databaze'
 
-/** Top bar 'Databáze': home screen + glide to the database view, from any page. */
+/** Top bar 'Databáze': open the model browser from any page (?trw= / ?from= links pin the configurator in Root, so
+ *  those drop the query with a full load). */
 export function goDatabase() {
-  // ?trw= / ?from= links pin the configurator in Root – drop the query (full load) to reach the home screen
   if (window.location.search) { window.location.replace(window.location.origin + window.location.pathname + DB_HASH); return }
-  if (window.location.hash === DB_HASH) window.dispatchEvent(new HashChangeEvent('hashchange'))
-  else window.location.hash = DB_HASH
+  if (!/^#(databaze|jeraby|multilift|podpery)(\/|$)/.test(window.location.hash)) window.location.hash = DB_HASH
 }
 
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches

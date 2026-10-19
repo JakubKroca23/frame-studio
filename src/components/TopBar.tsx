@@ -1,7 +1,7 @@
 import { createContext, useContext, useRef, type ReactNode } from 'react'
 import { useApp } from '../state'
 import { OPEN_ACCEPT, isProjectFile, queueProjectFile } from '../openProject'
-import { openTrwFile } from '../home/homeNav'
+import { goDatabase, openTrwFile } from '../home/homeNav'
 
 /** Gate session for the logout button (provided by auth/Gate). */
 export const SessionCtx = createContext<{ loggedIn: boolean; logout: () => void }>({ loggedIn: false, logout: () => {} })
@@ -57,7 +57,7 @@ export function goHome() {
 const togglePanels = () => document.body.classList.toggle('hide-side')
 
 /** Top bar on every screen: logo + "Nový" (everything else is reached from the hall scene), then page actions. */
-export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykres' | 'dxf3d' | 'jeraby' | 'multilift' | 'podpery'; actions?: BarAction[] }) {
+export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykres' | 'dxf3d' | 'databaze'; actions?: BarAction[] }) {
   const session = useContext(SessionCtx)
   const trwRef = useRef<HTMLInputElement>(null)
   return (
@@ -66,6 +66,7 @@ export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykre
       <nav className="topbar-actions" aria-label="Hlavní ovládání">
         <IconButton icon="plus" label="Nový – zpět na úvodní obrazovku" onClick={goHome} />
         <IconButton icon="trw" label="Otevřít TRW – projekt .trw nebo export .json" onClick={() => trwRef.current?.click()} />
+        <IconButton icon="db" label="Databáze modelů – jeřáby, nosiče, podpěry, podvozky" active={page === 'databaze'} onClick={goDatabase} />
         <input ref={trwRef} hidden type="file" accept=".trw,.json,application/json,application/octet-stream" data-testid="topbar-trw-input"
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) openTrwFile(f) }} />
         {actions.length ? <span className="topbar-sep" aria-hidden="true" /> : null}

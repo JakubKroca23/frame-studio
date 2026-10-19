@@ -1,7 +1,7 @@
 import { TopBar } from './components/TopBar'
 import { StartHero } from './StartHero'
 
-/** Start page: one WebGL scene (hall + exhibits) is the whole page – no card videos, no second canvas. */
+/** Start page: one WebGL scene (the hall) is the whole page – no card videos, no second canvas. */
 export function StartScreen() {
   return (
     <div className="start start-v3">

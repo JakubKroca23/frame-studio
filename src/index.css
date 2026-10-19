@@ -1349,8 +1349,6 @@ body.hide-side .app-side { display: none !important; }
 .handoff-overlay.is-fading { opacity: 0; }
 
 /* home: back from the model database to the door view */
-.hero-back { position: absolute; right: 24px; bottom: 24px; z-index: 3; min-width: 168px; min-height: 60px; padding: 14px 28px; border-radius: 999px; border: 2px solid rgba(255,255,255,.5); background: rgba(16,20,26,.8); color: #fff; font: 700 22px/1 system-ui, sans-serif; cursor: pointer; backdrop-filter: blur(6px); box-shadow: 0 10px 30px -12px rgba(0,0,0,.6); }
-.hero-back:hover { background: rgba(16,20,26,.94); }
 
 /* catalogue tree (left column of the model viewers) */
 .tree, .tree-children { list-style: none; margin: 0; padding: 0; }
@@ -1373,3 +1371,4 @@ body.hide-side .app-side { display: none !important; }
 .tree-content { margin: 4px 0 8px 4px; font-size: 13px; }
 .tree-content .dxf3d-table { font-size: 12px; }
 .tree-content .ml-detail dl { margin: 2px 0 8px; }
+.db-stage-slot { position: absolute; inset: 0; }
