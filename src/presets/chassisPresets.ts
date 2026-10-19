@@ -10,10 +10,10 @@ import type { Approx, ChassisPresetInput } from './types'
 export const a = <T extends number | string | boolean>(value: T): Approx<T> => ({ value, approx: true })
 
 const VOLVO_SHEET = (code: string) => `https://stpi.it.volvo.com/STPIFiles/Volvo/ModelRange/${code}_gbr_eng.pdf`
-const VOLVO_BEP = 'public/samples/volvo-vssb-25-277591.dxf.gz (Volvo body builder order drawing VSSB-25-277591, FM 8x4)'
+const VOLVO_BEP = 'Volvo body builder order drawing VSSB-25-277591, FM 8x4 (firemní výkres, není v repozitáři)'
 const SCANIA_FRAME =
   'https://bodybuilder.scania.com/content/dam/bodybuilder/tbb-files/taiwan/guide/Scania_NTG_Truck_chassis_construction_main_beam_and_subframe_2026.pdf'
-const SCANIA_ICD = 'public/samples/scania-icd-sample.dxf (Scania ICD 2492101765219, G 360E B6x2*4NB)'
+const SCANIA_ICD = 'Scania ICD 2492101765219, G 360E B6x2*4NB (firemní výkres, není v repozitáři)'
 const SCANIA_R_TRACTOR = 'https://www.europa-lkw.de/technische-daten-modell/scania-la4x2mna'
 const MAN_SHEET = (path: string) => `https://www.man-bodybuilder.co.uk/specs/pdf/2022/${path}.pdf`
 const DAF_SHEET = (code: string) => `https://www.daf.co.uk/api/feature/specsheet/open?filename=TSGBEN016${code}202545.pdf`

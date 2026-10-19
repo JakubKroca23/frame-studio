@@ -43,7 +43,7 @@ export default function App() {
   const [over, setOver] = useState(false)
   const [exporting, setExporting] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
-  const { status, phase, message, error, fileName, source, model, params, setParams, setShow, setTrack, setPhase, confirmReview, loadFile, loadSample } = useApp()
+  const { status, phase, message, error, fileName, source, model, params, setParams, setShow, setTrack, setPhase, confirmReview, loadFile } = useApp()
   const detected = source ?? model
   const reviewing = phase === 'review' && !!source
 
@@ -94,12 +94,6 @@ export default function App() {
             </p>
             <div className="row">
               <Button onClick={() => fileRef.current?.click()}>Nahrát výkres</Button>
-              <Button variant="outline" onClick={() => void loadSample('scania')} disabled={status === 'loading'}>
-                Vzor Scania
-              </Button>
-              <Button variant="outline" onClick={() => void loadSample('volvo')} disabled={status === 'loading'}>
-                Vzor Volvo
-              </Button>
               <Button variant="outline" onClick={() => (window.location.hash = '#dxf3d')}>
                 Importovat DXF → 3D
               </Button>

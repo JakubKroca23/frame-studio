@@ -16,14 +16,14 @@ in `ChassisPreset.approx` (dotted paths such as `frame.flange`) and are shown in
   - FH 6x2 tag-axle rigid: https://stpi.it.volvo.com/STPIFiles/Volvo/ModelRange/fh62rt3a_gbr_eng.pdf
   - FM 4x2 rigid: https://stpi.it.volvo.com/STPIFiles/Volvo/ModelRange/fm42r3a_gbr_eng.pdf
   - FMX 8x4 tridem rigid: https://stpi.it.volvo.com/STPIFiles/Volvo/ModelRange/fmx84rt3a_gbr_eng.pdf
-- Volvo body-builder order drawing VSSB-25-277591 (FM 8x4, in `public/samples/`) for the
+- Volvo body-builder order drawing VSSB-25-277591 (FM 8x4; company drawing, not in the repo – local `test-local/samples/` only) for the
   twin-steer preset and as reference for frame width / taper / rail flange.
 
 ### Scania (R, S, G)
 - Scania Truck Bodybuilder, chassis frame guide (270 mm rail section, 768 mm outer frame width, front widening,
   frame heights):
   https://bodybuilder.scania.com/content/dam/bodybuilder/tbb-files/taiwan/guide/Scania_NTG_Truck_chassis_construction_main_beam_and_subframe_2026.pdf
-- Scania ICD drawing 2492101765219 (G 360E B6x2*4NB, in `public/samples/`) for the 6x2*4 rigid
+- Scania ICD drawing 2492101765219 (G 360E B6x2*4NB; company drawing, not in the repo – local `test-local/samples/` only) for the 6x2*4 rigid
   (wheelbase, overhangs, axle positions, frame height, cab).
 - R 4x2 tractor (LA4x2MNA) dimensions come from a **secondary source** (Scania's own spec
   configurator is not publicly fetchable): https://www.europa-lkw.de/technische-daten-modell/scania-la4x2mna

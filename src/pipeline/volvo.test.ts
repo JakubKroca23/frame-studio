@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { decodeDrawing } from '../io/decodeDrawing'
@@ -7,10 +7,14 @@ import { measureCab } from './cabCheck'
 import { defaultParams, type ChassisModel } from '../model/types'
 import { analyzeDxf } from './analyze'
 
+// company drawing: kept only in the gitignored test-local/ (never in the public repo); tests skip without it
+const SAMPLE = 'test-local/samples/volvo-vssb-25-277591.dxf.gz'
+const HAS = existsSync(SAMPLE)
 let model: ChassisModel
 
 beforeAll(() => {
-  const gz = new Uint8Array(readFileSync('public/samples/volvo-vssb-25-277591.dxf.gz'))
+  if (!HAS) return
+  const gz = new Uint8Array(readFileSync(SAMPLE))
   const text = decodeDrawing('volvo-vssb-25-277591.dxf.gz', gz)
   model = analyzeDxf(text)
 }, 180000)
@@ -22,7 +26,7 @@ describe('archive decode', () => {
   })
 })
 
-describe('Volvo BEP sample', () => {
+describe.skipIf(!HAS)('Volvo BEP sample', () => {
   it('detects the Volvo profile and the order identity', () => {
     expect(model.profileId).toBe('volvo-bep')
     expect(model.header.orderNo).toBe('VSSB-25-277591')

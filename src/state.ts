@@ -38,7 +38,6 @@ interface AppState {
   deleteReviewIds: (ids: string[]) => void
   loadText: (name: string, text: string) => Promise<void>
   loadFile: (file: File) => Promise<void>
-  loadSample: (which?: 'scania' | 'volvo') => Promise<void>
   /** Show a ready model (from the configurator) in the drawing-flow editor. */
   openModel: (model: ChassisModel, params: ChassisParams, name: string) => void
 }
@@ -231,32 +230,6 @@ export const useApp = create<AppState>((set, get) => {
       review: [],
       params,
     }),
-  loadSample: async (which = 'scania') => {
-    const volvo = which === 'volvo'
-    const fileName = volvo ? 'volvo-vssb-25-277591.dxf.gz' : 'scania-icd-sample.dxf'
-    set({
-      status: 'loading',
-      message: volvo ? 'Načítám vzorový výkres Volvo…' : 'Načítám vzorový výkres Scania…',
-      error: null,
-      fileName,
-    })
-    try {
-      const response = await fetch(`/samples/${fileName}`)
-      if (!response.ok) {
-        set({ status: 'error', error: 'Vzorový výkres se nepodařilo načíst.', message: '' })
-        return
-      }
-      const bytes = new Uint8Array(await response.arrayBuffer())
-      const text = decodeDrawing(fileName, bytes)
-      await get().loadText(fileName, text)
-    } catch (error) {
-      set({
-        status: 'error',
-        message: '',
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
-  },
 }) })
 
 export function parseDrawing(text: string, onProgress?: (message: string) => void, dwg?: Uint8Array): Promise<ChassisModel> {

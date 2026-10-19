@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { buildChassisGroup } from '../mesh/build'
@@ -8,14 +8,18 @@ import { tireDiameterMm } from '../lib/geom'
 import { analyzeDxf } from './analyze'
 import { initManifold } from '../mesh/manifold'
 
+// company drawing: kept only in the gitignored test-local/ (never in the public repo); tests skip without it
+const SAMPLE = 'test-local/samples/scania-icd-sample.dxf'
+const HAS = existsSync(SAMPLE)
 let model: ChassisModel
 
 beforeAll(() => {
-  const text = readFileSync('public/samples/scania-icd-sample.dxf', 'latin1')
+  if (!HAS) return
+  const text = readFileSync(SAMPLE, 'latin1')
   model = analyzeDxf(text)
 })
 
-describe('Scania ICD sample', () => {
+describe.skipIf(!HAS)('Scania ICD sample', () => {
   it('detects the Scania profile and the chassis identity', () => {
     expect(model.profileId).toBe('scania-icd')
     expect(model.header.chassisType).toMatch(/G 360E/)

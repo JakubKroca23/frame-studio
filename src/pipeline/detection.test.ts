@@ -1,8 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { gunzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import { analyzeDxf } from './analyze'
 
+// company drawing: kept only in the gitignored test-local/ (never in the public repo); tests skip without it
+const SCANIA = 'test-local/samples/scania-icd-sample.dxf', VOLVO = 'test-local/samples/volvo-vssb-25-277591.dxf.gz'
 describe('measured detection', () => {
   it('reads a dimension entity, a hatch contour and a text label on the mini chassis', () => {
     const model = analyzeDxf(readFileSync('fixtures/mini-chassis.dxf', 'utf8'))
@@ -18,8 +20,8 @@ describe('measured detection', () => {
     expect(model.frame?.sources?.section).toBe('estimated')
   })
 
-  it('annotates the Scania sample from the drawing', () => {
-    const model = analyzeDxf(readFileSync('public/samples/scania-icd-sample.dxf', 'latin1'))
+  it.skipIf(!existsSync(SCANIA))('annotates the Scania sample from the drawing', () => {
+    const model = analyzeDxf(readFileSync(SCANIA, 'latin1'))
     expect(model.components.length).toBeGreaterThan(5)
     expect(model.components.every((part) => part.kind && (part.confidence ?? 0) > 0 && part.source && part.evidence)).toBe(true)
     expect(model.axles.every((axle) => axle.tireSource === 'measured')).toBe(true)
@@ -32,8 +34,8 @@ describe('measured detection', () => {
     expect(model.components.some((part) => (part.evidence ?? '').includes('bokorysu'))).toBe(true)
   })
 
-  it('annotates the Volvo sample from block names', () => {
-    const bytes = gunzipSync(readFileSync('public/samples/volvo-vssb-25-277591.dxf.gz'))
+  it.skipIf(!existsSync(VOLVO))('annotates the Volvo sample from block names', () => {
+    const bytes = gunzipSync(readFileSync(VOLVO))
     const model = analyzeDxf(new TextDecoder('windows-1252').decode(bytes))
     expect(model.profileId).toBe('volvo-bep')
     const fuels = model.components.filter((part) => part.kind === 'fuel')

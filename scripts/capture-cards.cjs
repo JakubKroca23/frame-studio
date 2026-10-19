@@ -7,7 +7,7 @@ const cards = {
   hooklift: { keepSide: true, url: '#multilift/ULTIMA%2021S.56',  frame: orbit(-14) },
   crane: { keepSide: true, url: '#jeraby/408',  frame: async (p, b, t) => p.evaluate((t) => window.__craneAnim(t), t) },
   stability: { url: '#novy', setup: async (p) => { await openFile(p, '/workspace/e2e/mock-stab.json'); await p.waitForTimeout(6000) }, frame: async (p, b, t) => p.evaluate((t) => window.__slew(Math.round(t * 360)), t) },
-  dxf: { url: '', setup: async (p) => { await openFile(p, '/workspace/frame-studio/public/samples/scania-icd-sample.dxf'); await p.waitForTimeout(12000); await p.locator('button', { hasText: 'Vygenerovat vše' }).first().click(); await p.waitForTimeout(10000); const hb = p.locator('button', { hasText: 'Skrýt' }); if (await hb.count()) await hb.first().click() }, frame: orbit(-14) },
+  dxf: { url: '', setup: async (p) => { await openFile(p, '/workspace/frame-studio/test-local/samples/scania-icd-sample.dxf'); await p.waitForTimeout(12000); await p.locator('button', { hasText: 'Vygenerovat vše' }).first().click(); await p.waitForTimeout(10000); const hb = p.locator('button', { hasText: 'Skrýt' }); if (await hb.count()) await hb.first().click() }, frame: orbit(-14) },
 };
 (async () => { const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
  for (const [k, c] of Object.entries(cards)) { if (ONLY && !ONLY.split(',').includes(k)) continue

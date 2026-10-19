@@ -31,3 +31,19 @@ test-local/
 
 # Volvo CAD (approved for deploy by Jakub, not in git): copied into the build by scripts/deploy.sh
 public/models/volvo/
+
+# company drawings / CAD never go into the public repo (local copies: test-local/)
+public/samples/
+*.dwg
+*.dwg.gz
+*.dxf.gz
+*.step
+*.stp
+*.igs
+*.iges
+*.sldprt
+*.sldasm
+*.trw
+*.pdf
+fixtures/*.dxf
+!fixtures/mini-chassis.dxf

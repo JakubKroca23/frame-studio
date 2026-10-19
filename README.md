@@ -19,8 +19,7 @@ npm run dev
 
 Vývojový server poslouchá na portu **47231**.
 
-- **Vzor Scania** načte `public/samples/scania-icd-sample.dxf` (G 360E B6x2*4NB).
-- **Vzor Volvo** načte `public/samples/volvo-vssb-25-277591.dxf.gz` (FM, 8x4, objednávka VSSB-25-277591). Surový DXF má asi 35 MB, v repozitáři je gzip (asi 5 MB).
+- Firemní vzorové výkresy (Scania ICD, Volvo VSSB) nejsou v repozitáři; pro lokální testy patří do `test-local/samples/` (gitignored), testy bez nich přeskočí.
 
 Nahrát lze `.dxf`, `.dwg`, `.dxf.gz`, `.tgz` / `.tar.gz` a `.zip`. Archiv se rozbalí v prohlížeči (fflate). Texty se čtou jako Windows-1252.
 

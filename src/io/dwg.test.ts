@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { gunzipSync as inflate } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import { analyzeDxf } from '../pipeline/analyze'
@@ -9,6 +9,8 @@ function unzip(path: string) {
   return inflate(bytes)
 }
 
+// company drawing: kept only in the gitignored test-local/ (never in the public repo); tests skip without it
+const EXTRACT = 'test-local/fixtures/scania-extract'
 describe('DWG reader', () => {
   it('rejects a file that is not a DWG', async () => {
     await expect(dwgBytesToDxf(new Uint8Array([1, 2, 3, 4]))).rejects.toThrow(/nevypadá jako DWG/)
@@ -21,9 +23,9 @@ describe('DWG reader', () => {
     await expect(dwgBytesToDxf(bytes)).rejects.toThrow(/2000 až 2018/)
   })
 
-  it('reads the Scania sample extract from DWG with the same detection as the DXF', async () => {
-    const dxf = new TextDecoder('windows-1252').decode(unzip('fixtures/scania-extract.dxf.gz'))
-    const dwg = unzip('fixtures/scania-extract.dwg.gz')
+  it.skipIf(!existsSync(`${EXTRACT}.dxf.gz`) || !existsSync(`${EXTRACT}.dwg.gz`))('reads the Scania sample extract from DWG with the same detection as the DXF', async () => {
+    const dxf = new TextDecoder('windows-1252').decode(unzip(`${EXTRACT}.dxf.gz`))
+    const dwg = unzip(`${EXTRACT}.dwg.gz`)
     const fromDxf = analyzeDxf(dxf)
     const fromDwg = analyzeDxf(await dwgBytesToDxf(dwg))
     expect(fromDxf.profileId).toBe('scania-icd')

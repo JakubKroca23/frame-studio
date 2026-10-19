@@ -1,11 +1,15 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { analyzeDxf } from '../pipeline/analyze'
 import { presetById } from '../presets'
 import { refineConfigFromDxf } from './refineFromDxf'
 
-describe('refineConfigFromDxf (trw + DXF side view)', () => {
-  const model = analyzeDxf(readFileSync('public/samples/scania-icd-sample.dxf', 'latin1'))
+// company drawing: kept only in the gitignored test-local/ (never in the public repo); tests skip without it
+const SAMPLE = 'test-local/samples/scania-icd-sample.dxf'
+const HAS = existsSync(SAMPLE)
+describe.skipIf(!HAS)('refineConfigFromDxf (trw + DXF side view)', () => {
+  if (!HAS) return
+  const model = analyzeDxf(readFileSync(SAMPLE, 'latin1'))
   const base = structuredClone(presetById('scania-r-6x2-rigid')!.config)
   base.axles[1].position = 4000 // pretend trw had a rough value
   base.rearOverhang = 1000
