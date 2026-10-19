@@ -29,11 +29,15 @@ import { StudioLights } from './view/Viewport'
 /** Home dummy stands where it always did (12.5 m out, perpendicular); the drive-out parks further (pose.STOP_Z). */
 export const VEHICLE_SPOT = { x: spotForDoor(1).x, z: H.z1 + 12500 }
 const CH = { ...VEHICLE_SPOT, len: 9000 }
-// Exhibits stand on the yard beside the LEFT gable wall of the hall (x < H.x0), not in front of the doors.
-const CRANE_AT = { x: H.x0 - 8500, z: H.z1 - 1500 }
-const HOOK_AT = { x: H.x0 - 3300, z: H.z1 - 3000, len: 5900, rot: Math.PI / 2 }
-// third in the row (left of the crane): HIAB auxiliary outriggers, 5 m variant, retracted
-const AUX_AT = { x: H.x0 - 13500, z: H.z1 - 7000 }
+// Exhibits stand in a row along the LEFT outer wall of the hall, going back (−z): hidden behind the hall from the
+// fixed door view, shown by the database view that looks at the wall from the left.
+const ROW_X = H.x0 - 3000
+const CRANE_AT = { x: ROW_X, z: H.z1 - 12000 }
+const HOOK_AT = { x: ROW_X, z: H.z1 - 20000, len: 5900, rot: Math.PI / 2 }
+// third in the row (furthest back): HIAB auxiliary outriggers, 5 m variant, retracted, turned along the wall
+const AUX_AT = { x: ROW_X, z: H.z1 - 28000, rot: Math.PI / 2 }
+/** 'Databáze modelů' board standing in the open yard left of the hall front (seen from the door view). */
+const DB_BOARD = { x: H.x0 - 2300, z: H.z1 + 1000, w: 4000, h: 2000, y: 2500 }
 const AUX_FILE = `${import.meta.env.BASE_URL}models/outrigger/hiab-aux-stab-5m.glb`
 const FRAME_TOP = 1000
 const MODELS = `${import.meta.env.BASE_URL}models/hero/`
@@ -214,6 +218,20 @@ function ExhibitSign({ x, z, w = 3600, title, sub, logo, hot, setHot, open, name
 }
 
 
+/** Free-standing 'Databáze modelů' board on two posts in the yard left of the hall, turned to the door camera. */
+const postMat = new THREE.MeshStandardMaterial({ color: '#3a4048', metalness: 0.5, roughness: 0.45 })
+function DbBoard({ hot, setHot, open }: { hot: boolean; setHot: (h: boolean) => void; open: () => void }) {
+  const B = DB_BOARD, cam = viewPose('doors', 2.5, 42).pos, yaw = Math.atan2(cam.x - B.x, cam.z - B.z)
+  return (
+    <group name="start-db-board" position={[B.x, 0, B.z]} rotation={[0, yaw, 0]}>
+      {[-1, 1].map((s) => <mesh key={s} material={postMat} position={[s * (B.w / 2 - 500), (B.y - B.h / 2) / 2 + 100, -30]} castShadow><boxGeometry args={[120, B.y - B.h / 2 + 200, 120]} /></mesh>)}
+      <mesh material={postMat} position={[0, B.y, -40]}><boxGeometry args={[B.w + 120, B.h + 120, 40]} /></mesh>
+      <Sign3D name="sign-hero-db" w={B.w} h={B.h} title="Databáze modelů" sub="HIAB · Multilift · přídavné podpěry" hot={hot}
+        position={[0, B.y, 0]} onOver={() => setHot(true)} onOut={() => setHot(false)} onOpen={open} />
+    </group>
+  )
+}
+
 export type HomeView = 'doors' | 'db'
 /** Fixed views (no free orbit): the hall doors face-on, and the model database (3 exhibits left of the hall). */
 const UP = new THREE.Vector3(0, 1, 0)
@@ -221,7 +239,8 @@ const VIEWS: Record<HomeView, { target: THREE.Vector3; dir: THREE.Vector3; halfW
   doors: { target: new THREE.Vector3(DOORS[1], 5200, H.z1), dir: new THREE.Vector3(0, 0.1, 1).normalize(), halfW: (DOORS[2] - DOORS[0] + DW) / 2 + 1500, halfH: 5600,
     // Jakub: a bit farther, higher, more to the right, yawed a bit to the left
     tweak: { far: 1.2 * 1.28, right: 2500, up: 2500, yawLeft: (4 * Math.PI) / 180 } },
-  db: { target: new THREE.Vector3((AUX_AT.x + HOOK_AT.x) / 2 + 500, 900, H.z1 - 2600), dir: new THREE.Vector3(0.22, 0.55, 1).normalize(), halfW: 9500, halfH: 6200 },
+  // the row of exhibits along the left wall, seen from the left / slightly in front and above
+  db: { target: new THREE.Vector3(ROW_X + 400, 1300, HOOK_AT.z + 2500), dir: new THREE.Vector3(-1, 0.36, 0.5).normalize(), halfW: 14500, halfH: 5200 },
 }
 function viewPose(v: HomeView, aspect: number, fov: number) {
   const V = VIEWS[v], t = Math.tan(((fov / 2) * Math.PI) / 180)
@@ -243,15 +262,16 @@ type Ctl = { target: THREE.Vector3; enabled: boolean; update: () => void; minAzi
 /** Camera rig: snaps to the door view on landing, glides smoothly between the view poses (controls off), then hands
  *  over to OrbitControls limited around that pose (limits re-centred per view). Renders on demand. */
 function HeroCamera({ view }: { view: HomeView }) {
-  const { camera, size, gl, invalidate, controls } = useThree()
+  const { camera, size, gl, invalidate, controls, scene } = useThree()
   const ctl = controls as unknown as Ctl | null
   const look = useRef<THREE.Vector3 | null>(null)
   const moving = useRef(false)
   const goal = useRef(viewPose(view, 1, 42))
-  useEffect(() => { Object.assign(window as unknown as object, { __heroInfo: gl.info, __heroCam: camera, __heroCtl: controls }) }, [gl, camera, controls])
+  useEffect(() => { Object.assign(window as unknown as object, { __heroInfo: gl.info, __heroCam: camera, __heroCtl: controls, __heroScene: scene, __heroGL: gl }) }, [gl, camera, controls, scene])
   const settle = () => {
-    // pose reached: limits centred on it, controls on
+    // pose reached: the door view stays fixed (no user camera); the database view gets limits centred on it
     if (!ctl) return
+    if (view === 'doors') { ctl.target.copy(goal.current.target); ctl.enabled = false; return }
     const g = goal.current, off = new THREE.Vector3().subVectors(g.pos, g.target), sph = new THREE.Spherical().setFromVector3(off)
     ctl.target.copy(g.target)
     ctl.minAzimuthAngle = sph.theta - LIMITS.az; ctl.maxAzimuthAngle = sph.theta + LIMITS.az
@@ -299,9 +319,10 @@ function HeroCamera({ view }: { view: HomeView }) {
 type Label = { label: string; sub: string; logo?: string; onClick: () => void; testid: string; hot?: boolean; setHot?: (h: boolean) => void; cfg?: boolean }
 
 const SIGN_AT: Record<string, { x: number; z: number; w?: number }> = {
-  'start-crane': { x: CRANE_AT.x, z: CRANE_AT.z + 2700 },
-  'start-multilift': { x: HOOK_AT.x, z: HOOK_AT.z + 4300 },
-  'start-aux': { x: AUX_AT.x - 400, z: AUX_AT.z + 2700, w: 5600 },
+  // in front of each exhibit on the camera (left, −x) side
+  'start-crane': { x: CRANE_AT.x - 2600, z: CRANE_AT.z + 1200 },
+  'start-multilift': { x: HOOK_AT.x - 2600, z: HOOK_AT.z + 3600 },
+  'start-aux': { x: AUX_AT.x - 2400, z: AUX_AT.z + 1200, w: 5600 },
 }
 
 export function StartHero() {
@@ -330,10 +351,12 @@ export function StartHero() {
   // doors: left = model database (camera glides to the exhibits), middle = TRW import, right = empty for now.
   // DXF / PDF imports stay in code (inputs below, #vykres, configurator) but are not offered on the home screen.
   const doors: (Label | null)[] = [
-    { label: 'Databáze modelů', sub: 'HIAB · Multilift · přídavné podpěry', onClick: () => setView('db'), testid: 'door-db' },
+    null,
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
     null,
   ]
+  const [dbHot, setDbHot] = useState(false)
+  const dbBoard: Label = { label: 'Databáze modelů', sub: 'HIAB · Multilift · přídavné podpěry', onClick: () => setView('db'), testid: 'hero-db', hot: dbHot, setHot: setDbHot }
   const items: Label[] = [
     { label: 'HIAB', logo: 'brand/logo-hiab-color.svg', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
     { label: 'MULTILIFT', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
@@ -356,6 +379,7 @@ export function StartHero() {
           <Sign3D key={it.testid} name={'sign-' + it.testid} w={DW * 0.8} h={1900} title={it.label} sub={it.sub} hot={doorHot === i}
             position={[DOORS[i], 3500, H.z1 - 250 + 90]} onOver={() => setDoorHot(i)} onOut={() => setDoorHot(-1)} onOpen={() => { if (!driving.current) it.onClick() }} />
         ))}
+        {view === 'doors' ? <DbBoard hot={dbHot} setHot={setDbHot} open={dbBoard.onClick} /> : null}
         {view === 'db' && items.map((it) => (
           <ExhibitSign key={it.testid} name={'sign-' + it.testid} {...SIGN_AT[it.testid]} title={it.label} sub={it.sub}
             logo={it.logo ? import.meta.env.BASE_URL + it.logo : undefined} hot={!!it.hot} setHot={it.setHot!} open={it.onClick} />
@@ -368,7 +392,7 @@ export function StartHero() {
         <Exhibit name="start-multilift" x={HOOK_AT.x} z={HOOK_AT.z} r={3600} standLen={HOOK_AT.len} rot={HOOK_AT.rot} hot={hookHot} setHot={setHookHot} open={() => go('#multilift')}>
           <ExhibitMesh file="multilift21s.glb" x={HOOK_AT.x} y={FRAME_TOP} hot={hookHot} alignBottom />
         </Exhibit>
-        <Exhibit name="start-aux" x={AUX_AT.x} z={AUX_AT.z} r={1900} standLen={2600} hot={auxHot} setHot={setAuxHot} open={() => go('#podpery')}>
+        <Exhibit name="start-aux" x={AUX_AT.x} z={AUX_AT.z} r={1900} standLen={2600} rot={AUX_AT.rot} hot={auxHot} setHot={setAuxHot} open={() => go('#podpery')}>
           <AuxExhibitMesh x={AUX_AT.x} y={FRAME_TOP} hot={auxHot} />
         </Exhibit>
         </group>
@@ -378,12 +402,8 @@ export function StartHero() {
       {/* labels live in the 3D scene; these buttons are visually hidden, for keyboard / screen readers */}
       {view === 'db' ? (
         <button type="button" className="hero-back" data-testid="hero-back" onClick={() => setView('doors')} title="Zpět ke dveřím (Esc)">← Zpět</button>
-      ) : (
-        <button type="button" className="hero-db" data-testid="hero-db" onClick={() => setView('db')}>
-          <strong>Databáze modelů</strong><span>HIAB · Multilift · přídavné podpěry</span>
-        </button>
-      )}
-      {[...doors.filter((d): d is Label => !!d), ...items].map((it) => (
+      ) : null}
+      {[...doors.filter((d): d is Label => !!d), ...(view === 'doors' ? [dbBoard] : []), ...items].map((it) => (
         <button key={it.testid} type="button" data-testid={it.testid} className="sr-only"
           onFocus={() => it.setHot?.(true)} onBlur={() => it.setHot?.(false)} onClick={it.onClick}>{it.label} – {it.sub}</button>
       ))}

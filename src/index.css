@@ -1351,7 +1351,3 @@ body.hide-side .app-side { display: none !important; }
 /* home: back from the model database to the door view */
 .hero-back { position: absolute; right: 24px; bottom: 24px; z-index: 3; min-width: 168px; min-height: 60px; padding: 14px 28px; border-radius: 999px; border: 2px solid rgba(255,255,255,.5); background: rgba(16,20,26,.8); color: #fff; font: 700 22px/1 system-ui, sans-serif; cursor: pointer; backdrop-filter: blur(6px); box-shadow: 0 10px 30px -12px rgba(0,0,0,.6); }
 .hero-back:hover { background: rgba(16,20,26,.94); }
-.hero-db { position: absolute; left: 24px; bottom: 24px; z-index: 3; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 22px; border-radius: 14px; border: 2px solid rgba(142,197,255,.75); background: rgba(16,22,32,.78); color: #f2f6fa; cursor: pointer; text-align: left; backdrop-filter: blur(6px); box-shadow: 0 10px 30px -12px rgba(0,0,0,.6); }
-.hero-db strong { font: 700 22px/1.1 system-ui, sans-serif; }
-.hero-db span { font: 500 13px/1.2 system-ui, sans-serif; opacity: .85; }
-.hero-db:hover { background: rgba(62,230,196,.94); color: #0c1a1f; border-color: #fff; }
