@@ -36,8 +36,6 @@ const CRANE_AT = { x: ROW_X, z: H.z1 - 12000 }
 const HOOK_AT = { x: ROW_X, z: H.z1 - 20000, len: 5900, rot: Math.PI / 2 }
 // third in the row (furthest back): HIAB auxiliary outriggers, 5 m variant, retracted, turned along the wall
 const AUX_AT = { x: ROW_X, z: H.z1 - 28000, rot: Math.PI / 2 }
-/** 'Databáze modelů' board standing in the open yard left of the hall front (seen from the door view). */
-const DB_BOARD = { x: H.x0 - 2300, z: H.z1 + 1000, w: 4000, h: 2000, y: 2500 }
 const AUX_FILE = `${import.meta.env.BASE_URL}models/outrigger/hiab-aux-stab-5m.glb`
 const FRAME_TOP = 1000
 const MODELS = `${import.meta.env.BASE_URL}models/hero/`
@@ -218,20 +216,6 @@ function ExhibitSign({ x, z, w = 3600, title, sub, logo, hot, setHot, open, name
 }
 
 
-/** Free-standing 'Databáze modelů' board on two posts in the yard left of the hall, turned to the door camera. */
-const postMat = new THREE.MeshStandardMaterial({ color: '#3a4048', metalness: 0.5, roughness: 0.45 })
-function DbBoard({ hot, setHot, open }: { hot: boolean; setHot: (h: boolean) => void; open: () => void }) {
-  const B = DB_BOARD, cam = viewPose('doors', 2.5, 42).pos, yaw = Math.atan2(cam.x - B.x, cam.z - B.z)
-  return (
-    <group name="start-db-board" position={[B.x, 0, B.z]} rotation={[0, yaw, 0]}>
-      {[-1, 1].map((s) => <mesh key={s} material={postMat} position={[s * (B.w / 2 - 500), (B.y - B.h / 2) / 2 + 100, -30]} castShadow><boxGeometry args={[120, B.y - B.h / 2 + 200, 120]} /></mesh>)}
-      <mesh material={postMat} position={[0, B.y, -40]}><boxGeometry args={[B.w + 120, B.h + 120, 40]} /></mesh>
-      <Sign3D name="sign-hero-db" w={B.w} h={B.h} title="Databáze modelů" sub="HIAB · Multilift · přídavné podpěry" hot={hot}
-        position={[0, B.y, 0]} onOver={() => setHot(true)} onOut={() => setHot(false)} onOpen={open} />
-    </group>
-  )
-}
-
 export type HomeView = 'doors' | 'db'
 /** Fixed views (no free orbit): the hall doors face-on, and the model database (3 exhibits left of the hall). */
 const UP = new THREE.Vector3(0, 1, 0)
@@ -355,8 +339,7 @@ export function StartHero() {
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
     null,
   ]
-  const [dbHot, setDbHot] = useState(false)
-  const dbBoard: Label = { label: 'Databáze modelů', sub: 'HIAB · Multilift · přídavné podpěry', onClick: () => setView('db'), testid: 'hero-db', hot: dbHot, setHot: setDbHot }
+  const dbBoard = { onClick: () => setView('db') }
   const items: Label[] = [
     { label: 'HIAB', logo: 'brand/logo-hiab-color.svg', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
     { label: 'MULTILIFT', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
@@ -379,7 +362,6 @@ export function StartHero() {
           <Sign3D key={it.testid} name={'sign-' + it.testid} w={DW * 0.8} h={1900} title={it.label} sub={it.sub} hot={doorHot === i}
             position={[DOORS[i], 3500, H.z1 - 250 + 90]} onOver={() => setDoorHot(i)} onOut={() => setDoorHot(-1)} onOpen={() => { if (!driving.current) it.onClick() }} />
         ))}
-        {view === 'doors' ? <DbBoard hot={dbHot} setHot={setDbHot} open={dbBoard.onClick} /> : null}
         {view === 'db' && items.map((it) => (
           <ExhibitSign key={it.testid} name={'sign-' + it.testid} {...SIGN_AT[it.testid]} title={it.label} sub={it.sub}
             logo={it.logo ? import.meta.env.BASE_URL + it.logo : undefined} hot={!!it.hot} setHot={it.setHot!} open={it.onClick} />
@@ -402,8 +384,12 @@ export function StartHero() {
       {/* labels live in the 3D scene; these buttons are visually hidden, for keyboard / screen readers */}
       {view === 'db' ? (
         <button type="button" className="hero-back" data-testid="hero-back" onClick={() => setView('doors')} title="Zpět ke dveřím (Esc)">← Zpět</button>
-      ) : null}
-      {[...doors.filter((d): d is Label => !!d), ...(view === 'doors' ? [dbBoard] : []), ...items].map((it) => (
+      ) : (
+        <button type="button" className="hero-db" data-testid="hero-db" onClick={dbBoard.onClick} title="Databáze modelů">
+          <strong>Databáze modelů</strong><span>HIAB · Multilift · přídavné podpěry</span>
+        </button>
+      )}
+      {[...doors.filter((d): d is Label => !!d), ...items].map((it) => (
         <button key={it.testid} type="button" data-testid={it.testid} className="sr-only"
           onFocus={() => it.setHot?.(true)} onBlur={() => it.setHot?.(false)} onClick={it.onClick}>{it.label} – {it.sub}</button>
       ))}
