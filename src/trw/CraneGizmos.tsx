@@ -104,7 +104,7 @@ function ProtractorInner({ offset, value, limits, radius: R }: Omit<ProtractorPr
   for (let d = -180; d < 180; d += 30) {
     const ang = (d + offset) * rad
     labels.push(
-      <BText key={d} position={[Math.cos(ang) * R * 0.8, Math.sin(ang) * R * 0.8, 0]} fontSize={R * 0.06} color="#e6edf5" anchorX="center" anchorY="middle" outlineWidth={R * 0.006} outlineColor="#141a24">
+      <BText key={d} position={[Math.cos(ang) * R * 0.66, Math.sin(ang) * R * 0.66, 0]} fontSize={R * 0.06} color="#e6edf5" anchorX="center" anchorY="middle" outlineWidth={R * 0.006} outlineColor="#141a24">
         {`${d}°`}
       </BText>,
     )
@@ -127,7 +127,7 @@ function ProtractorInner({ offset, value, limits, radius: R }: Omit<ProtractorPr
         <lineBasicMaterial color="#c9d6e3" />
       </lineSegments>
       <Bar from={[0, 0, 0]} to={[Math.cos(offset * rad) * R, Math.sin(offset * rad) * R, 0]} width={R * 0.008} color="#c9d6e3" opacity={0.6} />
-      <Bar from={[0, 0, 0]} to={[Math.cos(a) * R * 0.86, Math.sin(a) * R * 0.86, 0]} width={R * 0.012} color="#E53935" opacity={0.7} />
+      <Bar from={[0, 0, 0]} to={[Math.cos(a) * R * 0.74, Math.sin(a) * R * 0.74, 0]} width={R * 0.012} color="#E53935" opacity={0.7} />
       {labels}
       {span < 360 && ([0, 1] as const).map((i) => {
         const ang = (limits[i] + offset) * rad
@@ -213,34 +213,45 @@ function TelescopeArrowsInner({ value, max, size = 0.75, k, onValue }: { value: 
   )
 }
 
-/** Linear mm scale along local +X from 0 to `max` [m] (read-only; the value is changed by the TelescopeArrows at the tip). */
-function LinearScaleInner({ value, max }: { value: number; max: number }) {
+/** Linear mm scale along local +X from 0 to `max` [m]. All sizes are in the scale's own units × `size` (band 0.22·size).
+ *  With `onValue` the drag arrow (TelescopeArrows) is drawn INSIDE the scale: it rides on the value, is clamped so
+ *  that it never leaves 0…max, and its size is derived from the band height and the scale length. */
+function LinearScaleInner({ value, max, size: f = 1, onValue }: { value: number; max: number; size?: number; onValue?: (m: number) => void }) {
   const ref = useRef<THREE.Group>(null)
+  const step = max <= 1.5 ? 50 : 100, major = max <= 1.5 ? 500 : 1000
   const ticks = useMemo(() => {
     const pts: THREE.Vector3[] = []
-    for (let mm = 0; mm <= max * 1000 + 1; mm += 100) {
-      const l = mm % 1000 === 0 ? 0.22 : mm % 500 === 0 ? 0.14 : 0.08
+    for (let mm = 0; mm <= max * 1000 + 1; mm += step) {
+      const l = (mm % major === 0 ? 0.22 : mm % (major / 2) === 0 ? 0.14 : 0.08) * f
       pts.push(new THREE.Vector3(mm / 1000, 0, 0), new THREE.Vector3(mm / 1000, l, 0))
     }
     return pts
-  }, [max])
+  }, [max, f, step, major])
   const labels = []
-  for (let m = 2; m < max - 0.5; m += 2) labels.push(<BText key={m} position={[m, 0.38, 0]} fontSize={0.14} color="#e6edf5" outlineWidth={0.012} outlineColor="#141a24">{`${m * 1000}`}</BText>)
+  for (let m = 2; m < max - 0.5; m += 2) labels.push(<BText key={m} position={[m, 0.38 * f, 0]} fontSize={0.14 * f} color="#e6edf5" outlineWidth={0.012 * f} outlineColor="#141a24">{`${m * 1000}`}</BText>)
+  // arrow: half-height 0.38·s ≤ 0.6 band → s ≤ 0.35·f; length 2.4·s ≤ 0.8·max
+  const s = Math.min(0.35 * f, (0.8 * max) / 2.4), half = 1.2 * s
+  const ax = Math.min(Math.max(value, half), Math.max(half, max - half))
   return (
     <group ref={ref} name="crane-ext-scale">
-      <mesh position={[value / 2, 0.11, -0.002]}>
-        <planeGeometry args={[Math.max(value, 0.001), 0.22]} />
+      <mesh position={[value / 2, 0.11 * f, -0.002]}>
+        <planeGeometry args={[Math.max(value, 0.001), 0.22 * f]} />
         <meshBasicMaterial color="#ff1a1a" transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      <Bar from={[0, 0, 0]} to={[max, 0, 0]} width={0.06} color="#3ee6c4" opacity={0.8} />
-      <BText position={[0, -0.25, 0]} fontSize={0.16} color="#3ee6c4" outlineWidth={0.012} outlineColor="#141a24">min 0</BText>
-      <BText position={[max, -0.25, 0]} fontSize={0.16} color="#3ee6c4" outlineWidth={0.012} outlineColor="#141a24">{`max ${fmt(max * 1000)} mm`}</BText>
+      <Bar from={[0, 0, 0]} to={[max, 0, 0]} width={0.06 * f} color="#3ee6c4" opacity={0.8} />
+      <BText position={[0, -0.25 * f, 0]} fontSize={0.16 * f} color="#3ee6c4" outlineWidth={0.012 * f} outlineColor="#141a24">min 0</BText>
+      <BText position={[max, -0.25 * f, 0]} fontSize={0.16 * f} color="#3ee6c4" outlineWidth={0.012 * f} outlineColor="#141a24">{`max ${fmt(max * 1000)} mm`}</BText>
       <lineSegments>
         <bufferGeometry onUpdate={(g) => g.setFromPoints(ticks)} />
         <lineBasicMaterial color="#c9d6e3" />
       </lineSegments>
-      <Bar from={[value, -0.1, 0]} to={[value, 0.45, 0]} width={0.04} color="#E53935" />
+      <Bar from={[value, -0.1 * f, 0]} to={[value, 0.45 * f, 0]} width={0.04 * f} color="#E53935" />
       {labels}
+      {onValue ? (
+        <group position={[ax, 0.11 * f, 0.001]}>
+          <TelescopeArrowsInner value={value} max={max} size={s} onValue={onValue} />
+        </group>
+      ) : null}
     </group>
   )
 }
@@ -298,17 +309,21 @@ function arcDoubleGeom(S: number, w: number, head: number, hl = 0.32) {
   return new THREE.ShapeGeometry(sh)
 }
 const ARC_S = 0.9
-const arcDbl = arcDoubleGeom(ARC_S, 0.12, 0.3), arcDblO = arcDoubleGeom(ARC_S + 0.06, 0.2, 0.4, 0.36)
-const arcDblHit = new THREE.RingGeometry(0.6, 1.45, 16, 1, -ARC_S - 0.1, 2 * ARC_S + 0.2)
+/** The arc arrow is drawn on a circle of radius ARC_R·R inside the Protractor of radius R: shaft ±0.07, heads ±0.16
+ *  (outline ±0.2) of the arrow radius → 0.69R…0.98R, i.e. always inside the ring and scaled with it. */
+export const ARC_R = 0.86
+const arcDbl = arcDoubleGeom(ARC_S, 0.07, 0.15, 0.3), arcDblO = arcDoubleGeom(ARC_S + 0.04, 0.11, 0.19, 0.33)
+const arcDblHit = new THREE.RingGeometry(0.55, 1.3, 16, 1, -ARC_S - 0.1, 2 * ARC_S + 0.2)
 const outlines = new Map<THREE.BufferGeometry, THREE.BufferGeometry>([[arcDbl, arcDblO], [dblArrow, dblOutline]])
 function outlineOf(g: THREE.BufferGeometry) { return outlines.get(g) ?? g }
 
 /**
  * Always-visible joint handle: two curved arrows on a circle pointing away from each other (↺ ↻) around the
  * current angle; dragging either rotates the joint by the pointer's angular delta, clamped to the limits.
- * Lies in local XY like the Protractor (φ = atan2(y, x), value = φ − offset). Constant screen size.
+ * Lies in local XY like the Protractor (φ = atan2(y, x), value = φ − offset) and takes the same `radius`: the arrows
+ * sit inside that scale's band and scale together with it (no screen-space sizing).
  */
-function JointArcHandlesInner({ id, offset, value, limits, label, k = 0.055, onAngle, onGrab }: { id: string; offset: number; value: number; limits: [number, number]; label: string; k?: number; onAngle: (deg: number) => void; onGrab?: () => void }) {
+function JointArcHandlesInner({ id, offset, value, limits, label, radius, onAngle, onGrab }: { id: string; offset: number; value: number; limits: [number, number]; label: string; radius: number; onAngle: (deg: number) => void; onGrab?: () => void }) {
   const showLabel = useSceneFilters((s) => s.controlLabels)
   const ref = useRef<THREE.Group>(null)
   const start = useRef<{ phi: number; v: number } | null>(null)
@@ -328,16 +343,14 @@ function JointArcHandlesInner({ id, offset, value, limits, label, k = 0.055, onA
   const a = (value + offset) * rad
   return (
     <group ref={ref} name={`crane-arc-${id}`}>
-      <ScreenScale k={k}>
-        <group rotation={[0, 0, a]}>
+      <group rotation={[0, 0, a]} scale={radius * ARC_R}>
           <ArrowHandle size={1} name={`crane-arc-${id}-h`} label={`${label}: táhněte šipkou oběma směry`} geom={arcDbl} hit={arcDblHit} outline={1} onDown={begin} onMove={drag.move} onUp={finish} />
           {showLabel ? (
-            <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[-2.1, 0, 0]} center zIndexRange={[20, 10]}>
+            <Html pointerEvents="none" style={{ pointerEvents: 'none' }} position={[0.45, 0, 0]} center zIndexRange={[20, 10]}>
               <div className={dragging ? 'crane-gizmo-label is-active' : 'crane-gizmo-label'}>{label}: {fmt(value, 1)}°</div>
             </Html>
           ) : null}
-        </group>
-      </ScreenScale>
+      </group>
     </group>
   )
 }

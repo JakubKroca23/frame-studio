@@ -6,7 +6,7 @@ import { create } from 'zustand'
 import { CUTS, deformPieces, ULT18Z59, type HookliftMesh, type HookliftParams } from './hooklift'
 import type { HookliftSpec } from './hookliftCatalog'
 import { classifyPiece, clampPose, eyeAt, geomFor, hookLimits, STOWED, type HookPart, type HookPose, type PieceBox } from './hookliftKinematics'
-import { JointArcHandles, Protractor, TelescopeArrows } from './CraneGizmos'
+import { JointArcHandles, LinearScale, Protractor } from './CraneGizmos'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 /** Live pose of the (one) hooklift on screen: tipping, jib angle, slide. Driven by the 'Ovládání' handles. */
@@ -212,23 +212,24 @@ function Loaded({ xRear, frameTop, params, mesh = ULT18Z59, spec }: { xRear: num
         <group name="hooklift-frame" rotation={[-pose.tipDeg * rad, 0, 0]}>
           <group position={[side, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
             <Protractor offset={0} value={pose.tipDeg} limits={[0, lim.tipMax]} radius={0.9} />
-            <JointArcHandles id="hook-tip" offset={0} value={pose.tipDeg} limits={[0, lim.tipMax]} label="Sklopení" onAngle={(d) => setPose({ tipDeg: d })} />
+            <JointArcHandles id="hook-tip" offset={0} value={pose.tipDeg} limits={[0, lim.tipMax]} label="Sklopení" radius={0.9} onAngle={(d) => setPose({ tipDeg: d })} />
           </group>
           <group position={neg(tip)}>{meshes('frame')}</group>
           <group position={sub(knuckle, tip)}>
             <group name="hooklift-mid" rotation={[-pose.swingDeg * rad, 0, 0]}>
               <group position={[side * 0.55, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
                 <Protractor offset={0} value={pose.swingDeg} limits={[0, lim.swingMax]} radius={0.55} />
-                <JointArcHandles id="hook-swing" offset={0} value={pose.swingDeg} limits={[0, lim.swingMax]} label="Rameno háku" onAngle={(d) => setPose({ swingDeg: d })} />
+                <JointArcHandles id="hook-swing" offset={0} value={pose.swingDeg} limits={[0, lim.swingMax]} label="Rameno háku" radius={0.55} onAngle={(d) => setPose({ swingDeg: d })} />
               </group>
               <group position={neg(knuckle)}>
                 {meshes('mid')}
+                {lim.slideMaxMm > 0 ? (
+                  /* slide scale fixed to the mid frame (0 = arm retracted); its arrow rides inside it */
+                  <group position={[side * 0.55, built.armTop - 0.2, mesh.zMax - 0.3]} rotation={[0, Math.PI / 2, 0]}>
+                    <LinearScale value={pose.slideMm / 1000} max={lim.slideMaxMm / 1000} size={0.6} onValue={(m) => setPose({ slideMm: m * 1000 })} />
+                  </group>
+                ) : null}
                 <group name="hooklift-arm" position={[0, 0, -pose.slideMm / 1000]}>
-                  {lim.slideMaxMm > 0 ? (
-                    <group position={[side * 0.55, built.armTop - 0.2, mesh.zMax - 0.3]} rotation={[0, Math.PI / 2, 0]}>
-                      <TelescopeArrows value={pose.slideMm / 1000} max={lim.slideMaxMm / 1000} k={0.05} onValue={(m) => setPose({ slideMm: m * 1000 })} />
-                    </group>
-                  ) : null}
                   {meshes('arm')}
                 </group>
               </group>

@@ -3,7 +3,7 @@ import { OUTRIGGER_RATE, outriggerStow, stepOutrigger } from './outriggerStow'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { setLiveCrane } from './liveCrane'
-import { CraneDimensions, JointArcHandles, LinearScale, Protractor, TelescopeArrows } from './CraneGizmos'
+import { CraneDimensions, JointArcHandles, LinearScale, Protractor } from './CraneGizmos'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
@@ -166,7 +166,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
         </group>
       )}
       <group position={[0, 0.35, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <Suspense fallback={null}><JointArcHandles id="slew" offset={180} value={joints.slew} limits={lim('slew')} label={JOINT_NAMES.slew} onGrab={() => setSel('slew')} onAngle={(d) => setOne('slew', d)} /></Suspense>
+        <Suspense fallback={null}><JointArcHandles id="slew" offset={180} value={joints.slew} limits={lim('slew')} label={JOINT_NAMES.slew} radius={1.1} onGrab={() => setSel('slew')} onAngle={(d) => setOne('slew', d)} /></Suspense>
       </group>
       <group rotation={[0, -Math.PI / 2, 0]}>{meshes('base')}{def.stab ? <CraneStabs st={def.stab} spread={stabSpread ?? null} half={stabHalfSpan ?? null} strokeM={stabStrokeMm ? stabStrokeMm / 1000 : def.stab.legStroke} frameTop={frameTop} meshes={meshes} /> : null}</group>
       <group name="trw-crane-slew" rotation={[0, -Math.PI / 2 + joints.slew * rad, 0]}>
@@ -180,7 +180,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
           </group>
         )}
         <group position={[lat + 0.25, P1.h, P1.r]} rotation={[0, -Math.PI / 2, 0]}>
-          <Suspense fallback={null}><JointArcHandles id="a1" offset={0} value={joints.a1} limits={lim('a1')} label={JOINT_NAMES.a1} onGrab={() => setSel('a1')} onAngle={(d) => setOne('a1', d)} /></Suspense>
+          <Suspense fallback={null}><JointArcHandles id="a1" offset={0} value={joints.a1} limits={lim('a1')} label={JOINT_NAMES.a1} radius={0.7} onGrab={() => setSel('a1')} onAngle={(d) => setOne('a1', d)} /></Suspense>
         </group>
         <group position={[0, P1.h, P1.r]} rotation={[-(joints.a1 - A1_CAD) * rad, 0, 0]}>
           <group position={[0, -P1.h, -P1.r]}>{meshes('main')}</group>
@@ -195,7 +195,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
             </group>
           )}
           <group position={[lat + 0.25, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
-            <Suspense fallback={null}><JointArcHandles id="rel" offset={A1_CAD} value={joints.rel} limits={lim('rel')} label={JOINT_NAMES.rel} onGrab={() => setSel('rel')} onAngle={(d) => setOne('rel', d)} /></Suspense>
+            <Suspense fallback={null}><JointArcHandles id="rel" offset={A1_CAD} value={joints.rel} limits={lim('rel')} label={JOINT_NAMES.rel} radius={0.7} onGrab={() => setSel('rel')} onAngle={(d) => setOne('rel', d)} /></Suspense>
           </group>
           <group rotation={[-(joints.rel - REL_CAD) * rad, 0, 0]}>
             <group position={[0, -P2.h, -P2.r]}>
@@ -210,11 +210,6 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
             <mesh ref={tipRef} name="crane-tip-handle" visible={ctl} position={[lat, tipLocal.h, tipLocal.r]} material={handleMat} {...pick('ext')}>
               <sphereGeometry args={[0.18, 20, 14]} />
             </mesh>
-            <group position={[lat + 0.3, tipLocal.h, tipLocal.r]} rotation={[0, -Math.PI / 2, 0]}>
-              <group rotation={[0, 0, Math.atan2(U.h, U.r)]}>
-                <Suspense fallback={null}><TelescopeArrows value={joints.ext} max={lim('ext')[1]} size={1} k={0.04} onValue={(m) => setOne('ext', m)} /></Suspense>
-              </group>
-            </group>
             <group position={[0, -P2.h, -P2.r]}>
               <mesh name="crane-joint-ext" visible={ctl} position={[lat, extBase.h + 0.25, extBase.r]} rotation={[-Math.atan2(U.h, U.r), 0, 0]} material={jointMat} {...pick('ext')}>
                 <boxGeometry args={[0.18, 0.18, 0.4]} />
@@ -222,7 +217,7 @@ function Loaded({ x, frameTop, joints: propJoints, variant, onJoints: propOnJoin
               {(
                 <group position={[lat + 0.2, extBase.h + 0.35, extBase.r]} rotation={[0, -Math.PI / 2, 0]}>
                   <group rotation={[0, 0, Math.atan2(U.h, U.r)]}>
-                    <Suspense fallback={null}><LinearScale value={joints.ext} max={lim('ext')[1]} /></Suspense>
+                    <Suspense fallback={null}><LinearScale value={joints.ext} max={lim('ext')[1]} onValue={(m) => setOne('ext', m)} /></Suspense>
                   </group>
                 </group>
               )}
@@ -315,11 +310,12 @@ function CraneStabs({ st, spread, half, strokeM, frameTop, meshes }: { st: StabD
         const dir = side === 'left' ? -1 : 1, fx = st.footX[side] + dir * ext[side]
         return (
           <group key={side}>
-            <group position={[fx + dir * 0.3, 0.15, 0]} rotation={[0, dir > 0 ? 0 : Math.PI, 0]}>
-              <Suspense fallback={null}><TelescopeArrows value={ext[side]} max={st.maxExt} size={0.3} onValue={(m) => setExt((o) => ({ ...o, [side]: m }))} /></Suspense>
+            {/* scales start at the retracted / raised position; the drag arrows ride inside them */}
+            <group position={[st.footX[side] + dir * 0.3, 0.15, 0]} rotation={[0, dir > 0 ? 0 : Math.PI, 0]}>
+              <Suspense fallback={null}><LinearScale value={ext[side]} max={st.maxExt} size={0.5} onValue={(m) => setExt((o) => ({ ...o, [side]: m }))} /></Suspense>
             </group>
-            <group position={[fx, st.footBottom - down[side] - 0.2, 0]} rotation={[0, 0, -Math.PI / 2]}>
-              <Suspense fallback={null}><TelescopeArrows value={down[side]} max={strokeM} size={0.22} onValue={(m) => setDown((o) => ({ ...o, [side]: m }))} /></Suspense>
+            <group position={[fx + dir * 0.2, st.footBottom, 0]} rotation={[0, 0, -Math.PI / 2]}>
+              <Suspense fallback={null}><LinearScale value={down[side]} max={strokeM} size={0.4} onValue={(m) => setDown((o) => ({ ...o, [side]: m }))} /></Suspense>
             </group>
           </group>
         )

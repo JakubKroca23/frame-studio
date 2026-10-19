@@ -2,7 +2,7 @@ import { useGLTF } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
-import { TelescopeArrows } from './CraneGizmos'
+import { LinearScale } from './CraneGizmos'
 import CATALOG from './outriggerCatalog.json'
 import { OUTRIGGER_RATE, outriggerStow, stepOutrigger } from './outriggerStow'
 
@@ -82,11 +82,12 @@ function Loaded({ kind, x, top, reachLeft, reachRight }: { kind: AuxStabKind; x:
         const n = NODE[side], fx = footX[side] + n.dir * (st[side].ext / 1000)
         return (
           <group key={side}>
-            <group position={[fx + n.dir * 0.25, 0.1, 0]} rotation={[0, n.dir > 0 ? 0 : Math.PI, 0]}>
-              <TelescopeArrows value={st[side].ext / 1000} max={s.armStroke / 1000} size={0.22} onValue={(m) => set(side, { ext: m * 1000, down: m > 0 ? st[side].down : 0 })} />
+            {/* scales start at the retracted / raised position; the drag arrows ride inside them */}
+            <group position={[footX[side] + n.dir * 0.25, 0.1, 0]} rotation={[0, n.dir > 0 ? 0 : Math.PI, 0]}>
+              <LinearScale value={st[side].ext / 1000} max={s.armStroke / 1000} size={0.4} onValue={(m) => set(side, { ext: m * 1000, down: m > 0 ? st[side].down : 0 })} />
             </group>
-            <group position={[fx, footY - st[side].down / 1000 - 0.15, 0]} rotation={[0, 0, -Math.PI / 2]}>
-              <TelescopeArrows value={st[side].down / 1000} max={s.legStroke / 1000} size={0.18} onValue={(m) => set(side, { down: m * 1000 })} />
+            <group position={[fx + n.dir * 0.15, footY, 0]} rotation={[0, 0, -Math.PI / 2]}>
+              <LinearScale value={st[side].down / 1000} max={s.legStroke / 1000} size={0.3} onValue={(m) => set(side, { down: m * 1000 })} />
             </group>
           </group>
         )
