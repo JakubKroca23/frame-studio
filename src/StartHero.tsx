@@ -14,6 +14,7 @@ import { spotForDoor, HEADING, setPendingDrive } from './home/pose'
 import { useSceneFilters } from './view/sceneFilters'
 import { Sign3D } from './home/Sign3D'
 import { DW } from './view/Environment'
+import { DB_HASH } from './home/homeNav'
 
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 import { StudioLights } from './view/Viewport'
@@ -239,55 +240,64 @@ function viewPose(v: HomeView, aspect: number, fov: number) {
   return { pos, target }
 }
 
-/** Limited look-around per view (around the view pose): orbit ±AZ / ±POLAR, zoom ×ZOOM, pan ±PAN mm. */
-const LIMITS = { az: (18 * Math.PI) / 180, polar: (12 * Math.PI) / 180, zoom: [0.8, 1.2] as const, pan: 3000 }
+/** Free look-around in both views (orbit / pan / zoom), only kept sane: zoom range, camera above the ground. */
+const FREE = { minDist: 2500, maxDist: 140000, minPolar: 0.05, maxPolar: Math.PI / 2 - 0.06 }
 type Ctl = { target: THREE.Vector3; enabled: boolean; update: () => void; minAzimuthAngle: number; maxAzimuthAngle: number; minPolarAngle: number; maxPolarAngle: number; minDistance: number; maxDistance: number; addEventListener: (e: string, f: () => void) => void; removeEventListener: (e: string, f: () => void) => void }
 
-/** Camera rig: snaps to the door view on landing, glides smoothly between the view poses (controls off), then hands
- *  over to OrbitControls limited around that pose (limits re-centred per view). Renders on demand. */
+/** Camera rig: lands on the door view, glides smoothly between the view poses (from wherever the user is, controls
+ *  off while gliding), then hands over to free OrbitControls. Renders on demand. */
 function HeroCamera({ view }: { view: HomeView }) {
   const { camera, size, gl, invalidate, controls, scene } = useThree()
   const ctl = controls as unknown as Ctl | null
   const look = useRef<THREE.Vector3 | null>(null)
   const moving = useRef(false)
+  const shownView = useRef<HomeView | null>(null)
+  const userMoved = useRef(false)
   const goal = useRef(viewPose(view, 1, 42))
   useEffect(() => { Object.assign(window as unknown as object, { __heroInfo: gl.info, __heroCam: camera, __heroCtl: controls, __heroScene: scene, __heroGL: gl }) }, [gl, camera, controls, scene])
   const settle = () => {
-    // pose reached: the door view stays fixed (no user camera); the database view gets limits centred on it
     if (!ctl) return
-    if (view === 'doors') { ctl.target.copy(goal.current.target); ctl.enabled = false; return }
-    const g = goal.current, off = new THREE.Vector3().subVectors(g.pos, g.target), sph = new THREE.Spherical().setFromVector3(off)
-    ctl.target.copy(g.target)
-    ctl.minAzimuthAngle = sph.theta - LIMITS.az; ctl.maxAzimuthAngle = sph.theta + LIMITS.az
-    ctl.minPolarAngle = Math.max(0.05, sph.phi - LIMITS.polar); ctl.maxPolarAngle = Math.min(Math.PI / 2 - 0.03, sph.phi + LIMITS.polar)
-    ctl.minDistance = sph.radius * LIMITS.zoom[0]; ctl.maxDistance = sph.radius * LIMITS.zoom[1]
+    ctl.target.copy(goal.current.target)
+    ctl.minAzimuthAngle = -Infinity; ctl.maxAzimuthAngle = Infinity
+    ctl.minPolarAngle = FREE.minPolar; ctl.maxPolarAngle = FREE.maxPolar
+    ctl.minDistance = FREE.minDist; ctl.maxDistance = FREE.maxDist
     ctl.enabled = true
     ctl.update()
   }
   useEffect(() => {
-    const cam = camera as THREE.PerspectiveCamera
-    goal.current = viewPose(view, size.width / Math.max(1, size.height), cam.fov)
+    const cam = camera as THREE.PerspectiveCamera, aspect = size.width / Math.max(1, size.height)
+    const changed = shownView.current !== view
+    // resize only: keep the user's free camera; re-fit only while they have not moved it yet
+    if (!changed && look.current && (userMoved.current || moving.current)) { if (moving.current) goal.current = viewPose(view, aspect, cam.fov); invalidate(); return }
+    goal.current = viewPose(view, aspect, cam.fov)
+    if (!look.current) {
+      // landing: always on the door view; another requested view (#databaze) then glides in from there
+      const d = viewPose('doors', aspect, cam.fov)
+      camera.position.copy(d.pos); look.current = d.target.clone(); camera.lookAt(look.current); camera.updateMatrixWorld()
+    }
+    shownView.current = view
+    userMoved.current = false
     if (ctl) ctl.enabled = false
-    if (!look.current || reducedMotion()) {
-      camera.position.copy(goal.current.pos); look.current = goal.current.target.clone(); camera.lookAt(look.current); camera.updateMatrixWorld()
+    if (reducedMotion() || camera.position.distanceTo(goal.current.pos) < 5) {
+      camera.position.copy(goal.current.pos); look.current.copy(goal.current.target); camera.lookAt(look.current); camera.updateMatrixWorld()
       moving.current = false; settle()
     } else {
       // glide from wherever the user looked around to
-      if (ctl) look.current.copy(ctl.target)
+      if (ctl && changed) look.current.copy(ctl.target)
       moving.current = true
     }
     invalidate()
   }, [camera, size, view, invalidate, ctl]) // eslint-disable-line react-hooks/exhaustive-deps
-  // limited pan: keep the target within ±PAN of the view target
+  // user camera: remember it was moved; keep the orbit target on / above the ground
   useEffect(() => {
     if (!ctl) return
-    const clampPan = () => {
-      if (moving.current) return
-      const g = goal.current.target, d = new THREE.Vector3().subVectors(ctl.target, g)
-      if (d.length() > LIMITS.pan) { d.setLength(LIMITS.pan); const shift = new THREE.Vector3().addVectors(g, d).sub(ctl.target); ctl.target.add(shift); camera.position.add(shift) }
+    const onStart = () => { userMoved.current = true }
+    const onChange = () => {
+      if (moving.current || ctl.target.y >= 0) return
+      const dy = -ctl.target.y; ctl.target.y = 0; camera.position.y += dy
     }
-    ctl.addEventListener('change', clampPan)
-    return () => ctl.removeEventListener('change', clampPan)
+    ctl.addEventListener('start', onStart); ctl.addEventListener('change', onChange)
+    return () => { ctl.removeEventListener('start', onStart); ctl.removeEventListener('change', onChange) }
   }, [ctl, camera])
   useFrame((_, dt) => {
     if (!moving.current || !look.current) return
@@ -313,7 +323,17 @@ export function StartHero() {
   const dxf = useRef<HTMLInputElement>(null), trw = useRef<HTMLInputElement>(null), spec = useRef<HTMLInputElement>(null)
   const loadFile = useApp((s) => s.loadFile)
   const [doorHot, setDoorHot] = useState(-1)
-  const [view, setView] = useState<HomeView>('doors')
+  const [view, setViewRaw] = useState<HomeView>(() => (window.location.hash === DB_HASH ? 'db' : 'doors'))
+  // #databaze = home screen in the database view (top bar 'Databáze' from any page); back to the doors clears it
+  const setView = (v: HomeView) => {
+    setViewRaw(v)
+    if (v === 'doors' && window.location.hash === DB_HASH) history.replaceState(null, '', window.location.pathname + window.location.search)
+  }
+  useEffect(() => {
+    const onHash = () => { if (window.location.hash === DB_HASH) setViewRaw('db') }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setView('doors') }
     window.addEventListener('keydown', onKey)
@@ -339,7 +359,6 @@ export function StartHero() {
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
     null,
   ]
-  const dbBoard = { onClick: () => setView('db') }
   const items: Label[] = [
     { label: 'HIAB', logo: 'brand/logo-hiab-color.svg', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
     { label: 'MULTILIFT', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
@@ -384,11 +403,7 @@ export function StartHero() {
       {/* labels live in the 3D scene; these buttons are visually hidden, for keyboard / screen readers */}
       {view === 'db' ? (
         <button type="button" className="hero-back" data-testid="hero-back" onClick={() => setView('doors')} title="Zpět ke dveřím (Esc)">← Zpět</button>
-      ) : (
-        <button type="button" className="hero-db" data-testid="hero-db" onClick={dbBoard.onClick} title="Databáze modelů">
-          <strong>Databáze modelů</strong><span>HIAB · Multilift · přídavné podpěry</span>
-        </button>
-      )}
+      ) : null}
       {[...doors.filter((d): d is Label => !!d), ...items].map((it) => (
         <button key={it.testid} type="button" data-testid={it.testid} className="sr-only"
           onFocus={() => it.setHot?.(true)} onBlur={() => it.setHot?.(false)} onClick={it.onClick}>{it.label} – {it.sub}</button>
