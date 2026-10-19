@@ -1,7 +1,7 @@
 import { createContext, useContext, useRef, type ReactNode } from 'react'
 import { useApp } from '../state'
 import { OPEN_ACCEPT, isProjectFile, queueProjectFile } from '../openProject'
-import { goDatabase, openTrwFile } from '../home/homeNav'
+import { openTrwFile } from '../home/homeNav'
 
 /** Gate session for the logout button (provided by auth/Gate). */
 export const SessionCtx = createContext<{ loggedIn: boolean; logout: () => void }>({ loggedIn: false, logout: () => {} })
@@ -66,7 +66,6 @@ export function TopBar({ page, actions = [] }: { page: 'start' | 'novy' | 'vykre
       <nav className="topbar-actions" aria-label="Hlavní ovládání">
         <IconButton icon="plus" label="Nový – zpět na úvodní obrazovku" onClick={goHome} />
         <IconButton icon="trw" label="Otevřít TRW – projekt .trw nebo export .json" onClick={() => trwRef.current?.click()} />
-        <IconButton icon="db" label="Databáze modelů – HIAB · Multilift · přídavné podpěry" onClick={goDatabase} />
         <input ref={trwRef} hidden type="file" accept=".trw,.json,application/json,application/octet-stream" data-testid="topbar-trw-input"
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) openTrwFile(f) }} />
         {actions.length ? <span className="topbar-sep" aria-hidden="true" /> : null}

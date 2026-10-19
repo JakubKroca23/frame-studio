@@ -51,9 +51,9 @@ export function CraneStage({ def, variant, joints, onJoints }: { def: CraneDef; 
     <Canvas shadows camera={{ position: [19000, 7000, 7500], fov: 40, near: 10, far: 200000 }} gl={{ preserveDrawingBuffer: true }}>
       <color attach="background" args={['#1a2230']} />
       <ambientLight intensity={0.5} />
-      <directionalLight position={[8000, 15000, 6000]} intensity={1.4} castShadow />
+      <directionalLight position={[8000, 15000, 6000]} intensity={1.4} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-14000} shadow-camera-right={14000} shadow-camera-top={14000} shadow-camera-bottom={-14000} shadow-camera-near={100} shadow-camera-far={60000} shadow-bias={-0.0004} />
       <Environment preset="city" />
-      <ConcreteFloor size={60000} />
+      <ConcreteFloor size={60000} dark />
       <CraneArticulated key={`${def.key}-${variant.id}`} x={0} frameTop={0} joints={joints} variant={variant} onJoints={onJoints} fallback={null} />
       <OrbitControls makeDefault target={[0, 1800, 5500]} />
       <CamHook />

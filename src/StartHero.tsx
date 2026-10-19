@@ -357,7 +357,7 @@ export function StartHero() {
   // doors: left = model database (camera glides to the exhibits), middle = TRW import, right = empty for now.
   // DXF / PDF imports stay in code (inputs below, #vykres, configurator) but are not offered on the home screen.
   const doors: (Label | null)[] = [
-    null,
+    { label: 'Databáze modelů', sub: 'HIAB · Multilift · přídavné podpěry', onClick: () => setView('db'), testid: 'door-db' },
     { label: 'Import TRW', sub: '.trw projekt nebo export .json', onClick: () => trw.current?.click(), testid: 'door-trw' },
     null,
   ]

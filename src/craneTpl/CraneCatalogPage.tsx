@@ -3,11 +3,16 @@ import { TopBar } from '../components/TopBar'
 import { useEffect, useState } from 'react'
 import { CRANE_CATALOG, CRANE_DEFS, meshAngles, variantBoom } from '../trw/craneKinematics'
 import { CraneStage, ReportTable, fmtMm, usePose } from './CraneStage'
+import { Tree, TreeContent, TreeNode } from '../components/Tree'
 
 /** Jakub: the catalogue lists only cranes with their ORIGINAL model (own CAD/GLB); template-adapted drawing cranes
  *  (def.adapt – another crane's mesh rescaled) stay registered for trw matching but are not offered here. */
 export const SHOW_TEMPLATE_CRANES = false
 const listed = () => CRANE_DEFS.filter((d) => SHOW_TEMPLATE_CRANES || !d.adapt)
+/** Manufacturer = first word of the def name (HIAB, Jonsered …), in catalogue order. */
+const makerOf = (d: { name: string }) => d.name.split(/\s+/)[0]
+const makers = () => { const m = new Map<string, ReturnType<typeof listed>>(); for (const d of listed()) m.set(makerOf(d), [...(m.get(makerOf(d)) ?? []), d]); return [...m] }
+const modelName = (d: { name: string }) => d.name.slice(makerOf(d).length).trim() || d.name
 
 /** #jeraby — cranes with an original model (optionally also the drawing-catalog template cranes), articulated. */
 export function CraneCatalogPage() {
@@ -35,41 +40,56 @@ function Inner({ defKey, setKey, def, entry }: { defKey: string; setKey: (k: str
     <div className="app dxf3d">
       <TopBar page="jeraby" />
       <aside className="app-side">
-        <section className="block">
-          <h2>Model</h2>
-          <select value={defKey} onChange={(e) => setKey(e.target.value)} data-testid="crane-model" style={{ width: '100%' }}>
-            {listed().map((d) => <option key={d.key} value={d.key}>{d.name}{d.adapt ? ` · šablona ${d.adapt.template}` : ' · vzorový model'}</option>)}
-          </select>
-          <label className="muted" style={{ display: 'block', marginTop: 8 }}>
-            Varianta:{' '}
-            <select value={variant.id} onChange={(e) => setVid(e.target.value)} data-testid="tpl-variant">
-              {def.variants.map((v) => <option key={v.id} value={v.id}>{v.id} · {v.extensions} výsuv(y) · {fmtMm(v.hydMaxMm)} mm</option>)}
-            </select>
-          </label>
-          {pose.controls}
-          {entry ? (
-            <p className="muted" style={{ margin: '6px 0 0' }}>
-              Šablona HIAB {entry.template}; sloup {entry.dh ? `${entry.dh > 0 ? '+' : ''}${Math.round(entry.dh * 1000)} mm` : 'beze změny'}, základ ×{entry.baseX.toFixed(3)}. Výkres varianty: {ev?.sheet ?? '—'}.
-            </p>
-          ) : <p className="muted" style={{ margin: '6px 0 0' }}>Vzorový model (měřený CAD uživatele).</p>}
-        </section>
-        {entry ? (
-          <>
-            <section className="block">
-              <h2>Dosahy z výkresu (1-3 OUTREACH) [mm]</h2>
-              <table className="dxf3d-table">
-                <thead><tr><th>Var.</th><th>Výs.</th><th>Zasunuto</th><th>Hydr. max</th><th>+ ruční</th>{entry.variants.some((v) => v.jib) ? <th>s jibem</th> : null}</tr></thead>
-                <tbody>{entry.variants.map((v) => <tr key={v.id}><td>{v.id}</td><td>{v.extensions}</td><td>{fmtMm(v.minOutreachMm)}</td><td>{fmtMm(v.hydMaxMm)}</td><td>{fmtMm(v.manMaxMm)}</td>{entry.variants.some((x) => x.jib) ? <td title="jib nemodelován (LESSONS L7)">{fmtMm(v.jib?.maxMm)} / {fmtMm(v.jib?.manMm)}</td> : null}</tr>)}</tbody>
-              </table>
-            </section>
-            <section className="block">
-              <h2>Rozměry: výkres × šablona [mm]</h2>
-              <ReportTable rows={entry.report} />
-              {entry.notes.length ? <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 13 }}>{entry.notes.map((n, i) => <li key={i}>{n}</li>)}</ul> : null}
-              <p className="muted" style={{ margin: '6px 0 0' }}>Výkresy: {entry.sheets.join(', ')}</p>
-            </section>
-          </>
-        ) : null}
+        <Tree label="Katalog jeřábů">
+          <TreeNode label="Hydraulické jeřáby" count={listed().length} open>
+            {makers().map(([maker, defs]) => (
+              <TreeNode key={maker} label={maker} count={defs.length} open={defs.some((d) => d.key === defKey)}>
+                {defs.map((d) => d.key !== defKey ? (
+                  <TreeNode key={d.key} label={modelName(d)} hint={d.adapt ? `šablona ${d.adapt.template}` : undefined} onSelect={() => setKey(d.key)} testid={`crane-node-${d.key}`} />
+                ) : (
+                  <TreeNode key={d.key} label={modelName(d)} hint={d.adapt ? `šablona ${d.adapt.template}` : undefined} selected open onSelect={() => {}} testid={`crane-node-${d.key}`}>
+                    <TreeNode label="Varianty" count={def.variants.length} open>
+                      {def.variants.map((v) => (
+                        <TreeNode key={v.id} label={v.id} hint={`${v.extensions} výs. · ${fmtMm(v.hydMaxMm)} mm`} selected={v.id === variant.id} onSelect={() => setVid(v.id)} testid={`tpl-variant-${v.id}`} />
+                      ))}
+                    </TreeNode>
+                    <TreeNode label="Ovládání" open>
+                      <TreeContent>{pose.controls}</TreeContent>
+                    </TreeNode>
+                    {entry ? (
+                      <>
+                        <TreeNode label="Dosahy z výkresu (1-3 OUTREACH)" count={entry.variants.length}>
+                          <TreeContent>
+                            <table className="dxf3d-table">
+                              <thead><tr><th>Var.</th><th>Výs.</th><th>Zasunuto</th><th>Hydr. max</th><th>+ ruční</th>{entry.variants.some((v) => v.jib) ? <th>s jibem</th> : null}</tr></thead>
+                              <tbody>{entry.variants.map((v) => <tr key={v.id}><td>{v.id}</td><td>{v.extensions}</td><td>{fmtMm(v.minOutreachMm)}</td><td>{fmtMm(v.hydMaxMm)}</td><td>{fmtMm(v.manMaxMm)}</td>{entry.variants.some((x) => x.jib) ? <td title="jib nemodelován (LESSONS L7)">{fmtMm(v.jib?.maxMm)} / {fmtMm(v.jib?.manMm)}</td> : null}</tr>)}</tbody>
+                            </table>
+                            <p className="muted" style={{ margin: '4px 0 0' }}>[mm]</p>
+                          </TreeContent>
+                        </TreeNode>
+                        <TreeNode label="Rozměry: výkres × šablona" count={entry.report.length}>
+                          <TreeContent>
+                            <ReportTable rows={entry.report} />
+                            {entry.notes.length ? <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 13 }}>{entry.notes.map((n, i) => <li key={i}>{n}</li>)}</ul> : null}
+                          </TreeContent>
+                        </TreeNode>
+                      </>
+                    ) : null}
+                    <TreeNode label="Zdroj">
+                      <TreeContent>
+                        {entry ? (
+                          <p className="muted" style={{ margin: 0 }}>
+                            Šablona HIAB {entry.template}; sloup {entry.dh ? `${entry.dh > 0 ? '+' : ''}${Math.round(entry.dh * 1000)} mm` : 'beze změny'}, základ ×{entry.baseX.toFixed(3)}. Výkres varianty: {ev?.sheet ?? '—'}. Výkresy: {entry.sheets.join(', ')}
+                          </p>
+                        ) : <p className="muted" style={{ margin: 0 }}>Vzorový model (měřený CAD uživatele).</p>}
+                      </TreeContent>
+                    </TreeNode>
+                  </TreeNode>
+                ))}
+              </TreeNode>
+            ))}
+          </TreeNode>
+        </Tree>
       </aside>
       <main className="app-main" style={{ position: 'relative', minHeight: 420 }}>
         <CraneStage def={def} variant={variant} joints={pose.joints} onJoints={pose.setJoints} />

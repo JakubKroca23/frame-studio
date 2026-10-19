@@ -7,9 +7,12 @@ import * as THREE from 'three'
  */
 export const concreteMat = new THREE.MeshStandardMaterial({ color: '#9a9d9e', roughness: 0.92, metalness: 0.04, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 })
 
-export function ConcreteFloor({ size = 80000, x = 0, z = 0, y, name = 'floor' }: { size?: number; x?: number; z?: number; y?: number; name?: string }) {
+/** Darker graphite floor for the catalogue model viewers (matches the dark UI, keeps shadows readable). */
+export const darkFloorMat = new THREE.MeshStandardMaterial({ color: '#3a4049', roughness: 0.9, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 })
+
+export function ConcreteFloor({ size = 80000, x = 0, z = 0, y, name = 'floor', dark = false }: { size?: number; x?: number; z?: number; y?: number; name?: string; dark?: boolean }) {
   return (
-    <mesh name={name} rotation={[-Math.PI / 2, 0, 0]} position={[x, y ?? -size * 2.5e-5, z]} material={concreteMat} receiveShadow>
+    <mesh name={name} rotation={[-Math.PI / 2, 0, 0]} position={[x, y ?? -size * 2.5e-5, z]} material={dark ? darkFloorMat : concreteMat} receiveShadow>
       <planeGeometry args={[size, size]} />
     </mesh>
   )

@@ -51,6 +51,7 @@ function Loaded({ kind, x, top, reachLeft, reachRight }: { kind: AuxStabKind; x:
   const gltf = useGLTF(`${import.meta.env.BASE_URL}models/outrigger/${s.file}`)
   const { obj, off, nodes, footY, footX } = useMemo(() => {
     const o = gltf.scene.clone(true)
+    o.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true })
     const b = new THREE.Box3().setFromObject(o)
     const nodes = Object.fromEntries(['armL', 'armR', 'legL', 'legR'].map((n) => [n, o.getObjectByName(n) ?? null]))
     const lb = nodes.legR ? new THREE.Box3().setFromObject(nodes.legR) : b
