@@ -1,5 +1,5 @@
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { OrbitControls, useGLTF } from '@react-three/drei'
+import { Billboard, OrbitControls, useGLTF } from '@react-three/drei'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
@@ -51,13 +51,15 @@ const standMat = new THREE.MeshStandardMaterial({ color: '#8ec5ff', roughness: 0
 
 /** Exhibits are see-through at rest and solid + glowing on hover (smooth). Per-exhibit material clones, so the
  *  shared catalogue/configurator materials are untouched; depthWrite stays on (no sorting artefacts within a model). */
+/** ContSystem brand blue (index.css --blue) for hover highlights */
+export const BRAND_BLUE = '#1f6fe0'
 const REST_OPACITY = 0.6
-function useFadeMats(bases: THREE.MeshStandardMaterial[], hot: boolean, glow = 0.35) {
+function useFadeMats(bases: THREE.MeshStandardMaterial[], hot: boolean, glow = 0.55) {
   const { invalidate } = useThree()
   const mats = useMemo(() => bases.map((b) => {
     const m = b.clone()
     m.transparent = true; m.opacity = REST_OPACITY; m.depthWrite = true
-    m.emissive = new THREE.Color('#3ee6c4'); m.emissiveIntensity = 0
+    m.emissive = new THREE.Color(BRAND_BLUE); m.emissiveIntensity = 0
     return m
   }), [bases])
   useEffect(() => () => mats.forEach((m) => m.dispose()), [mats])
@@ -200,22 +202,22 @@ function Exhibit({ name, x, z, r, standLen, rot = 0, children, ...h }: Hover & {
   return (
     <group name={name} position={[x, 0, z]} rotation={[0, rot, 0]} {...hoverProps(h)}><group position={[-x, 0, 0]}>
       <FloorShadow x={x} sx={standLen + 2200} sz={3000} />
-      <mesh position={[x, 16, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[r - 140, r, 64]} />
-        <meshBasicMaterial color={h.hot ? '#3ee6c4' : '#5b6573'} transparent opacity={h.hot ? 0.95 : 0.45} depthWrite={false} polygonOffset polygonOffsetFactor={-6} polygonOffsetUnits={-6} />
-      </mesh>
       <SteelStand x={x} len={standLen} brace={!rot} />
       <Boundary fallback={null}><Suspense fallback={null}>{children}</Suspense></Boundary>
     </group></group>
   )
 }
 
-/** Small floating logo/title + subtitle low in front of an exhibit (no board, no post), turned toward the default camera. */
-function ExhibitSign({ x, z, w = 3600, title, sub, logo, hot, setHot, open, name }: Hover & { x: number; z: number; w?: number; title: string; sub: string; logo?: string; name: string }) {
-  const cam = viewPose('db', 16 / 9, 42).pos, yaw = Math.atan2(cam.x - x, cam.z - z), W = w, Hs = 1250
-  return <Sign3D name={name} bare w={W} h={Hs} title={title} sub={sub} logo={logo} hot={hot} position={[x, 60 + Hs / 2, z]} rotation={[0, yaw, 0]} onOver={() => setHot(true)} onOut={() => setHot(false)} onOpen={open} />
+/** Exhibit card above its model: identical size / fonts for all, category title + logo or short description,
+ *  always facing the camera (billboard). */
+const CARD = { w: 3800, h: 1900, y: 5400 }
+function ExhibitSign({ x, z, title, sub, logo, hot, setHot, open, name }: Hover & { x: number; z: number; title: string; sub: string; logo?: string; name: string }) {
+  return (
+    <Billboard position={[x, CARD.y, z]} lockX lockZ>
+      <Sign3D name={name} card w={CARD.w} h={CARD.h} title={title} sub={sub} logo={logo} hot={hot} onOver={() => setHot(true)} onOut={() => setHot(false)} onOpen={open} />
+    </Billboard>
+  )
 }
-
 
 export type HomeView = 'doors' | 'db'
 /** Fixed views (no free orbit): the hall doors face-on, and the model database (3 exhibits left of the hall). */
@@ -225,7 +227,7 @@ const VIEWS: Record<HomeView, { target: THREE.Vector3; dir: THREE.Vector3; halfW
     // Jakub: a bit farther, higher, more to the right, yawed a bit to the left
     tweak: { far: 1.2 * 1.28, right: 2500, up: 2500, yawLeft: (4 * Math.PI) / 180 } },
   // the row of exhibits along the left wall, seen from the left / slightly in front and above
-  db: { target: new THREE.Vector3(ROW_X + 400, 1300, HOOK_AT.z + 2500), dir: new THREE.Vector3(-1, 0.36, 0.5).normalize(), halfW: 14500, halfH: 5200 },
+  db: { target: new THREE.Vector3(ROW_X + 400, 2400, HOOK_AT.z + 2500), dir: new THREE.Vector3(-1, 0.36, 0.5).normalize(), halfW: 14500, halfH: 5200 },
 }
 function viewPose(v: HomeView, aspect: number, fov: number) {
   const V = VIEWS[v], t = Math.tan(((fov / 2) * Math.PI) / 180)
@@ -312,11 +314,11 @@ function HeroCamera({ view }: { view: HomeView }) {
 
 type Label = { label: string; sub: string; logo?: string; onClick: () => void; testid: string; hot?: boolean; setHot?: (h: boolean) => void; cfg?: boolean }
 
-const SIGN_AT: Record<string, { x: number; z: number; w?: number }> = {
-  // in front of each exhibit on the camera (left, −x) side
-  'start-crane': { x: CRANE_AT.x - 2600, z: CRANE_AT.z + 1200 },
-  'start-multilift': { x: HOOK_AT.x - 2600, z: HOOK_AT.z + 3600 },
-  'start-aux': { x: AUX_AT.x - 2400, z: AUX_AT.z + 1200, w: 5600 },
+const SIGN_AT: Record<string, { x: number; z: number }> = {
+  // centred above each exhibit
+  'start-crane': { x: CRANE_AT.x, z: CRANE_AT.z },
+  'start-multilift': { x: HOOK_AT.x, z: HOOK_AT.z },
+  'start-aux': { x: AUX_AT.x, z: AUX_AT.z },
 }
 
 export function StartHero() {
@@ -360,9 +362,9 @@ export function StartHero() {
     null,
   ]
   const items: Label[] = [
-    { label: 'HIAB', logo: 'brand/logo-hiab-color.svg', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
-    { label: 'MULTILIFT', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
-    { label: 'PŘÍDAVNÉ PODPĚRY', sub: 'Katalog dostupných přídavných podpěr', onClick: () => go('#podpery'), testid: 'start-aux', hot: auxHot, setHot: setAuxHot, cfg: true },
+    { label: 'Hydraulický jeřáb', logo: 'brand/logo-hiab-color.svg', sub: 'Katalog dostupných jeřábů', onClick: () => go('#jeraby'), testid: 'start-crane', hot: craneHot, setHot: setCraneHot, cfg: true },
+    { label: 'Nosič kontejnerů', logo: 'brand/logo-multilift-color.svg', sub: 'Katalog dostupných nosičů', onClick: () => go('#multilift'), testid: 'start-multilift', hot: hookHot, setHot: setHookHot, cfg: true },
+    { label: 'Přídavné podpěry', sub: 'Katalog přídavných podpěr', onClick: () => go('#podpery'), testid: 'start-aux', hot: auxHot, setHot: setAuxHot, cfg: true },
   ]
   return (
     <section className={drive ? 'start-hero is-driving' : 'start-hero'} aria-label="Hala ContSystem – vstup do CS Studia">
