@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and deploy Frame Studio to server-main (https://frame.propoj.app).
+# Build and deploy Frame Studio to server-main (https://cs-studio.propoj.app).
 # Usage: scripts/deploy.sh            (SERVER_KEY, SERVER_HOST override defaults)
 set -euo pipefail
 KEY="${SERVER_KEY:-/workspace/server_main.key}"
@@ -25,4 +25,4 @@ tar -czf - -C dist . | $SSH "$HOST" "find $DIR/dist -mindepth 1 -delete && tar -
 # up -d is a no-op when nothing changed. nginx.conf is a single-file bind mount: tar replaces the inode, so the
 # container keeps the old file until it is restarted → restart only when the config differs from the running one.
 $SSH "$HOST" "cd $DIR && docker compose up -d && if docker exec frame-studio cat /etc/nginx/conf.d/default.conf | cmp -s - nginx.conf; then docker exec frame-studio nginx -s reload; else docker restart frame-studio >/dev/null && echo 'nginx config changed: container restarted'; fi"
-echo "Deployed: https://frame.propoj.app/"
+echo "Deployed: https://cs-studio.propoj.app/"

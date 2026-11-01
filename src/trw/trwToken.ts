@@ -1,6 +1,6 @@
 /**
  * Short-lived trw token (trw button "Otevřít ve frame-studio" opens frame with `#trw_token=…`, valid 12 h).
- * The trw session cookie is not sent from frame.propoj.app, so requests to trw carry `Authorization: Bearer`
+ * The trw session cookie is not sent from cs-studio.propoj.app, so requests to trw carry `Authorization: Bearer`
  * (credentials: 'include' stays as a fallback) and the live WebSocket gets `token` in its first message.
  */
 export const TRW_TOKEN_KEY = 'trw_token'

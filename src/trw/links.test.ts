@@ -18,8 +18,8 @@ describe('link params', () => {
     expect(parseLinkParams('?trw=https://evil.com/a')?.kind).toBe('invalid')
     expect(parseLinkParams('?from=cssim')).toEqual({ kind: 'cssim' })
     expect(parseLinkParams('?x=1')).toBeNull()
-    expect(stripLinkParams(`https://frame.propoj.app/?a=1&trw=${encodeURIComponent(U)}`)).toBe('/?a=1#novy')
-    expect(stripLinkParams('https://frame.propoj.app/?from=cssim')).toBe('/#novy')
+    expect(stripLinkParams(`https://cs-studio.propoj.app/?a=1&trw=${encodeURIComponent(U)}`)).toBe('/?a=1#novy')
+    expect(stripLinkParams('https://cs-studio.propoj.app/?from=cssim')).toBe('/#novy')
   })
   it('builds CS Sim link', () => {
     expect(csSimLink(null)).toBe('https://sim.propoj.app/')

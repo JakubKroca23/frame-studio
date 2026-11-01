@@ -47,7 +47,7 @@ The authoritative spec is in the trw repo: `docs/live-stability-api.md` (impleme
 | WebSocket | `wss://trw.propoj.app/api/stability/live`: one JSON message in, one out |
 | HTTP fallback | `POST https://trw.propoj.app/api/stability/live`, JSON, `credentials: 'include'` |
 | Auth | `trw_session` cookie. WS close **4401** = not logged in, **4403** = origin not allowed |
-| CORS | `https://frame.propoj.app` (and `sim.propoj.app`) |
+| CORS | `https://cs-studio.propoj.app` (and `sim.propoj.app`) |
 
 ### Request
 
