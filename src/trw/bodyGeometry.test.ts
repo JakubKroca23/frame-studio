@@ -15,7 +15,13 @@ describe('parametric body geometry', () => {
     expect(b.max[1] - b.min[1]).toBeGreaterThanOrEqual(80 + sh)
     expect(b.max[1] - frameTop).toBeGreaterThan(500)
   })
-  it('tipper bounds match length, width and tub height', () => {
+  it('cabinet closed box matches TRW footprint', () => {
+    const boxes = parametricBodyBoxes({ type: 'cabinet', xFrom: 1000, xTo: 5000, width: 2400, height: 800, sideHeight: null, frameTop: 1000 })
+    const b = boundsOf(boxes)!
+    expect(b.max[0] - b.min[0]).toBeCloseTo(4000, 0)
+    expect(b.max[2] - b.min[2]).toBeCloseTo(2400, 0)
+  })
+  it('tipper bounds use tapered walls', () => {
     const xFrom = 2000
     const xTo = 6200
     const W = 2400

@@ -1,5 +1,12 @@
 {
-  "_sync": "Copy body_type and acc_code from JakubKroca23/trw docs/trw-format.md (PR #27) when available. Do not add codes here without that table.",
-  "body_type": {},
+  "_sync": "BODYDATA TYPE = first token of trw type string (e.g. 'la AllDoor' -> la). Meanings derived from observed behavior; sync with trw PR #27 docs when merged.",
+  "body_type": {
+    "la": "cabinet",
+    "hookframe": "hooklift",
+    "con": "container",
+    "spec": "spec",
+    "pkippi": "other"
+  },
+  "body_skip_codes": ["empty"],
   "acc_code": {}
 }

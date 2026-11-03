@@ -76,13 +76,24 @@ function ParametricBody({ body, frameTop, simple }: { body: ExtBody; frameTop: n
   if (body.xFrom == null || body.xTo == null || body.xTo <= body.xFrom) return null
   const cx = (body.xFrom + body.xTo) / 2
   const y0 = frameTop + 120
-  const c = body.type === 'tipper' ? '#b07a2a' : '#7a8a99'
+  const c =
+    body.type === 'tipper'
+      ? '#b07a2a'
+      : body.type === 'cabinet'
+        ? '#5a8a7a'
+        : body.type === 'container'
+          ? '#6b7c8f'
+          : '#7a8a99'
   const top =
     body.type === 'flatbed'
       ? y0 + 80 + (body.sideHeight ?? 400)
       : body.type === 'tipper'
         ? y0 + 60 + H
-        : y0 + Math.max(H, body.type === 'hooklift' ? 1600 : 0)
+        : body.type === 'cabinet'
+          ? y0 + Math.max(H, 800)
+          : body.type === 'container'
+            ? y0 + Math.max(H, 2590)
+            : y0 + Math.max(H, body.type === 'hooklift' ? 1600 : 0)
   return (
     <group name="trw-body">
       {boxes.map((b, i) => (
@@ -94,7 +105,7 @@ function ParametricBody({ body, frameTop, simple }: { body: ExtBody; frameTop: n
           <meshStandardMaterial color="#222" />
         </mesh>
       ) : null}
-      {simple ? null : <LeaderLabel position={[cx, top, 0]} text={`${bodyLabel(body.type, body.typeRaw)}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />}
+      {simple ? null : <LeaderLabel position={[cx, top, 0]} text={`${bodyLabel(body.type, body.typeRaw, body.typeCode, body.catalogName)}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />}
     </group>
   )
 }
@@ -106,7 +117,7 @@ function Body({ body, frameTop, frameRear, simple }: { body: ExtBody; frameTop: 
     return (
       <group name="trw-body-hooklift">
         <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} spec={spec} fallback={<ParametricBody body={{ ...body, xFrom: xFront, xTo: xRear }} frameTop={frameTop} simple />} />
-        <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${bodyLabel(body.type, body.typeRaw)}${spec ? ` ${spec.name}` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
+        <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${bodyLabel(body.type, body.typeRaw, body.typeCode, body.catalogName)}${spec ? ` ${spec.name}` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
       </group>
     )
   }
@@ -162,9 +173,9 @@ function ExtraOutrigger({ a, frameTop }: { a: ExtAccessory; frameTop: number }) 
 }
 
 function Stability({ st, slewDeg, frameTop }: { st: ExtStability; slewDeg: number; frameTop: number }) {
+  const forces = useSceneFilters((s) => s.forces)
   const e = nearestAngle(st, slewDeg)
   if (!e) return null
-  const forces = useSceneFilters((s) => s.forces)
   const color = e.pass === false ? '#d62828' : e.pass === true ? '#2a9d3a' : '#888'
   return (
     <group name="trw-stability">

@@ -1,4 +1,4 @@
-import { bodyTypeFromTrwCode, accKindFromCode } from './trwFormatCodes'
+import { bodyTypeFromTrwCode, accKindFromCode, bodydataTypeCode, isSkippedBodyType } from './trwFormatCodes'
 import { posNum } from './chassisMeasured'
 
 /**
@@ -7,12 +7,16 @@ import { posNum } from './chassisMeasured'
  * y = lateral (trw y_mm → three.js Z), z/height = up.
  */
 
-export type BodyType = 'flatbed' | 'tipper' | 'hooklift' | 'other'
+export type BodyType = 'flatbed' | 'tipper' | 'hooklift' | 'cabinet' | 'container' | 'spec' | 'other'
 
 export interface ExtBody {
   type: BodyType
   /** Raw type string from the export (null if missing). */
   typeRaw: string | null
+  /** First token of TYPE (BODYDATA code), lower case. */
+  typeCode?: string | null
+  /** Remainder of TYPE after the code (catalog name). */
+  catalogName?: string | null
   /** BODYDATA / BODYDATA_A / HOOK / … when from `bodies[]`. */
   sourceSection?: string | null
   xFrom: number | null
@@ -142,7 +146,15 @@ export function unknownFields(o: Obj): Set<string> {
 const isUnknown = (u: Set<string>, ...keys: string[]) => keys.some((k) => u.has(k) || u.has(k.replace(/_mm$/, '')))
 const sub = (v: number | null, x0: number) => (v == null ? null : v - x0)
 
-export const BODY_TYPE_LABEL: Record<BodyType, string> = { flatbed: 'valník', tipper: 'sklápěč', hooklift: 'hákový nosič', other: 'nástavba' }
+export const BODY_TYPE_LABEL: Record<BodyType, string> = {
+  flatbed: 'valník',
+  tipper: 'sklápěč',
+  hooklift: 'hákový nosič',
+  cabinet: 'skříňová nástavba',
+  container: 'kontejner',
+  spec: 'nástavba (spec)',
+  other: 'nástavba',
+}
 
 export function normalizeBodyType(raw: string | null): BodyType {
   const fromCode = bodyTypeFromTrwCode(raw)
@@ -150,8 +162,9 @@ export function normalizeBodyType(raw: string | null): BodyType {
   const trimmed = (raw ?? '').trim()
   const s = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   if (/flat|valnik|platform|plato|dropside|stake/.test(s)) return 'flatbed'
-  if (/tip|sklap|dump|kipper/.test(s)) return 'tipper'
-  if (/hook|hak|abroll|roll.?off|multilift|ampliroll/.test(s)) return 'hooklift'
+  if (/tip|sklap|dump|kipper/.test(s) && !/^pkippi\b/.test(s)) return 'tipper'
+  if (/hook|hak|abroll|roll.?off|multilift|ampliroll|hookframe/.test(s)) return 'hooklift'
+  if (/^con\b|kontejner|container/.test(s)) return 'container'
   return 'other'
 }
 
@@ -191,12 +204,18 @@ function dims(o: Obj) {
 export function parseConfigBody(v: unknown, x0: number, warnings: string[] = [], unknown: string[] = []): ExtBody | undefined {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
   const o = v as Obj
+  const typeRaw = pickStr(o, 'type', 'kind', 'body_type', 'category')
+  if (isSkippedBodyType(typeRaw)) return undefined
+  const { code, catalogName } = bodydataTypeCode(typeRaw)
   const u = unknownFields(o)
   const quiet = (label: string, ...keys: string[]) => (isUnknown(u, ...keys) ? (unknown.push(label), true) : false)
   const sourceSection = pickStr(o, 'source_section', 'section')
-  const typeRaw = pickStr(o, 'type', 'kind', 'body_type', 'category')
   let type = normalizeBodyType(typeRaw)
   if (/^hook$/i.test(sourceSection ?? '') && type === 'other') type = 'hooklift'
+  if (code === 'pkippi') {
+    type = 'other'
+    warnings.push('Typ nástavby „pkippi“ není ověřen – zobrazen obecný kvádr (ne sklápěč).')
+  }
   const from = posNum(o.x_from_mm) ?? pickNum(o, 'x_from', 'from_mm', 'x_start_mm', 'x_min_mm')
   const to = posNum(o.x_to_mm) ?? pickNum(o, 'x_to', 'to_mm', 'x_end_mm', 'x_max_mm')
   const d = dims(o)
@@ -210,6 +229,8 @@ export function parseConfigBody(v: unknown, x0: number, warnings: string[] = [],
   const b: ExtBody = {
     type,
     typeRaw,
+    typeCode: code || null,
+    catalogName,
     sourceSection,
     xFrom,
     xTo,
@@ -221,7 +242,7 @@ export function parseConfigBody(v: unknown, x0: number, warnings: string[] = [],
     cog: parseCog(o, x0),
   }
   if (!typeRaw) warnings.push('Typ nástavby chybí – zobrazen obecný kvádr.')
-  else if (type === 'other') warnings.push(`Typ nástavby „${typeRaw}“ není v tabulce typů – zobrazen obecný kvádr.`)
+  else if (type === 'other' && code !== 'pkippi') warnings.push(`Typ nástavby „${typeRaw}“ není v tabulce typů – zobrazen obecný kvádr.`)
   if (xFrom == null || xTo == null) warnings.push('Poloha nástavby (x od/do) chybí – nástavba nezobrazena.')
   if (d.width == null && !quiet('šířka nástavby', 'width_mm')) warnings.push('Šířka nástavby chybí – použito 2500 mm.')
   if (type === 'flatbed' && b.sideHeight == null && !quiet('výška bočnic', 'side_height_mm')) warnings.push('Výška bočnic valníku chybí – použito 400 mm.')

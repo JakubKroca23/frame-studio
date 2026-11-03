@@ -22,7 +22,7 @@ export function TrwExtendedPanel({ ext, slewDeg, onSlew, showSectors, onShowSect
       {bodies.length ? (
         <div>
           <strong>Nástavba{bodies.length > 1 ? ` (${bodies.length})` : ''}:</strong>{' '}
-          {bodies.map((b) => `${bodyLabel(b.type, b.typeRaw)}${b.length != null ? ` ${Math.round(b.length)} mm` : ''}${b.massKg ? ` ${Math.round(b.massKg)} kg` : ''}`).join(' · ')}
+          {bodies.map((b) => `${bodyLabel(b.type, b.typeRaw, b.typeCode, b.catalogName)}${b.length != null ? ` ${Math.round(b.length)} mm` : ''}${b.massKg ? ` ${Math.round(b.massKg)} kg` : ''}`).join(' · ')}
         </div>
       ) : null}
       {hooklifts.length ? (

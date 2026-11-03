@@ -82,14 +82,41 @@ export function parametricBodyBoxes(input: BodyDrawInput): BodyBox[] {
     parts.push({ pos: [input.xFrom + 250, y0 + 200 + armH / 2, 0], size: [250, armH, 300] })
     parts.push({ pos: [input.xFrom - 250, y0 + 200 + armH, 0], size: [600, 200, 250] })
     parts.push({ pos: [input.xFrom - 50, y0 + 200 + armH - 200, 0], size: [80, 300, 80] })
+  } else if (input.type === 'cabinet') {
+    const wallT = 40
+    const innerH = Math.max(H, 800)
+    parts.push({ pos: [cx, y0 + floorT / 2, 0], size: [L, floorT, W] })
+    parts.push({ pos: [cx, y0 + floorT + innerH / 2, 0], size: [L, innerH, W] })
+    for (const s of [-1, 1]) parts.push({ pos: [cx, y0 + floorT + innerH / 2, (s * (W - wallT)) / 2], size: [L, innerH, wallT] })
+    parts.push({ pos: [input.xFrom + wallT / 2, y0 + floorT + innerH / 2, 0], size: [wallT, innerH, W] })
+    parts.push({ pos: [input.xTo - wallT / 2, y0 + floorT + innerH / 2, 0], size: [wallT, innerH, W] })
+  } else if (input.type === 'container') {
+    const wallT = 50
+    const innerH = Math.max(H, 2590)
+    const cor = 180
+    parts.push({ pos: [cx, y0 + innerH / 2, 0], size: [L, innerH, W] })
+    for (const [px, pz] of [
+      [input.xFrom + cor / 2, (W - cor) / 2],
+      [input.xFrom + cor / 2, -(W - cor) / 2],
+      [input.xTo - cor / 2, (W - cor) / 2],
+      [input.xTo - cor / 2, -(W - cor) / 2],
+    ] as [number, number][]) {
+      parts.push({ pos: [px, y0 + cor / 2, pz], size: [cor, cor, cor] })
+      parts.push({ pos: [px, y0 + innerH - cor / 2, pz], size: [cor, cor, cor] })
+    }
+    for (const s of [-1, 1]) parts.push({ pos: [cx, y0 + innerH / 2, (s * (W - wallT)) / 2], size: [L, innerH, wallT] })
   } else {
     parts.push({ pos: [cx, y0 + H / 2, 0], size: [L, H, W] })
   }
   return parts
 }
 
-export function bodyLabel(type: BodyType, typeRaw: string | null): string {
+export function bodyLabel(type: BodyType, typeRaw: string | null, typeCode?: string | null, catalogName?: string | null): string {
+  if (type === 'cabinet' && typeCode === 'la') return 'Nástavba (la)'
+  if (type === 'spec') return catalogName ? `Nástavba (${typeCode ?? 'spec'} · ${catalogName})` : `Nástavba (${typeCode ?? 'spec'})`
+  if (type === 'container') return typeCode === 'con' ? 'Kontejner (con)' : BODY_TYPE_LABEL.container
   const base = BODY_TYPE_LABEL[type]
   if (type === 'other' && typeRaw) return `${base} (${typeRaw})`
+  if (typeCode && type !== 'cabinet') return `${base} (${typeCode})`
   return base
 }
