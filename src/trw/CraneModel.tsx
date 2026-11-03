@@ -1,5 +1,6 @@
 import { useGLTF } from '@react-three/drei'
-import { Suspense, useMemo, type ReactNode } from 'react'
+import { Suspense, useMemo, useRef, type MutableRefObject, type ReactNode } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Boundary } from './HookliftModel'
@@ -32,7 +33,7 @@ export function craneHasOriginalModel(name: string | null | undefined): boolean 
 
 const material = new THREE.MeshStandardMaterial({ color: '#222222', metalness: 0.35, roughness: 0.5, emissive: '#0b0d10', side: THREE.DoubleSide })
 
-export function CraneModel(props: { file: string; x: number; frameTop: number; slewDeg: number; fallback: ReactNode }) {
+export function CraneModel(props: { file: string; x: number; frameTop: number; slewDeg?: number; slewRef?: MutableRefObject<number>; fallback: ReactNode }) {
   return (
     <Boundary fallback={props.fallback}>
       <Suspense fallback={props.fallback}>
@@ -42,7 +43,7 @@ export function CraneModel(props: { file: string; x: number; frameTop: number; s
   )
 }
 
-function Loaded({ file, x, frameTop, slewDeg }: { file: string; x: number; frameTop: number; slewDeg: number }) {
+function Loaded({ file, x, frameTop, slewDeg = 0, slewRef, fallback: _fb }: { file: string; x: number; frameTop: number; slewDeg?: number; slewRef?: MutableRefObject<number>; fallback: ReactNode }) {
   const gltf = useGLTF(`${import.meta.env.BASE_URL}models/crane/${file}`)
   const groups = useMemo(() => {
     gltf.scene.updateMatrixWorld(true)
@@ -66,6 +67,11 @@ function Loaded({ file, x, frameTop, slewDeg }: { file: string; x: number; frame
     })
     return out
   }, [gltf])
+  const slewGroup = useRef<THREE.Group>(null)
+  useFrame(() => {
+    const deg = slewRef?.current ?? slewDeg
+    if (slewGroup.current) slewGroup.current.rotation.y = -Math.PI / 2 + (deg * Math.PI) / 180
+  })
   // mesh → scene: rotate −90° about Y (boom direction mesh +Z → scene −X = forward, mesh X → lateral), ×1000 (mm).
   // Slewing (trw: 0° forward, clockwise from above, 90° = right = +Z) rotates only the `slew` group: θ = −90° + slew.
   return (
@@ -75,7 +81,7 @@ function Loaded({ file, x, frameTop, slewDeg }: { file: string; x: number; frame
           <mesh key={i} geometry={g} material={material} castShadow receiveShadow />
         ))}
       </group>
-      <group rotation={[0, -Math.PI / 2 + (slewDeg * Math.PI) / 180, 0]} name="trw-crane-slew">
+      <group ref={slewGroup} name="trw-crane-slew">
         {groups.slew.map((g, i) => (
           <mesh key={i} geometry={g} material={material} castShadow receiveShadow />
         ))}

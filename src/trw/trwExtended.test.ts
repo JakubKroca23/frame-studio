@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import sample from './sample-export.json'
 import { mapTrwExport } from './trwConfig'
-import { mapExtended, nearestAngle, stabilitySummary, normalizeBodyType, parseAccAccessories, parseAccessories, parseAccessory, parseBody, parseConfigBody, parseStability } from './trwExtended'
+import { mapExtended, nearestAngle, stabilitySummary, normalizeBodyType, parseAccAccessories, parseAccessories, parseAccessory, parseBody, parseConfigBody, parseStability, hookliftBodyCount } from './trwExtended'
 import { bodyTypeFromTrwCode } from './trwFormatCodes'
 
 const x0 = 1475
@@ -141,6 +141,30 @@ describe('trw extended: integration', () => {
   it('mapExtended returns undefined without blocks', () => {
     expect(mapExtended({}, 0)).toBeUndefined()
     expect(mapExtended(null, 0)).toBeUndefined()
+  })
+  it('dedupes hooklift from legacy body + bodies[] HOOK + overlapping hookframe', () => {
+    const x0 = 1365
+    const doc = {
+      body: { type: 'hooklift', x_from_mm: 3501, x_to_mm: 9545, length_mm: 6044, mass_kg: 2470 },
+      bodies: [
+        { source_section: 'BODYDATA', type: 'hookframe ULTIMA', x_from_mm: 3520, x_to_mm: 9520, length_mm: 6000, mass_kg: 2400 },
+        { source_section: 'HOOK', type: 'MULTILIFT ULTIMA 21S.53', x_from_mm: 3501, x_to_mm: 9545, length_mm: 6044, hook: { hook_height_mm: 1570 }, mass_kg: 2470 },
+      ],
+    }
+    const ext = mapExtended(doc, x0)!
+    expect(hookliftBodyCount(ext)).toBe(1)
+    expect(ext.bodies!.find((b) => b.type === 'hooklift')?.sourceSection).toBe('HOOK')
+  })
+  it('dedupes acc_accessories against accessories[] by code+name+x', () => {
+    const ext = mapExtended(
+      {
+        body: { type: 'flatbed', x_from_mm: 4000, x_to_mm: 8000, width_mm: 2500 },
+        accessories: [{ name: 'nádrž paliva', kind: 'tank', x_mm: 2300, length_mm: 400 }],
+        acc_accessories: [{ name: 'nádrž paliva', code: 'tank', length_mm: 400, x_to_mm: 2500, offset_z_mm: -900 }],
+      },
+      0,
+    )!
+    expect(ext.accessories!.filter((a) => a.name === 'nádrž paliva')).toHaveLength(1)
   })
   it('mapTrwExport attaches extended markers and keeps existing ones', () => {
     const r = mapTrwExport({ ...sample, body: { type: 'hooklift', x_from_mm: 4000, x_to_mm: 9000, mass_kg: 2000 }, accessories: [{ kind: 'outrigger', x_mm: 9500, reach_left_mm: 2000, reach_right_mm: 2000, mass_kg: 250 }], stability: { angles: [{ angle_deg: 0, factor: 1.5, pass: true }] } })

@@ -216,9 +216,12 @@ export function makeHookliftDeform(p: HookliftParams, M: HookliftMesh = ULT18Z59
  * Only ONE is shown: the first naming an exact model (series + G code), else the first one.
  * Returns 'body', an accessory index, or null when there is no hooklift.
  */
-export function pickHooklift(ext: { body?: ExtBody | null; accessories?: ExtAccessory[] }): 'body' | number | null {
+export function pickHooklift(ext: { body?: ExtBody | null; bodies?: ExtBody[]; accessories?: ExtAccessory[] }): 'body' | number | null {
   const cands: { id: 'body' | number; name: string }[] = []
-  if (ext.body?.type === 'hooklift') cands.push({ id: 'body', name: ext.body.typeRaw ?? '' })
+  const bodyList = ext.bodies?.length ? ext.bodies : ext.body ? [ext.body] : []
+  for (const b of bodyList) {
+    if (b.type === 'hooklift') cands.push({ id: 'body', name: b.typeRaw ?? b.catalogName ?? '' })
+  }
   ;(ext.accessories ?? []).forEach((a, i) => { if (isHookliftAccessory(a)) cands.push({ id: i, name: a.name }) })
   if (!cands.length) return null
   return (cands.find((c) => findHookliftMatch(c.name)?.exact) ?? cands[0]).id
