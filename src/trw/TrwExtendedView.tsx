@@ -1,30 +1,71 @@
 import { Html, Line } from '@react-three/drei'
-import { useMemo } from 'react'
-import { bodyHookliftPlacement, hookliftPlacement, isHookliftAccessory } from './hooklift'
+import { memo, useMemo } from 'react'
+import * as THREE from 'three'
+import { bodyHookliftPlacement, hookliftPlacement, isHookliftAccessory, pickHooklift } from './hooklift'
 import { HookliftModel } from './HookliftModel'
 import { AuxOutriggerModel, pickAuxStab } from './AuxOutriggerModel'
 import { StabilitySectors } from './StabilitySectors'
 import { LeaderLabel } from '../view/LeaderLabel'
 import { useSceneFilters } from '../view/sceneFilters'
 import { bodyLabel, boundsOf, parametricBodyBoxes } from './bodyGeometry'
+import { liveCrane } from './liveCrane'
 import { dedupeAccessories, extendedBodies, nearestAngle, type ExtAccessory, type ExtBody, type ExtStability, type TrwExtended } from './trwExtended'
 
 const EMPTY_STABILITY: ExtStability = { angles: [], pass: null, verified: false, minFactor: null, requiredN: null } as ExtStability
 
+const boxMats = new Map<string, THREE.MeshStandardMaterial>()
+function boxMat(color: string, opacity: number) {
+  const k = `${color}|${opacity}`
+  let m = boxMats.get(k)
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({ color, transparent: opacity < 1, opacity })
+    boxMats.set(k, m)
+  }
+  return m
+}
+
+type TrwExtendedViewProps = {
+  hideBody?: boolean
+  liveDoc?: { document?: unknown; document_id?: number | string } | null
+  ext: TrwExtended
+  frameTop: number
+  /** Initial / fallback slew; live slider updates go through `liveCrane` to avoid re-rendering this subtree. */
+  slewDeg?: number
+  frameRear?: number
+  craneX?: number | null
+  sectorRadius?: number
+  showSectors?: boolean
+}
+
 /** 3D view of the extended trw blocks (X rearward from axle 1, Y up, Z lateral = trw y). */
-export function TrwExtendedView({ hideBody, ext, frameTop, slewDeg, frameRear, craneX, sectorRadius = 8000, showSectors = true, liveDoc }: { hideBody?: boolean; liveDoc?: { document?: unknown; document_id?: number | string } | null; ext: TrwExtended; frameTop: number; slewDeg: number; frameRear?: number; craneX?: number | null; sectorRadius?: number; showSectors?: boolean }) {
+function TrwExtendedViewInner({ hideBody, ext, frameTop, slewDeg = 0, frameRear, craneX, sectorRadius = 8000, showSectors = true, liveDoc }: TrwExtendedViewProps) {
   const rear = frameRear ?? Math.max(ext.body?.xTo ?? 0, 8000)
   const bodies = extendedBodies(ext)
   const accessories = dedupeAccessories(ext.accessories ?? [])
+  const hookPick = pickHooklift(ext)
+  const hookBodyIdx = hookPick === 'body' ? bodies.findIndex((b) => b.type === 'hooklift') : -1
+  const hookliftInBodies = hookBodyIdx >= 0
   const showStab = useSceneFilters((s) => s.stability)
   return (
     <group name="trw-extended">
-      {!hideBody ? bodies.map((b, i) => <Body key={`body-${i}-${b.typeRaw ?? b.type}`} body={b} frameTop={frameTop} frameRear={rear} />) : null}
+      {!hideBody
+        ? bodies.map((b, i) => (
+            <Body
+              key={`body-${i}-${b.typeRaw ?? b.type}-${b.sourceSection ?? ''}`}
+              body={b}
+              frameTop={frameTop}
+              frameRear={rear}
+              skipHooklift={b.type === 'hooklift' && (hookPick !== 'body' || i !== hookBodyIdx)}
+            />
+          ))
+        : null}
       {accessories.map((a, i) =>
         a.isOutrigger ? (
           <ExtraOutrigger key={`${a.name}-${i}`} a={a} frameTop={frameTop} />
         ) : isHookliftAccessory(a) ? (
-          <HookliftAccessory key={`${a.name}-${i}`} a={a} frameTop={frameTop} frameRear={rear} />
+          hookliftInBodies || hookPick !== i ? null : (
+            <HookliftAccessory key={`${a.name}-${i}`} a={a} frameTop={frameTop} frameRear={rear} />
+          )
         ) : (
           <Accessory key={`${a.name}-${i}`} a={a} frameTop={frameTop} />
         ),
@@ -34,11 +75,22 @@ export function TrwExtendedView({ hideBody, ext, frameTop, slewDeg, frameRear, c
   )
 }
 
+export const TrwExtendedView = memo(TrwExtendedViewInner, (a, b) =>
+  a.ext === b.ext &&
+  a.frameTop === b.frameTop &&
+  a.frameRear === b.frameRear &&
+  a.hideBody === b.hideBody &&
+  a.craneX === b.craneX &&
+  a.sectorRadius === b.sectorRadius &&
+  a.showSectors === b.showSectors &&
+  a.liveDoc === b.liveDoc,
+)
+
 function Box({ pos, size, color, opacity = 0.55 }: { pos: [number, number, number]; size: [number, number, number]; color: string; opacity?: number }) {
   return (
     <mesh position={pos}>
       <boxGeometry args={size} />
-      <meshStandardMaterial color={color} transparent opacity={opacity} />
+      <primitive object={boxMat(color, opacity)} attach="material" />
     </mesh>
   )
 }
@@ -110,7 +162,8 @@ function ParametricBody({ body, frameTop, simple }: { body: ExtBody; frameTop: n
   )
 }
 
-function Body({ body, frameTop, frameRear, simple }: { body: ExtBody; frameTop: number; frameRear: number; simple?: boolean }) {
+function Body({ body, frameTop, frameRear, simple, skipHooklift }: { body: ExtBody; frameTop: number; frameRear: number; simple?: boolean; skipHooklift?: boolean }) {
+  if (body.type === 'hooklift' && skipHooklift) return null
   if (body.type === 'hooklift' && !simple) {
     const { xRear, params, spec, exact, mesh } = bodyHookliftPlacement(body, frameRear)
     const xFront = xRear - params.lengthMm
@@ -174,7 +227,8 @@ function ExtraOutrigger({ a, frameTop }: { a: ExtAccessory; frameTop: number }) 
 
 function Stability({ st, slewDeg, frameTop }: { st: ExtStability; slewDeg: number; frameTop: number }) {
   const forces = useSceneFilters((s) => s.forces)
-  const e = nearestAngle(st, slewDeg)
+  const deg = liveCrane.version ? liveCrane.slewDeg : slewDeg
+  const e = nearestAngle(st, deg)
   if (!e) return null
   const color = e.pass === false ? '#d62828' : e.pass === true ? '#2a9d3a' : '#888'
   return (

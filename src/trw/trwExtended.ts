@@ -509,14 +509,34 @@ export function nearestAngle(st: ExtStability | undefined, deg: number): ExtStab
   return st.angles.reduce((best, a) => (dist(a.angleDeg) < dist(best.angleDeg) ? a : best))
 }
 
+const HOOKLIFT_ACC_RE = /multilift|\bult(?:ima)?\s*\d|hakov|hook|ampliroll|abroll|roll.?off|hakovy|hookframe/i
+
+export function accessoryDedupeKey(a: ExtAccessory): string {
+  const code = (a.kind ?? '').toLowerCase().trim()
+  const name = a.name.toLowerCase().trim()
+  const x = a.x ?? a.xTo ?? a.xFrom ?? ''
+  return `${code}|${name}|${x}`
+}
+
 export function dedupeAccessories(list: ExtAccessory[]): ExtAccessory[] {
   const seen = new Set<string>()
   return list.filter((a) => {
-    const k = `${a.kind ?? ''}|${a.name}|${a.x ?? ''}|${a.xFrom ?? ''}|${a.xTo ?? ''}`
+    const k = accessoryDedupeKey(a)
     if (seen.has(k)) return false
     seen.add(k)
     return true
   })
+}
+
+function isHookliftAccessoryLike(a: ExtAccessory): boolean {
+  const norm = `${a.kind ?? ''} ${a.name}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return HOOKLIFT_ACC_RE.test(norm)
+}
+
+/** Drop hooklift rows from accessories when the same superstructure is already in `bodies`. */
+export function dropHookliftAccessoriesWhenBodiesPresent(bodies: ExtBody[], acc: ExtAccessory[]): ExtAccessory[] {
+  if (!bodies.some((b) => b.type === 'hooklift')) return acc
+  return acc.filter((a) => !isHookliftAccessoryLike(a))
 }
 
 /** Bodies to draw (deduplicated x-range + type). */
@@ -529,16 +549,67 @@ function bodyKey(b: ExtBody) {
   return `${b.type}|${b.typeRaw ?? ''}|${b.xFrom ?? ''}|${b.xTo ?? ''}|${b.length ?? ''}`
 }
 
-function mergeBodies(list: ExtBody[]): ExtBody[] {
+function bodySpan(b: ExtBody): [number, number] | null {
+  if (b.xFrom == null || b.xTo == null) return null
+  const lo = Math.min(b.xFrom, b.xTo)
+  const hi = Math.max(b.xFrom, b.xTo)
+  return hi > lo ? [lo, hi] : null
+}
+
+/** Overlap length divided by the shorter span (0…1). */
+export function spanOverlapRatio(a: [number, number], b: [number, number]): number {
+  const lo = Math.max(a[0], b[0])
+  const hi = Math.min(a[1], b[1])
+  if (hi <= lo) return 0
+  const overlap = hi - lo
+  const minSpan = Math.min(a[1] - a[0], b[1] - b[0])
+  return minSpan > 0 ? overlap / minSpan : 0
+}
+
+function bodyRichness(b: ExtBody): number {
+  let s = 0
+  if (/^hook$/i.test(b.sourceSection ?? '')) s += 8
+  if (b.catalogName) s += 4
+  if (b.massKg != null) s += 2
+  if (b.length != null) s += 1
+  if ((b.typeRaw ?? '').length > 12) s += 1
+  return s
+}
+
+function pickPreferredBody(a: ExtBody, b: ExtBody): ExtBody {
+  const ra = bodyRichness(a)
+  const rb = bodyRichness(b)
+  return ra > rb ? a : ra < rb ? b : (a.sourceSection ?? '').length >= (b.sourceSection ?? '').length ? a : b
+}
+
+/** Dedupe by exact key and by same type + >80% longitudinal overlap. */
+export function mergeBodies(list: ExtBody[]): ExtBody[] {
   const out: ExtBody[] = []
-  const seen = new Set<string>()
   for (const b of list) {
-    const k = bodyKey(b)
-    if (seen.has(k)) continue
-    seen.add(k)
-    out.push(b)
+    const span = bodySpan(b)
+    let merged = false
+    for (let i = 0; i < out.length; i++) {
+      const o = out[i]
+      if (o.type !== b.type) continue
+      const os = bodySpan(o)
+      if (span && os && spanOverlapRatio(span, os) > 0.8) {
+        out[i] = pickPreferredBody(o, b)
+        merged = true
+        break
+      }
+      if (bodyKey(o) === bodyKey(b)) {
+        merged = true
+        break
+      }
+    }
+    if (!merged) out.push(b)
   }
   return out
+}
+
+/** Hooklift superstructures after merge (bodies only). */
+export function hookliftBodyCount(ext: TrwExtended): number {
+  return extendedBodies(ext).filter((b) => b.type === 'hooklift').length
 }
 
 const BODYDATA_KEYS = ['BODYDATA_A', 'BODYDATA_B', 'BODYDATA_B2', 'bodydata_a', 'bodydata_b', 'bodydata_b2'] as const
@@ -550,12 +621,15 @@ export function mapExtended(data: unknown, x0: number, warnings: string[] = []):
   const unknown: string[] = []
   const crane: ExtAccessory[] = []
   const bodyList: ExtBody[] = []
+  let mergedBodies: ExtBody[] = []
   try {
-    if (Array.isArray(t.bodies)) {
-      for (const item of t.bodies) {
+    const hasBodiesArray = Array.isArray(t.bodies)
+    if (hasBodiesArray) {
+      for (const item of t.bodies as unknown[]) {
         const b = parseConfigBody(item, x0, warnings, unknown)
         if (b) bodyList.push(b)
       }
+      // Legacy top-level `body` is ignored when `bodies[]` is present (trw backend mirrors it there).
     } else {
       const body = parseBody(t.body, x0, warnings, unknown)
       if (body) bodyList.push(body)
@@ -566,10 +640,10 @@ export function mapExtended(data: unknown, x0: number, warnings: string[] = []):
         }
       }
     }
-    const merged = mergeBodies(bodyList)
-    if (merged.length) {
-      ext.body = merged[0]
-      ext.bodies = merged
+    mergedBodies = mergeBodies(bodyList)
+    if (mergedBodies.length) {
+      ext.body = mergedBodies[0]
+      ext.bodies = mergedBodies
     }
   } catch {
     warnings.push('Blok nástavby (body) nelze přečíst.')
@@ -577,7 +651,8 @@ export function mapExtended(data: unknown, x0: number, warnings: string[] = []):
   try {
     const accLegacy = parseAccessories(t.accessories, x0, warnings, unknown, crane) ?? []
     const accSchema = parseAccAccessories(t.acc_accessories, x0, warnings)
-    const acc = dedupeAccessories([...accLegacy, ...accSchema])
+    let acc = dedupeAccessories([...accLegacy, ...accSchema])
+    acc = dropHookliftAccessoriesWhenBodiesPresent(mergedBodies, acc)
     if (crane.length) ext.craneAccessories = crane
     if (acc.length) ext.accessories = acc
   } catch {

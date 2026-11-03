@@ -17,7 +17,7 @@ import { VolvoCadPanel } from '../volvo/VolvoCadPanel'
 import { DxfLayerMeshes, DxfLayersPanel, useDxfLayers } from './DxfLayers'
 import type { Datums } from './dxfLayers'
 import { TopBar } from '../components/TopBar'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { Button } from '../components/ui/button'
 import { downloadBlob, exportGlb } from '../export/download'
@@ -161,14 +161,15 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
     const m = craneVariantMatch(trw?.markers.crane?.name)
     if (m) { const { a1, rel, ext } = unfoldedPose(m.def); setBoomJoints({ a1, rel, ext }) }
   }, [craneKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  const craneJoints: CraneJoints = { slew: slewDeg, ...boomJoints }
+  const craneJoints: CraneJoints = useMemo(() => ({ slew: slewDeg, ...boomJoints }), [slewDeg, boomJoints])
+  const slewRef = useRef(slewDeg)
   const capMatch = craneVariantMatch(trw?.markers.crane?.name)
   const capReach = capMatch && trw?.markers.crane && cranePose === 'unfolded' ? Math.round(craneReadout(craneJoints, capMatch.variant, trw.markers.crane.x, 0).reach * 1000) : null
   const cap = trw?.markers.crane ? capacityInfo({ variant: capMatch?.variant ?? null, craneName: trw.markers.crane.name, reachMm: capReach, slewDeg, stability: trw.markers.extended?.stability ?? null, design: { hookKg: trw.markers.crane.hookKg, radiusM: trw.markers.crane.radiusM, momentKNm: trw.markers.crane.momentKNm } }) : null
   const capStatus = useMemo(() => slewStatus(trw?.markers.extended?.stability), [trw?.markers.extended?.stability])
   const setCraneJoints = (j: CraneJoints) => {
-    setBoomJoints({ a1: j.a1, rel: j.rel, ext: j.ext })
-    setSlewDeg(j.slew)
+    startTransition(() => setBoomJoints({ a1: j.a1, rel: j.rel, ext: j.ext }))
+    if (j.slew !== slewDeg) setSlewDeg(j.slew)
     setCranePoseOverride('unfolded')
   }
   // panel sliders fire several input events per frame on a fast drag; each would re-render this whole page (and the
@@ -204,7 +205,10 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
   const dxfLayers = useDxfLayers((f) => refineRef.current(f))
   const [dragging, setDragging] = useState(false)
   const [showSectors, setShowSectors] = useState(true)
-  useEffect(() => setLiveCrane({ slewDeg }), [slewDeg])
+  useEffect(() => {
+    slewRef.current = slewDeg
+    setLiveCrane({ slewDeg })
+  }, [slewDeg])
   // headless capture of the start-page card loop: slewing through the real stability sectors
   useEffect(() => { (window as unknown as { __slew?: (d: number) => void }).__slew = setSlewDeg })
   trwRef.current = trw
@@ -964,7 +968,7 @@ export function ConfiguratorPage({ initialPreset, link, hooklift: hookliftInit }
       </aside>
 
       <Viewport model={model} params={params} groupRef={groupRef} fit={1.75} env={parkedPose} drive={drive ? { door: drive.door, ready: driveReady } : null} overlay={trw || sim || hooklift ? <SceneFilterBar /> : null}>
-        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJoints} /> : null}
+        {trw && !sim ? <TrwMarkers markers={trw.markers} frameTop={built.frame.topHeight} slewDeg={slewDeg} slewRef={slewRef} cranePose={cranePose} craneJoints={craneJoints} onCraneJoints={setCraneJointsRaf} /> : null}
         {built.make === 'volvo' ? <VolvoCadModel axles={built.axles} frameRear={layerDatums.frameRear} cabBackFromAxle={built.cab.backFromAxle} chassis={groupRef} token={model} /> : null}
         <DxfLayerMeshes layers={dxfLayers.layers} datums={layerDatums} />
         {hooklift && !trw?.markers.extended ? <CatalogHooklift name={hooklift} frameTop={built.frame.topHeight} frameRear={built.axles[built.axles.length - 1].position + built.rearOverhang} /> : null}

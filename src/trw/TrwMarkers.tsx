@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { memo, useRef, type MutableRefObject } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { OUTRIGGER_RATE, outriggerStow, stepOutrigger } from './outriggerStow'
@@ -10,7 +10,7 @@ import { CraneArticulated } from './CraneArticulated'
 import { craneVariantMatch, type CraneJoints } from './craneKinematics'
 
 /** Simple markers for the crane column and outrigger legs (X rearward from axle 1, Y up, Z lateral). */
-export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded', craneJoints, onCraneJoints }: { markers: Markers; frameTop: number; slewDeg?: number; cranePose?: CranePose; craneJoints?: CraneJoints; onCraneJoints?: (j: CraneJoints) => void }) {
+function TrwMarkersInner({ markers, frameTop, slewDeg = 0, slewRef, cranePose = 'folded', craneJoints, onCraneJoints }: { markers: Markers; frameTop: number; slewDeg?: number; slewRef?: MutableRefObject<number>; cranePose?: CranePose; craneJoints?: CraneJoints; onCraneJoints?: (j: CraneJoints) => void }) {
   const craneModel = craneHasOriginalModel(markers.crane?.name) ? craneModelFor(markers.crane?.name) : null
   const stabSpread = markers.outriggers.length ? Math.max(...markers.outriggers.map((o) => o.spread || 0)) || null : null
   const meshStabs = !!craneModel?.def.stab
@@ -33,7 +33,7 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
           // no separate folded mesh (408): articulated mesh in its measured transport pose
           <CraneArticulated x={markers.crane.x} frameTop={frameTop} joints={craneModel.def.folded} variant={craneVariantMatch(markers.crane.name)!.variant} onJoints={onCraneJoints} fallback={craneBox} stabSpread={stabSpread} stabHalfSpan={markers.craneStab?.halfSpanMm ?? null} stabStrokeMm={markers.craneStab?.strokeMm ?? null} />
         ) : (
-          <CraneModel file={craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} fallback={craneBox} />
+          <CraneModel file={craneModel.file} x={markers.crane.x} frameTop={frameTop} slewDeg={slewDeg} slewRef={slewRef} fallback={craneBox} />
         )
       ) : (
         craneBox
@@ -62,6 +62,13 @@ export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded
     </group>
   )
 }
+
+export const TrwMarkers = memo(TrwMarkersInner, (a, b) => {
+  if (a.markers !== b.markers || a.frameTop !== b.frameTop || a.cranePose !== b.cranePose || a.onCraneJoints !== b.onCraneJoints) return false
+  const articulated = a.cranePose === 'unfolded' && a.craneJoints && a.onCraneJoints
+  if (articulated) return a.craneJoints === b.craneJoints
+  return true
+})
 
 const legMat = new THREE.MeshStandardMaterial({ color: '#c24e28' })
 const beamMat = new THREE.MeshStandardMaterial({ color: '#c24e28', transparent: true, opacity: 0.8 })
