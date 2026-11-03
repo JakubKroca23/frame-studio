@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import sample from './sample-export.json'
 import { mapTrwExport } from './trwConfig'
-import { mapExtended, nearestAngle, stabilitySummary, normalizeBodyType, parseAccessories, parseAccessory, parseBody, parseStability } from './trwExtended'
+import { mapExtended, nearestAngle, stabilitySummary, normalizeBodyType, parseAccAccessories, parseAccessories, parseAccessory, parseBody, parseConfigBody, parseStability } from './trwExtended'
+import { bodyTypeFromTrwCode } from './trwFormatCodes'
 
 const x0 = 1475
 
 describe('trw extended: body', () => {
-  it('normalizes Czech/English types', () => {
+  it('normalizes Czech/English types; BODYDATA codes from trwFormatCodes.json', () => {
     expect(normalizeBodyType('valník')).toBe('flatbed')
     expect(normalizeBodyType('Flatbed')).toBe('flatbed')
     expect(normalizeBodyType('sklápěč')).toBe('tipper')
@@ -15,6 +16,21 @@ describe('trw extended: body', () => {
     expect(normalizeBodyType('hooklift')).toBe('hooklift')
     expect(normalizeBodyType('cisterna')).toBe('other')
     expect(normalizeBodyType(null)).toBe('other')
+    expect(normalizeBodyType('la')).toBe('cabinet')
+    expect(normalizeBodyType('la AllDoor')).toBe('cabinet')
+    expect(bodyTypeFromTrwCode('la')).toBe('cabinet')
+    expect(bodyTypeFromTrwCode('hookframe')).toBe('hooklift')
+    expect(bodyTypeFromTrwCode('con')).toBe('container')
+    expect(bodyTypeFromTrwCode('spec')).toBe('spec')
+  })
+  it('parseConfigBody reads insd/hook sections and treats zero as null', () => {
+    const b = parseConfigBody({ source_section: 'BODYDATA', type: 'valník', x_from_mm: 1000, x_to_mm: 5000, insd: { width_mm: 0, side_height_mm: 400 } }, 0)!
+    expect(b.width).toBeNull()
+    expect(b.sideHeight).toBe(400)
+  })
+  it('parseAccAccessories uses x_to_mm and offset_z_mm', () => {
+    const list = parseAccAccessories([{ name: 'nádrž', code: 'tank', length_mm: 400, x_to_mm: 2500, offset_z_mm: -900 }], 0)
+    expect(list[0]).toMatchObject({ name: 'nádrž', x: 2300, xTo: 2500, length: 400, y: -900 })
   })
   it('parses snake_case _mm fields', () => {
     const w: string[] = []
@@ -147,7 +163,7 @@ describe('trw extended: docs/trw-config-3d.md sample', () => {
     expect(ext.craneAccessories!.map((a) => a.kind)).toEqual(['crane', 'outrigger'])
     expect(ext.craneAccessories![1]).toMatchObject({ xLeft: 9064 - x0, xRight: 9222 - x0, reachLeft: 3401 })
     expect(ext.accessories![1]).toMatchObject({ x: 4000 - x0, xTo: 4600 - x0 })
-    expect(ext.body).toMatchObject({ typeRaw: 'la', xFrom: 2360 - x0, length: 6600, width: null })
+    expect(ext.body).toMatchObject({ typeRaw: 'la', type: 'cabinet', typeCode: 'la', xFrom: 2360 - x0, length: 6600, width: null })
   })
   it('uses top-level reactions for all angles, placing missing x/y from crane outrigger', () => {
     const ext = mapExtended(doc3d, x0, [])!

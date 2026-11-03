@@ -4,20 +4,25 @@ import * as THREE from 'three'
 import { OUTRIGGER_RATE, outriggerStow, stepOutrigger } from './outriggerStow'
 import { LeaderLabel } from '../view/LeaderLabel'
 import type { TrwMarkers as Markers } from './trwConfig'
-import { CraneModel, craneModelFor, type CranePose } from './CraneModel'
+import { CraneModel, craneModelFor, craneHasOriginalModel, type CranePose } from './CraneModel'
+import { ParametricCranePlaceholder } from './ParametricCrane'
 import { CraneArticulated } from './CraneArticulated'
 import { craneVariantMatch, type CraneJoints } from './craneKinematics'
 
 /** Simple markers for the crane column and outrigger legs (X rearward from axle 1, Y up, Z lateral). */
 export function TrwMarkers({ markers, frameTop, slewDeg = 0, cranePose = 'folded', craneJoints, onCraneJoints }: { markers: Markers; frameTop: number; slewDeg?: number; cranePose?: CranePose; craneJoints?: CraneJoints; onCraneJoints?: (j: CraneJoints) => void }) {
-  const craneModel = craneModelFor(markers.crane?.name)
+  const craneModel = craneHasOriginalModel(markers.crane?.name) ? craneModelFor(markers.crane?.name) : null
   const stabSpread = markers.outriggers.length ? Math.max(...markers.outriggers.map((o) => o.spread || 0)) || null : null
   const meshStabs = !!craneModel?.def.stab
   const craneBox = markers.crane ? (
-    <mesh position={[markers.crane.x, frameTop + 900, 0]}>
-      <boxGeometry args={[350, 1800, 350]} />
-      <meshStandardMaterial color="#e0a019" transparent opacity={0.75} />
-    </mesh>
+    markers.crane.name && !craneModel ? (
+      <ParametricCranePlaceholder x={markers.crane.x} frameTop={frameTop} spreadMm={stabSpread} name={markers.crane.name} />
+    ) : (
+      <mesh position={[markers.crane.x, frameTop + 900, 0]}>
+        <boxGeometry args={[350, 1800, 350]} />
+        <meshStandardMaterial color="#e0a019" transparent opacity={0.75} />
+      </mesh>
+    )
   ) : null
   return (
     <group name="trw-markers">

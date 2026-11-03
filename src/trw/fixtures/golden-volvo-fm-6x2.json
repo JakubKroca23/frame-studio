@@ -1,0 +1,100 @@
+{
+  "schema": "trw/config@1",
+  "generated": "2026-11-01T00:00:00Z",
+  "name": "Synth · Volvo FM 6x2 · ULT21S · Jonsered (git-safe)",
+  "chassis": {
+    "id": 900001,
+    "name": "Volvo FM 6x2 rigid, rozvor 5200 mm",
+    "manufacturer": "Volvo",
+    "axle_x_mm": [1365, 6565, 7935],
+    "n_front_axles": 1,
+    "wheelbase_mm": 5200,
+    "front_overhang_mm": 1365,
+    "rear_overhang_mm": 1610,
+    "frame_length_mm": 9545,
+    "frame_height_mm": 1064,
+    "frame_width_mm": 852,
+    "gvw_kg": 26000,
+    "rail_profile": {
+      "kind": "FRU",
+      "name": "synthetic 300×90",
+      "source": "synthetic-fixture",
+      "H_mm": 300,
+      "B_mm": 90,
+      "tw_mm": 8,
+      "tf_mm": 8
+    },
+    "rail_steel": { "name": "S500MC", "re_MPa": 500, "source": "synthetic-fixture" },
+    "raw": { "TYRE": "385/65R22.5", "TYR2": "315/80R22.5" }
+  },
+  "chassis_measured": {
+    "track_mm": [2109, 1837, 1837],
+    "tyres": ["385/65R22.5", "315/80R22.5", "315/80R22.5"],
+    "cab": { "WIDC": 2550, "CabRear": 515, "FOH": 1365, "HFRA": 1064 }
+  },
+  "axles": [
+    { "index": 1, "x_mm": 1365, "permitted_kg": 8000, "track_mm": 2109 },
+    { "index": 2, "x_mm": 6565, "permitted_kg": 11500, "track_mm": 1837 },
+    { "index": 3, "x_mm": 7935, "permitted_kg": 7500, "track_mm": 1837 }
+  ],
+  "subframe": {
+    "profile": { "kind": "FRU", "H_mm": 160, "B_mm": 60, "tw_mm": 6, "tf_mm": 6, "name": "U160", "source": "synthetic" },
+    "steel": { "name": "Fe52", "re_MPa": 355, "source": "synthetic" },
+    "connection": "shear"
+  },
+  "crane": {
+    "name": "Jonsered iZ.18R 100 HD, B4500, column R",
+    "manufacturer": "Jonsered",
+    "mass_kg": 2850,
+    "x_mm": 4180,
+    "outrigger_spread_mm": 4457,
+    "outrigger_x_mm": { "left": 4010, "right": 4090 }
+  },
+  "bodies": [
+    {
+      "source_section": "BODYDATA",
+      "type": "valník",
+      "x_from_mm": 4680,
+      "x_to_mm": 8680,
+      "length_mm": 4000,
+      "insd": { "width_mm": 2550, "height_mm": 300, "side_height_mm": 450 },
+      "mass_kg": 1180,
+      "cog_x_mm": 6680
+    },
+    {
+      "source_section": "HOOK",
+      "type": "MULTILIFT ULTIMA 21S.53",
+      "x_from_mm": 3501,
+      "x_to_mm": 9545,
+      "length_mm": 6044,
+      "hook": { "length_mm": 6044, "hook_height_mm": 1570 },
+      "mass_kg": 2470
+    }
+  ],
+  "acc_accessories": [
+    { "name": "nárážník", "code": "bumper", "length_mm": 900, "width_mm": 2550, "height_mm": 200, "x_to_mm": 1800, "offset_x_mm": 0, "offset_z_mm": 0, "yaw_deg": 0 },
+    { "name": "nádrž paliva", "code": "tank", "length_mm": 400, "width_mm": 700, "height_mm": 600, "x_to_mm": 2500, "offset_x_mm": 0, "offset_z_mm": -900, "yaw_deg": 0 },
+    { "name": "Kinshofer KHM 17", "code": "grapple", "length_mm": 900, "width_mm": 900, "height_mm": 850, "x_to_mm": 7650, "offset_x_mm": 0, "offset_z_mm": 0, "yaw_deg": 15 }
+  ],
+  "accessories": [
+    {
+      "kind": "crane",
+      "name": "Jonsered iZ.18R 100 HD, B4500, column R",
+      "x_mm": 4180,
+      "mass_kg": 2850,
+      "cog": { "x_mm": 4250 }
+    },
+    {
+      "kind": "outrigger",
+      "name": "podpěry jeřábu",
+      "x_left_mm": 4010,
+      "x_right_mm": 4090,
+      "reach_left_mm": 2228,
+      "reach_right_mm": 2228
+    }
+  ],
+  "body": null,
+  "stability": null,
+  "stability_fields": null,
+  "payloads": []
+}
