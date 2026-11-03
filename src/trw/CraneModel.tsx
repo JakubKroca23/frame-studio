@@ -23,6 +23,13 @@ export function craneModelFor(name: string | null | undefined) {
   return d ? CRANE_MODELS.find((m) => m.def === d) ?? null : null
 }
 
+/** True only when the export name has its own GLB in public/models/crane (no cross-model aliases). */
+export function craneHasOriginalModel(name: string | null | undefined): boolean {
+  const s = (name ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (/\bix\.?\s*138\b/i.test(s) && !/\b142\b/.test(s)) return false
+  return !!craneModelFor(name)
+}
+
 const material = new THREE.MeshStandardMaterial({ color: '#222222', metalness: 0.35, roughness: 0.5, emissive: '#0b0d10', side: THREE.DoubleSide })
 
 export function CraneModel(props: { file: string; x: number; frameTop: number; slewDeg: number; fallback: ReactNode }) {

@@ -20,10 +20,14 @@ describe('hookliftCatalog', () => {
     expect(findHookliftSpec('hákový nosič')).toBeNull()
     expect(findHookliftSpec('ULT18Z99')).toBeNull()
   })
-  it('placement uses catalog length, rear at x_to', () => {
+  it('placement uses TRW span length when x_from/x_to set', () => {
     const r = hookliftPlacement({ xFrom: 1000, xTo: 8000, length: null, height: null, name: 'ULT21SL56' }, 9000)
     expect(r.xRear).toBe(8000)
-    expect(r.params).toMatchObject({ lengthMm: 6443, capacityT: 21, installHeightMm: 195 })
+    expect(r.params).toMatchObject({ lengthMm: 7000, capacityT: 21, installHeightMm: 195 })
+    expect(r.mesh.file).toBe('ultima21s56.glb')
+    const w: string[] = []
+    hookliftPlacement({ xFrom: 3501, xTo: 9545, length: 6044, height: null, name: 'ULTIMA 21S.53' }, 9000, w)
+    expect(w.some((s) => s.includes('odchyluje'))).toBe(true)
     expect(r.mesh.file).toBe('ultima21s56.glb')
     expect(hookliftPlacement({ xFrom: null, xTo: null, length: null, height: null, name: 'ULT18Z59' }, 9000).mesh.file).toBe('ult18z59.glb')
     expect(hookliftPlacement({ xFrom: null, xTo: null, length: null, height: null, name: 'ULTIMA 21Z.56' }, 9000).mesh.file).toBe('ult18z59.glb')

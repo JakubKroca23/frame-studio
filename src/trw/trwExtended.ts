@@ -1,7 +1,8 @@
+import { bodyTypeFromTrwCode, accKindFromCode } from './trwFormatCodes'
+import { posNum } from './chassisMeasured'
+
 /**
- * Tolerant parsers for the upcoming trw/config@1 extensions: `body` (typ nástavby), `accessories[]`
- * and `stability` (per slew angle). The exact schema is not delivered yet, so several plausible field
- * spellings are accepted. Nothing here throws; missing key values produce Czech warnings.
+ * Tolerant parsers for trw/config@1: legacy `body`, schema `bodies[]`, `acc_accessories`, `accessories[]`, `stability`.
  * All x values are converted to configurator coordinates (x - x0, x0 = first axle in trw coordinates).
  * y = lateral (trw y_mm → three.js Z), z/height = up.
  */
@@ -12,6 +13,8 @@ export interface ExtBody {
   type: BodyType
   /** Raw type string from the export (null if missing). */
   typeRaw: string | null
+  /** BODYDATA / BODYDATA_A / HOOK / … when from `bodies[]`. */
+  sourceSection?: string | null
   xFrom: number | null
   xTo: number | null
   length: number | null
@@ -41,6 +44,11 @@ export interface ExtAccessory {
   outline: string | null
   reachLeft: number | null
   reachRight: number | null
+  /** Rotation about vertical axis [deg] when trw exports it. */
+  yawDeg: number | null
+  /** Lateral / longitudinal offset [mm] when exported. */
+  offsetX: number | null
+  offsetY: number | null
 }
 
 export interface ExtPoint { x: number; y: number }
@@ -73,6 +81,8 @@ export interface ExtStability {
 
 export interface TrwExtended {
   body?: ExtBody
+  /** All superstructure bodies (primary `body` plus `bodies[]` / BODYDATA_*); deduplicated. */
+  bodies?: ExtBody[]
   accessories?: ExtAccessory[]
   stability?: ExtStability
   /** Reason why stability is missing (stability_fields.evidence when stability is null). */
@@ -135,7 +145,10 @@ const sub = (v: number | null, x0: number) => (v == null ? null : v - x0)
 export const BODY_TYPE_LABEL: Record<BodyType, string> = { flatbed: 'valník', tipper: 'sklápěč', hooklift: 'hákový nosič', other: 'nástavba' }
 
 export function normalizeBodyType(raw: string | null): BodyType {
-  const s = (raw ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const fromCode = bodyTypeFromTrwCode(raw)
+  if (fromCode) return fromCode
+  const trimmed = (raw ?? '').trim()
+  const s = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   if (/flat|valnik|platform|plato|dropside|stake/.test(s)) return 'flatbed'
   if (/tip|sklap|dump|kipper/.test(s)) return 'tipper'
   if (/hook|hak|abroll|roll.?off|multilift|ampliroll/.test(s)) return 'hooklift'
@@ -160,22 +173,32 @@ function range(o: Obj) {
 
 function dims(o: Obj) {
   const d = obj(o.dimensions ?? o.dims ?? o.size)
-  const all = { ...d, ...o }
+  const insd = obj(o.insd ?? o.INSD)
+  const hook = obj(o.hook ?? o.HOOK)
+  const vtxy = obj(o.vtxy ?? o.VTXY)
+  const so = obj(o.side_walls ?? o.sides ?? o.bocnice)
+  const all = { ...d, ...insd, ...hook, ...vtxy, ...so, ...o }
   return {
-    length: pickNum(all, 'length_mm', 'length', 'l_mm', 'L_mm'),
-    width: pickNum(all, 'width_mm', 'width', 'w_mm', 'B_mm'),
-    height: pickNum(all, 'height_mm', 'height', 'h_mm', 'H_mm'),
+    length: posNum(all.length_mm) ?? posNum(all.length) ?? pickNum(all, 'l_mm', 'L_mm'),
+    width: posNum(all.width_mm) ?? pickNum(all, 'width', 'w_mm', 'B_mm'),
+    height: posNum(all.height_mm) ?? pickNum(all, 'height', 'h_mm', 'H_mm'),
+    sideHeight: posNum(all.side_height_mm) ?? pickNum(all, 'side_wall_height_mm', 'sidewall_height_mm', 'side_height', 'bocnice_mm', 'bocnice') ?? pickNum(so, 'height_mm', 'height'),
+    hookHeight: posNum(all.hook_height_mm) ?? pickNum(hook, 'hook_height_mm', 'HH_mm'),
   }
 }
 
-export function parseBody(v: unknown, x0: number, warnings: string[] = [], unknown: string[] = []): ExtBody | undefined {
+/** One entry from export `bodies[]` (trw PR #27 schema). */
+export function parseConfigBody(v: unknown, x0: number, warnings: string[] = [], unknown: string[] = []): ExtBody | undefined {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
   const o = v as Obj
   const u = unknownFields(o)
   const quiet = (label: string, ...keys: string[]) => (isUnknown(u, ...keys) ? (unknown.push(label), true) : false)
+  const sourceSection = pickStr(o, 'source_section', 'section')
   const typeRaw = pickStr(o, 'type', 'kind', 'body_type', 'category')
-  const type = normalizeBodyType(typeRaw)
-  const { from, to } = range(o)
+  let type = normalizeBodyType(typeRaw)
+  if (/^hook$/i.test(sourceSection ?? '') && type === 'other') type = 'hooklift'
+  const from = posNum(o.x_from_mm) ?? pickNum(o, 'x_from', 'from_mm', 'x_start_mm', 'x_min_mm')
+  const to = posNum(o.x_to_mm) ?? pickNum(o, 'x_to', 'to_mm', 'x_end_mm', 'x_max_mm')
   const d = dims(o)
   let xFrom = sub(from, x0)
   let xTo = sub(to, x0)
@@ -183,19 +206,33 @@ export function parseBody(v: unknown, x0: number, warnings: string[] = [], unkno
   if (xFrom != null && xTo == null && d.length != null) xTo = xFrom + d.length
   if (xTo != null && xFrom == null && d.length != null) xFrom = xTo - d.length
   const length = d.length ?? (xFrom != null && xTo != null ? xTo - xFrom : null)
-  const so = obj(o.side_walls ?? o.sides ?? o.bocnice)
-  const sideHeight = pickNum(o, 'side_height_mm', 'side_wall_height_mm', 'sidewall_height_mm', 'side_height', 'bocnice_mm', 'bocnice') ?? pickNum(so, 'height_mm', 'height')
-  const massKg = pickNum(o, 'mass_kg', 'mass', 'weight_kg')
-  const b: ExtBody = { type, typeRaw, xFrom, xTo, length, width: d.width, height: d.height, sideHeight, massKg, cog: parseCog(o, x0) }
+  const massKg = posNum(o.mass_kg) ?? pickNum(o, 'mass', 'weight_kg')
+  const b: ExtBody = {
+    type,
+    typeRaw,
+    sourceSection,
+    xFrom,
+    xTo,
+    length,
+    width: d.width,
+    height: d.height,
+    sideHeight: d.sideHeight,
+    massKg,
+    cog: parseCog(o, x0),
+  }
   if (!typeRaw) warnings.push('Typ nástavby chybí – zobrazen obecný kvádr.')
-  else if (type === 'other') warnings.push(`Typ nástavby „${typeRaw}“ není rozpoznán – zobrazen obecný kvádr.`)
+  else if (type === 'other') warnings.push(`Typ nástavby „${typeRaw}“ není v tabulce typů – zobrazen obecný kvádr.`)
   if (xFrom == null || xTo == null) warnings.push('Poloha nástavby (x od/do) chybí – nástavba nezobrazena.')
   if (d.width == null && !quiet('šířka nástavby', 'width_mm')) warnings.push('Šířka nástavby chybí – použito 2500 mm.')
-  if (type === 'flatbed' && sideHeight == null && !quiet('výška bočnic', 'side_height_mm')) warnings.push('Výška bočnic valníku chybí – použito 400 mm.')
-  if (massKg == null || massKg <= 0) warnings.push('Hmotnost nástavby chybí.')
+  if (type === 'flatbed' && b.sideHeight == null && !quiet('výška bočnic', 'side_height_mm')) warnings.push('Výška bočnic valníku chybí – použito 400 mm.')
+  if (massKg == null) warnings.push('Hmotnost nástavby chybí.')
   if (b.cog.x == null) warnings.push('Těžiště nástavby chybí.')
   if (b.cog.x != null && (b.cog.y == null || b.cog.z == null)) unknown.push('těžiště nástavby y/z')
   return b
+}
+
+export function parseBody(v: unknown, x0: number, warnings: string[] = [], unknown: string[] = []): ExtBody | undefined {
+  return parseConfigBody(v, x0, warnings, unknown)
 }
 
 const OUTRIGGER_RE = /outrigger|podper|stabiliz|support.?leg/i
@@ -239,6 +276,9 @@ export function parseAccessory(v: unknown, i: number, x0: number, warnings: stri
     outline: pickStr(o, 'outline_svg_url', 'outline_url', 'outline_ref', 'outline_id', 'outline') ?? pickStr(outlineO, 'url', 'svg_url', 'id', 'ref'),
     reachLeft: reachLeft ?? (spread != null ? spread / 2 : null),
     reachRight: reachRight ?? (spread != null ? spread / 2 : null),
+    yawDeg: pickNum(o, 'yaw_deg', 'yaw', 'rotation_deg', 'angle_deg') ?? pickNum(pos, 'yaw_deg', 'yaw'),
+    offsetX: sub(pickNum(o, 'offset_x_mm', 'offset_x'), x0) ?? pickNum(o, 'dx_mm'),
+    offsetY: pickNum(o, 'offset_y_mm', 'offset_y', 'offset_z_mm') ?? pickNum(pos, 'offset_y_mm'),
   }
   const massUnknown = a.massKg == null && isUnknown(u, 'mass_kg')
   if (massUnknown) unknown.push(`hmotnost „${name}“`)
@@ -285,6 +325,54 @@ export function parseAccessories(v: unknown, x0: number, warnings: string[] = []
   const { crane, other } = splitAccessories(v)
   if (craneOut) craneOut.push(...crane.map((a, i) => parseAccessory(a, i, x0, [], [])))
   return other.map((a, i) => parseAccessory(a, i, x0, warnings, unknown))
+}
+
+/** Schema `acc_accessories[]` (trw PR #27) — placement via x_to_mm + offsets, no lateral y field. */
+export function parseAccAccessories(v: unknown, x0: number, warnings: string[] = []): ExtAccessory[] {
+  if (v == null) return []
+  if (!Array.isArray(v)) {
+    warnings.push('acc_accessories není seznam – ignorováno.')
+    return []
+  }
+  return v.map((item, i) => {
+    const o = obj(item)
+    const code = pickStr(o, 'code')
+    const name = pickStr(o, 'name') ?? code ?? `doplňek ${i + 1}`
+    const length = posNum(o.length_mm)
+    const width = posNum(o.width_mm)
+    const height = posNum(o.height_mm)
+    const xToTrw = posNum(o.x_to_mm)
+    const offsetXTrw = posNum(o.offset_x_mm)
+    const offsetZ = posNum(o.offset_z_mm)
+    const yawDeg = num(o.yaw_deg)
+    let xTrw = xToTrw
+    if (xTrw != null && length != null) xTrw = xTrw - length / 2
+    if (xTrw != null && offsetXTrw != null) xTrw += offsetXTrw
+    else if (xTrw == null && offsetXTrw != null) xTrw = offsetXTrw
+    const x = xTrw == null ? null : xTrw - x0
+    const xTo = xToTrw == null ? null : xToTrw - x0
+    const xFrom = xTo != null && length != null ? xTo - length : null
+    return {
+      name,
+      kind: accKindFromCode(code),
+      isOutrigger: false,
+      x,
+      xFrom,
+      xTo,
+      y: offsetZ,
+      length,
+      width,
+      height,
+      massKg: null,
+      cog: { x, y: offsetZ, z: null },
+      outline: null,
+      reachLeft: null,
+      reachRight: null,
+      yawDeg,
+      offsetX: offsetXTrw == null ? null : offsetXTrw,
+      offsetY: offsetZ,
+    } satisfies ExtAccessory
+  })
 }
 
 function parsePoint(v: unknown, x0: number): ExtPoint | null {
@@ -400,22 +488,77 @@ export function nearestAngle(st: ExtStability | undefined, deg: number): ExtStab
   return st.angles.reduce((best, a) => (dist(a.angleDeg) < dist(best.angleDeg) ? a : best))
 }
 
+export function dedupeAccessories(list: ExtAccessory[]): ExtAccessory[] {
+  const seen = new Set<string>()
+  return list.filter((a) => {
+    const k = `${a.kind ?? ''}|${a.name}|${a.x ?? ''}|${a.xFrom ?? ''}|${a.xTo ?? ''}`
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
+
+/** Bodies to draw (deduplicated x-range + type). */
+export function extendedBodies(ext: TrwExtended): ExtBody[] {
+  if (ext.bodies?.length) return ext.bodies
+  return ext.body ? [ext.body] : []
+}
+
+function bodyKey(b: ExtBody) {
+  return `${b.type}|${b.typeRaw ?? ''}|${b.xFrom ?? ''}|${b.xTo ?? ''}|${b.length ?? ''}`
+}
+
+function mergeBodies(list: ExtBody[]): ExtBody[] {
+  const out: ExtBody[] = []
+  const seen = new Set<string>()
+  for (const b of list) {
+    const k = bodyKey(b)
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(b)
+  }
+  return out
+}
+
+const BODYDATA_KEYS = ['BODYDATA_A', 'BODYDATA_B', 'BODYDATA_B2', 'bodydata_a', 'bodydata_b', 'bodydata_b2'] as const
+
 /** Parses the extended blocks of a trw export. Returns undefined when none of them is present. */
 export function mapExtended(data: unknown, x0: number, warnings: string[] = []): TrwExtended | undefined {
   const t = obj(data)
   const ext: TrwExtended = {}
   const unknown: string[] = []
   const crane: ExtAccessory[] = []
+  const bodyList: ExtBody[] = []
   try {
-    const body = parseBody(t.body, x0, warnings, unknown)
-    if (body) ext.body = body
+    if (Array.isArray(t.bodies)) {
+      for (const item of t.bodies) {
+        const b = parseConfigBody(item, x0, warnings, unknown)
+        if (b) bodyList.push(b)
+      }
+    } else {
+      const body = parseBody(t.body, x0, warnings, unknown)
+      if (body) bodyList.push(body)
+      for (const k of BODYDATA_KEYS) {
+        if (t[k] != null) {
+          const b = parseBody(t[k], x0, warnings, unknown)
+          if (b) bodyList.push(b)
+        }
+      }
+    }
+    const merged = mergeBodies(bodyList)
+    if (merged.length) {
+      ext.body = merged[0]
+      ext.bodies = merged
+    }
   } catch {
     warnings.push('Blok nástavby (body) nelze přečíst.')
   }
   try {
-    const acc = parseAccessories(t.accessories, x0, warnings, unknown, crane)
+    const accLegacy = parseAccessories(t.accessories, x0, warnings, unknown, crane) ?? []
+    const accSchema = parseAccAccessories(t.acc_accessories, x0, warnings)
+    const acc = dedupeAccessories([...accLegacy, ...accSchema])
     if (crane.length) ext.craneAccessories = crane
-    if (acc) ext.accessories = acc
+    if (acc.length) ext.accessories = acc
   } catch {
     warnings.push('Blok příslušenství nelze přečíst.')
   }
@@ -432,7 +575,7 @@ export function mapExtended(data: unknown, x0: number, warnings: string[] = []):
     warnings.push('Blok stability nelze přečíst.')
   }
   if (unknown.length) warnings.push(`trw uvádí, že .trw neobsahuje: ${[...new Set(unknown)].join(', ')} – použity výchozí hodnoty.`)
-  return ext.body || ext.accessories || ext.stability || ext.stabilityNote || ext.noCrane ? ext : undefined
+  return ext.body || ext.bodies || ext.accessories || ext.stability || ext.stabilityNote || ext.noCrane ? ext : undefined
 }
 
 const fmtK = (n: number) => n.toFixed(2).replace('.', ',')

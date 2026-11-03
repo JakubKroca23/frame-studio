@@ -7,6 +7,8 @@ import { trwAuthHeaders } from './trwToken'
  */
 import { PRESETS, cloneConfig } from '../presets'
 import { mapExtended, type TrwExtended } from './trwExtended'
+import { applyChassisMeasured, parseChassisMeasured, posNum } from './chassisMeasured'
+import { craneHasOriginalModel } from './CraneModel'
 import type { ChassisConfig, ChassisPreset, Make } from '../presets/types'
 
 export const TRW_SCHEMA = 'trw/config@1'
@@ -50,8 +52,12 @@ export interface TrwExport {
     rear_overhang_mm?: Num
     frame_length_mm?: Num
     frame_height_mm?: Num
-    frame_width_mm?: Num
-    gvw_kg?: Num
+  frame_width_mm?: Num
+  gvw_kg?: Num
+  cab_length_mm?: Num
+  cab_width_mm?: Num
+  cab_height_mm?: Num
+  cab_back_from_axle_mm?: Num
     rail_profile?: TrwProfile | null
     rail_steel?: TrwSteel | null
     raw?: Record<string, unknown> | null
@@ -79,6 +85,10 @@ export interface TrwExport {
   body?: { x_from_mm?: Num; x_to_mm?: Num; height_mm?: Num } | null
   /** User-entered payload items (cargo, hookloader, exhaust, bumper…). Field names parsed tolerantly. */
   payloads?: TrwPayload[] | null
+  /** Measured chassis values from TrailerWIN (trw PR #27). */
+  chassis_measured?: import('./chassisMeasured').ChassisMeasured | null
+  bodies?: unknown[] | null
+  acc_accessories?: unknown[] | null
   /** Raw TrailerWIN data block – ignored by the importer. */
   config?: { trailerwin?: unknown } & Record<string, unknown>
 }
@@ -217,13 +227,18 @@ export function mapTrwExport(data: unknown): TrwImport {
   const baseFront = base.config.axles.filter((a) => a.steered && a.position < 2600).length || 1
   const baseRear = base.config.axles.slice(baseFront)
   const raw = ch.raw ?? {}
+  const chassisMeasured = parseChassisMeasured((t as unknown as Record<string, unknown>).chassis_measured)
   const tyreFront = typeof raw.TYRE === 'string' ? raw.TYRE : null
   const tyreRear = typeof raw.TYR2 === 'string' ? raw.TYR2 : tyreFront
+  let trackFromTrw = false
+  let tyreMeasured = false
+  const trackArr = Array.isArray(chassisMeasured?.track_mm) ? chassisMeasured!.track_mm!.map((x) => posNum(x)) : null
+  const tyreArr = Array.isArray(chassisMeasured?.tyres) ? chassisMeasured!.tyres : null
   cfg.axles = xs.map((x, i) => {
     const front = i < nFront
     const src = front ? base.config.axles[Math.min(i, baseFront - 1)] : baseRear[Math.min(i - nFront, baseRear.length - 1)] ?? base.config.axles[base.config.axles.length - 1]
     const ta = t.axles?.find((a) => Math.abs(a.x_mm - x) < 1) ?? t.axles?.[i]
-    const axle = { ...src, position: Math.round(x - x0), steered: front ? true : src.steered }
+    const axle = { ...src, position: x - x0, steered: front ? true : src.steered }
     measured.add(`axles.${i}.position`)
     if (front) measured.add(`axles.${i}.steered`)
     if (ok(ta?.permitted_kg) && ta.permitted_kg > 0) {
@@ -232,18 +247,47 @@ export function mapTrwExport(data: unknown): TrwImport {
     }
     if (ok(ta?.track_mm)) {
       axle.track = ta.track_mm
+      trackFromTrw = true
+      measured.add(`axles.${i}.track`)
+    } else if (trackArr?.[i] != null) {
+      axle.track = trackArr[i]!
+      trackFromTrw = true
       measured.add(`axles.${i}.track`)
     }
-    const tyre = front ? tyreFront : tyreRear
-    if (tyre) axle.tyre = tyre // TrailerWIN TYRE/TYR2 – přiřazení k nápravám neověřeno → zůstává odhad
+    const tyre = tyreArr?.[i] && typeof tyreArr[i] === 'string' ? tyreArr[i]!.trim() : front ? tyreFront : tyreRear
+    if (tyre) {
+      axle.tyre = tyre
+      measured.add(`axles.${i}.tyre`)
+      if (tyreArr?.[i]) tyreMeasured = true
+    } else if (ok(ta?.tyre_diameter_mm)) measured.add(`axles.${i}.tyre`)
     return axle
   })
-  if (tyreFront) warnings.push('Pneumatiky převzaty z TrailerWIN TYRE/TYR2 (přiřazení k nápravám neověřeno); průměr kola z rozměru pneu.')
-  else warnings.push('Rozměr pneu v exportu chybí – použit z předlohy.')
-  warnings.push('Rozchod kol (track_mm) trw neexportuje – použit z předlohy.')
+  const cm = applyChassisMeasured(chassisMeasured, cfg, measured)
+  trackFromTrw = trackFromTrw || cm.trackFromTrw
+  tyreMeasured = tyreMeasured || cm.tyreFromTrw
+  if (tyreFront && !tyreMeasured) warnings.push('Pneumatiky převzaty z TrailerWIN TYRE/TYR2 (přiřazení k nápravám neověřeno); průměr kola z rozměru pneu.')
+  else if (!cfg.axles.every((_, i) => measured.has(`axles.${i}.tyre`))) warnings.push('Rozměr pneu v exportu chybí – použit z předlohy.')
+  if (!trackFromTrw) warnings.push('Rozchod kol (track_mm) trw neexportuje – použit z předlohy.')
+
+  if (ok(ch.cab_length_mm) && !measured.has('cab.length')) {
+    cfg.cab.length = ch.cab_length_mm
+    measured.add('cab.length')
+  }
+  if (ok(ch.cab_width_mm) && !measured.has('cab.width')) {
+    cfg.cab.width = ch.cab_width_mm
+    measured.add('cab.width')
+  }
+  if (ok(ch.cab_height_mm) && !measured.has('cab.height')) {
+    cfg.cab.height = ch.cab_height_mm
+    measured.add('cab.height')
+  }
+  if (ok(ch.cab_back_from_axle_mm) && !measured.has('cab.backFromAxle')) {
+    cfg.cab.backFromAxle = ch.cab_back_from_axle_mm
+    measured.add('cab.backFromAxle')
+  }
 
   const last = xs[xs.length - 1]
-  if (ok(ch.front_overhang_mm)) {
+  if (ok(ch.front_overhang_mm) && !measured.has('frontOverhang')) {
     cfg.frontOverhang = ch.front_overhang_mm
     measured.add('frontOverhang')
     if (Math.abs(ch.front_overhang_mm - x0) > 1) warnings.push(`FOH (${ch.front_overhang_mm} mm) ≠ poloha 1. nápravy (${x0} mm) – počátek x v trw je nejistý.`)
@@ -265,7 +309,7 @@ export function mapTrwExport(data: unknown): TrwImport {
   cfg.frame.frontEnd = Math.min(cfg.frame.frontEnd, cfg.frontOverhang)
   warnings.push('Začátek rámu před 1. nápravou není v datech trw (x=0 je čelo vozidla) – odhad z předlohy.')
 
-  if (ok(ch.frame_height_mm)) {
+  if (ok(ch.frame_height_mm) && !measured.has('frame.topHeight')) {
     cfg.frame.topHeight = ch.frame_height_mm
     measured.add('frame.topHeight')
     warnings.push('Výška rámu HFRA bez uvedení stavu zatížení.')
@@ -308,6 +352,9 @@ export function mapTrwExport(data: unknown): TrwImport {
   const c = t.crane
   if (c) {
     if (ok(c.x_mm)) markers.crane = { x: c.x_mm - x0, name: c.name ?? 'jeřáb', massKg: ok(c.mass_kg) ? c.mass_kg : null, hookKg: ok(c.hook_kg) ? c.hook_kg : null, radiusM: ok(c.radius_m) ? c.radius_m : null, momentKNm: ok(c.Mk_kNm) ? c.Mk_kNm : null }
+    if (markers.crane && !craneHasOriginalModel(c.name)) {
+      warnings.push(`Jeřáb „${c.name ?? '?'}“ nemá originální 3D model – zobrazen parametrický obrys; ověřte rozměry.`)
+    }
     const hs = c.outrigger_half_span_mm
     const half = hs && ok(hs.left) && ok(hs.right) ? { left: hs.left, right: hs.right } : null
     const spread = ok(c.outrigger_spread_mm) ? c.outrigger_spread_mm : half ? half.left + half.right : 0

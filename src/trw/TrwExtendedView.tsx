@@ -1,24 +1,34 @@
 import { Html, Line } from '@react-three/drei'
-import type { ReactNode } from 'react'
-import { bodyHookliftPlacement, hookliftPlacement, isHookliftAccessory, pickHooklift } from './hooklift'
+import { useMemo } from 'react'
+import { bodyHookliftPlacement, hookliftPlacement, isHookliftAccessory } from './hooklift'
 import { HookliftModel } from './HookliftModel'
 import { AuxOutriggerModel, pickAuxStab } from './AuxOutriggerModel'
 import { StabilitySectors } from './StabilitySectors'
 import { LeaderLabel } from '../view/LeaderLabel'
 import { useSceneFilters } from '../view/sceneFilters'
-import { BODY_TYPE_LABEL, nearestAngle, type ExtAccessory, type ExtBody, type ExtStability, type TrwExtended } from './trwExtended'
+import { bodyLabel, boundsOf, parametricBodyBoxes } from './bodyGeometry'
+import { dedupeAccessories, extendedBodies, nearestAngle, type ExtAccessory, type ExtBody, type ExtStability, type TrwExtended } from './trwExtended'
 
 const EMPTY_STABILITY: ExtStability = { angles: [], pass: null, verified: false, minFactor: null, requiredN: null } as ExtStability
 
 /** 3D view of the extended trw blocks (X rearward from axle 1, Y up, Z lateral = trw y). */
 export function TrwExtendedView({ hideBody, ext, frameTop, slewDeg, frameRear, craneX, sectorRadius = 8000, showSectors = true, liveDoc }: { hideBody?: boolean; liveDoc?: { document?: unknown; document_id?: number | string } | null; ext: TrwExtended; frameTop: number; slewDeg: number; frameRear?: number; craneX?: number | null; sectorRadius?: number; showSectors?: boolean }) {
   const rear = frameRear ?? Math.max(ext.body?.xTo ?? 0, 8000)
-  const hl = pickHooklift(ext)
+  const bodies = extendedBodies(ext)
+  const accessories = dedupeAccessories(ext.accessories ?? [])
   const showStab = useSceneFilters((s) => s.stability)
   return (
     <group name="trw-extended">
-      {ext.body && !hideBody && !(ext.body.type === 'hooklift' && hl !== 'body') ? <Body body={ext.body} frameTop={frameTop} frameRear={rear} /> : null}
-      {(ext.accessories ?? []).map((a, i) => (a.isOutrigger ? <ExtraOutrigger key={i} a={a} frameTop={frameTop} /> : isHookliftAccessory(a) ? (hl === i ? <HookliftAccessory key={i} a={a} frameTop={frameTop} frameRear={rear} /> : null) : <Accessory key={i} a={a} frameTop={frameTop} />))}
+      {!hideBody ? bodies.map((b, i) => <Body key={`body-${i}-${b.typeRaw ?? b.type}`} body={b} frameTop={frameTop} frameRear={rear} />) : null}
+      {accessories.map((a, i) =>
+        a.isOutrigger ? (
+          <ExtraOutrigger key={`${a.name}-${i}`} a={a} frameTop={frameTop} />
+        ) : isHookliftAccessory(a) ? (
+          <HookliftAccessory key={`${a.name}-${i}`} a={a} frameTop={frameTop} frameRear={rear} />
+        ) : (
+          <Accessory key={`${a.name}-${i}`} a={a} frameTop={frameTop} />
+        ),
+      )}
       {showStab && (ext.stability || (liveDoc && craneX != null)) ? (craneX != null && (ext.stability?.angles.length || liveDoc) ? <StabilitySectors st={ext.stability ?? EMPTY_STABILITY} craneX={craneX} radius={sectorRadius} showSectors={showSectors} slewDeg={slewDeg} liveDoc={liveDoc} />   : <Stability st={ext.stability!} slewDeg={slewDeg} frameTop={frameTop} />) : null}
     </group>
   )
@@ -36,11 +46,55 @@ function Box({ pos, size, color, opacity = 0.55 }: { pos: [number, number, numbe
 function HookliftAccessory({ a, frameTop, frameRear }: { a: ExtAccessory; frameTop: number; frameRear: number }) {
   const { xRear, params, spec, exact, mesh } = hookliftPlacement(a, frameRear)
   const xFront = xRear - params.lengthMm
-  const fallback = <Body body={{ type: 'hooklift', typeRaw: a.name, xFrom: xFront, xTo: xRear, length: params.lengthMm, width: null, height: null, sideHeight: null, massKg: null, cog: { x: null, y: null, z: null } }} frameTop={frameTop} frameRear={frameRear} simple />
+  const fallback = <ParametricBody body={{ type: 'hooklift', typeRaw: a.name, xFrom: xFront, xTo: xRear, length: params.lengthMm, width: null, height: null, sideHeight: null, massKg: null, cog: { x: null, y: null, z: null } }} frameTop={frameTop} simple />
   return (
     <group name={`trw-accessory-${a.name}`}>
       <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} spec={spec} fallback={fallback} />
       <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${a.name}${spec && !a.name.includes(spec.name) ? ` (${spec.name})` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''} · ${a.massKg != null ? `${Math.round(a.massKg)} kg` : spec ? `${spec.massKg} kg (katalog)` : '? kg'}`} bg="rgba(110,50,140,0.9)" />
+    </group>
+  )
+}
+
+function ParametricBody({ body, frameTop, simple }: { body: ExtBody; frameTop: number; simple?: boolean }) {
+  const W = body.width ?? 2500
+  const H = body.height ?? 1000
+  const boxes = useMemo(
+    () =>
+      body.xFrom != null && body.xTo != null && body.xTo > body.xFrom
+        ? parametricBodyBoxes({
+            type: body.type,
+            xFrom: body.xFrom,
+            xTo: body.xTo,
+            width: W,
+            height: H,
+            sideHeight: body.sideHeight,
+            frameTop,
+          })
+        : [],
+    [body.type, body.xFrom, body.xTo, W, H, body.sideHeight, frameTop],
+  )
+  if (body.xFrom == null || body.xTo == null || body.xTo <= body.xFrom) return null
+  const cx = (body.xFrom + body.xTo) / 2
+  const y0 = frameTop + 120
+  const c = body.type === 'tipper' ? '#b07a2a' : '#7a8a99'
+  const top =
+    body.type === 'flatbed'
+      ? y0 + 80 + (body.sideHeight ?? 400)
+      : body.type === 'tipper'
+        ? y0 + 60 + H
+        : y0 + Math.max(H, body.type === 'hooklift' ? 1600 : 0)
+  return (
+    <group name="trw-body">
+      {boxes.map((b, i) => (
+        <Box key={i} pos={b.pos} size={b.size} color={c} opacity={body.type === 'other' ? 0.35 : 0.7} />
+      ))}
+      {body.cog.x != null ? (
+        <mesh position={[body.cog.x, body.cog.z ?? y0 + H / 2, body.cog.y ?? 0]}>
+          <sphereGeometry args={[80, 16, 12]} />
+          <meshStandardMaterial color="#222" />
+        </mesh>
+      ) : null}
+      {simple ? null : <LeaderLabel position={[cx, top, 0]} text={`${bodyLabel(body.type, body.typeRaw)}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />}
     </group>
   )
 }
@@ -50,66 +104,28 @@ function Body({ body, frameTop, frameRear, simple }: { body: ExtBody; frameTop: 
     const { xRear, params, spec, exact, mesh } = bodyHookliftPlacement(body, frameRear)
     const xFront = xRear - params.lengthMm
     return (
-      <group name="trw-body">
-        <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} spec={spec} fallback={<Body body={{ ...body, xFrom: xFront, xTo: xRear }} frameTop={frameTop} frameRear={frameRear} simple />} />
-        <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${BODY_TYPE_LABEL.hooklift}${spec ? ` ${spec.name}` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
+      <group name="trw-body-hooklift">
+        <HookliftModel xRear={xRear} frameTop={frameTop} params={params} mesh={mesh} spec={spec} fallback={<ParametricBody body={{ ...body, xFrom: xFront, xTo: xRear }} frameTop={frameTop} simple />} />
+        <LeaderLabel position={[(xFront + xRear) / 2, frameTop + 250, 0]} text={`${bodyLabel(body.type, body.typeRaw)}${spec ? ` ${spec.name}` : ''}${spec && !exact ? ' – automaticky vybráno, trw udává jen řadu' : ''}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : spec ? ` · ${spec.massKg} kg (katalog)` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />
       </group>
     )
   }
-  if (body.xFrom == null || body.xTo == null || body.xTo <= body.xFrom) return null
-  const L = body.xTo - body.xFrom
-  const cx = (body.xFrom + body.xTo) / 2
-  const W = body.width ?? 2500
-  const H = body.height ?? 1000
-  const y0 = frameTop + 120 // longitudinals / floor beams
-  const parts: ReactNode[] = []
-  const c = '#7a8a99'
-  if (body.type === 'flatbed') {
-    const sh = body.sideHeight ?? 400
-    parts.push(<Box key="floor" pos={[cx, y0 + 40, 0]} size={[L, 80, W]} color={c} opacity={0.7} />)
-    for (const s of [-1, 1]) parts.push(<Box key={`s${s}`} pos={[cx, y0 + 80 + sh / 2, (s * (W - 40)) / 2]} size={[L, sh, 40]} color={c} />)
-    parts.push(<Box key="front" pos={[body.xFrom + 20, y0 + 80 + sh / 2, 0]} size={[40, sh, W]} color={c} />)
-    parts.push(<Box key="rear" pos={[body.xTo - 20, y0 + 80 + sh / 2, 0]} size={[40, sh, W]} color={c} />)
-  } else if (body.type === 'tipper') {
-    const t = 60
-    parts.push(<Box key="floor" pos={[cx, y0 + t / 2, 0]} size={[L, t, W]} color="#b07a2a" opacity={0.7} />)
-    for (const s of [-1, 1]) parts.push(<Box key={`s${s}`} pos={[cx, y0 + H / 2, (s * (W - t)) / 2]} size={[L, H, t]} color="#b07a2a" />)
-    parts.push(<Box key="front" pos={[body.xFrom + t / 2, y0 + H / 2, 0]} size={[t, H * 1.15, W]} color="#b07a2a" />)
-    parts.push(<Box key="rear" pos={[body.xTo - t / 2, y0 + H / 2, 0]} size={[t, H, W]} color="#b07a2a" />)
-  } else if (body.type === 'hooklift') {
-    const fw = Math.min(W, 1100)
-    for (const s of [-1, 1]) parts.push(<Box key={`r${s}`} pos={[cx, y0 + 100, (s * fw) / 2]} size={[L, 200, 120]} color="#4f6d3a" opacity={0.8} />)
-    const armH = Math.max(H, 1400)
-    parts.push(<Box key="arm-v" pos={[body.xFrom + 250, y0 + 200 + armH / 2, 0]} size={[250, armH, 300]} color="#4f6d3a" opacity={0.85} />)
-    parts.push(<Box key="arm-h" pos={[body.xFrom + 250 - 250, y0 + 200 + armH, 0]} size={[600, 200, 250]} color="#4f6d3a" opacity={0.85} />)
-    parts.push(<Box key="hook" pos={[body.xFrom - 50, y0 + 200 + armH - 200, 0]} size={[80, 300, 80]} color="#2d3f20" opacity={0.9} />)
-  } else parts.push(<Box key="box" pos={[cx, y0 + H / 2, 0]} size={[L, H, W]} color={c} opacity={0.35} />)
-  const top = body.type === 'flatbed' ? y0 + 80 + (body.sideHeight ?? 400) : y0 + Math.max(H, body.type === 'hooklift' ? 1600 : 0)
-  return (
-    <group name="trw-body">
-      {parts}
-      {body.cog.x != null ? (
-        <mesh position={[body.cog.x, body.cog.z ?? y0 + H / 2, body.cog.y ?? 0]}>
-          <sphereGeometry args={[80, 16, 12]} />
-          <meshStandardMaterial color="#222" />
-        </mesh>
-      ) : null}
-      {simple ? null : <LeaderLabel position={[cx, top, 0]} text={`${BODY_TYPE_LABEL[body.type]}${body.massKg ? ` · ${Math.round(body.massKg)} kg` : ' · ? kg'}`} bg="rgba(70,85,100,0.9)" />}
-    </group>
-  )
+  return <ParametricBody body={body} frameTop={frameTop} simple={simple} />
 }
 
 function Accessory({ a, frameTop }: { a: ExtAccessory; frameTop: number }) {
   if (a.x == null) return null
   const L = a.length ?? 400
-  const cx = a.xFrom != null && a.xTo != null ? (a.xFrom + a.xTo) / 2 : a.x
+  const cx = a.xFrom != null && a.xTo != null ? (a.xFrom + a.xTo) / 2 : a.x + (a.offsetX ?? 0)
   const H = a.height ?? 300
   const W = a.width ?? 400
   const y = a.cog.z ?? frameTop - H / 2 - 50
+  const z = (a.y ?? a.cog.y ?? 0) + (a.offsetY ?? 0)
+  const yaw = ((a.yawDeg ?? 0) * Math.PI) / 180
   return (
-    <group name={`trw-accessory-${a.name}`}>
-      <Box pos={[cx, y, a.y ?? a.cog.y ?? 0]} size={[L, H, W]} color="#8e44ad" />
-      <LeaderLabel position={[cx, Math.max(y, frameTop) + H / 2, a.y ?? 0]} text={`${a.name} · ${a.massKg != null ? Math.round(a.massKg) : '?'} kg`} bg="rgba(110,50,140,0.9)" />
+    <group name={`trw-accessory-${a.name}`} rotation={[0, yaw, 0]}>
+      <Box pos={[cx, y, z]} size={[L, H, W]} color="#8e44ad" />
+      <LeaderLabel position={[cx, Math.max(y, frameTop) + H / 2, z]} text={`${a.name} · ${a.massKg != null ? Math.round(a.massKg) : '?'} kg`} bg="rgba(110,50,140,0.9)" />
     </group>
   )
 }
@@ -187,3 +203,5 @@ function Stability({ st, slewDeg, frameTop }: { st: ExtStability; slewDeg: numbe
     </group>
   )
 }
+
+export { boundsOf as bodySceneBounds }

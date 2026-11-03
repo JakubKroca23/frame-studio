@@ -95,7 +95,11 @@ export function capacityFromName(name: string): number | null {
  * Hooklift parameters + placement from a trw accessory or body. The model name is looked up in the
  * datasheet catalog (fuzzy); without a match x_from/x_to length is used; remaining values fall back to ULT18Z59.
  */
-export function hookliftPlacement(src: { xFrom: number | null; xTo: number | null; x?: number | null; length: number | null; height: number | null; name?: string; typeRaw?: string | null }, frameRear: number) {
+export function hookliftPlacement(
+  src: { xFrom: number | null; xTo: number | null; x?: number | null; length: number | null; height: number | null; name?: string; typeRaw?: string | null },
+  frameRear: number,
+  warnings?: string[],
+) {
   const name = src.name ?? src.typeRaw ?? ''
   let xRear = src.xTo ?? null
   let length = src.length ?? (src.xFrom != null && src.xTo != null ? src.xTo - src.xFrom : null)
@@ -105,7 +109,15 @@ export function hookliftPlacement(src: { xFrom: number | null; xTo: number | nul
   const exact = !!match?.exact
   if (xRear == null && src.xFrom != null && length != null) xRear = src.xFrom + length
   if (xRear == null) xRear = frameRear
-  if (spec) length = spec.subframeLengthMm
+  const trwLength = length != null && length >= 2500 && length <= 9000 ? length : null
+  if (trwLength != null) {
+    length = trwLength
+    if (spec && Math.abs(trwLength - spec.subframeLengthMm) > 50) {
+      warnings?.push(`Délka hákového nosiče v trw (${trwLength} mm) odchyluje od katalogu ${spec.name} (${spec.subframeLengthMm} mm) – model podle trw.`)
+    }
+  } else if (spec) {
+    length = spec.subframeLengthMm
+  }
   if (length == null || length < 2500 || length > 9000) length = ULT18Z59.lengthMm
   const params: HookliftParams = {
     lengthMm: length,
@@ -116,8 +128,8 @@ export function hookliftPlacement(src: { xFrom: number | null; xTo: number | nul
   return { xRear, params, spec, exact, mesh: meshForSeries(spec?.series) }
 }
 
-export function bodyHookliftPlacement(b: ExtBody, frameRear: number) {
-  return hookliftPlacement({ ...b, name: b.typeRaw ?? '' }, frameRear)
+export function bodyHookliftPlacement(b: ExtBody, frameRear: number, warnings?: string[]) {
+  return hookliftPlacement({ ...b, name: b.typeRaw ?? '' }, frameRear, warnings)
 }
 
 /** Length/height cut planes [m, model space] chosen in constant-cross-section rail zones (few vertices, no rigid parts). */

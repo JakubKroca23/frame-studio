@@ -30,10 +30,11 @@ describe('trw/config@1 mapper', () => {
   })
 
   it('marks null fields as estimated and measured ones not', () => {
-    for (const p of ['frame.widthRear', 'frame.widthFront', 'axles.0.track', 'axles.1.tyre', 'frame.frontEnd', 'cab.length']) expect(r.preset.approx).toContain(p)
-    for (const p of ['frame.topHeight', 'frame.sectionHeight', 'axles.1.position', 'axles.1.maxLoad', 'rearOverhang', 'gvw']) expect(r.preset.approx).not.toContain(p)
+    for (const p of ['frame.widthRear', 'frame.widthFront', 'axles.0.track', 'frame.frontEnd', 'cab.length']) expect(r.preset.approx).toContain(p)
+    for (const p of ['frame.topHeight', 'frame.sectionHeight', 'axles.1.position', 'axles.1.maxLoad', 'rearOverhang', 'gvw', 'axles.0.tyre']) expect(r.preset.approx).not.toContain(p)
     expect(r.basePresetId.startsWith('man-')).toBe(true)
     expect(r.warnings.some((w) => w.includes('Šířka rámu'))).toBe(true)
+    expect(r.warnings.some((w) => w.includes('originální 3D model'))).toBe(true)
   })
 
   it('converts crane and outrigger positions', () => {
